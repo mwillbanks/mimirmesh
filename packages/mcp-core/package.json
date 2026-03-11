@@ -1,0 +1,14 @@
+{
+	"name": "@mimirmesh/mcp-core",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"main": "src/index.ts",
+	"dependencies": {
+		"@mimirmesh/config": "workspace:*",
+		"@mimirmesh/logging": "workspace:*",
+		"@mimirmesh/runtime": "workspace:*",
+		"@mimirmesh/workspace": "workspace:*",
+		"zod": "^3.25.76"
+	}
+}

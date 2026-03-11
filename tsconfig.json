@@ -1,0 +1,32 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "Preserve",
+		"moduleResolution": "bundler",
+		"lib": ["ESNext"],
+		"types": ["bun", "node"],
+		"strict": true,
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true,
+		"noUncheckedIndexedAccess": true,
+		"noFallthroughCasesInSwitch": true,
+		"baseUrl": ".",
+		"paths": {
+			"@mimirmesh/config": ["packages/config/src/index.ts"],
+			"@mimirmesh/logging": ["packages/logging/src/index.ts"],
+			"@mimirmesh/runtime": ["packages/runtime/src/index.ts"],
+			"@mimirmesh/workspace": ["packages/workspace/src/index.ts"],
+			"@mimirmesh/templates": ["packages/templates/src/index.ts"],
+			"@mimirmesh/reports": ["packages/reports/src/index.ts"],
+			"@mimirmesh/mcp-core": ["packages/mcp-core/src/index.ts"],
+			"@mimirmesh/mcp-adapters": ["packages/mcp-adapters/src/index.ts"],
+			"@mimirmesh/ui": ["packages/ui/src/index.ts"],
+			"@mimirmesh/installer": ["packages/installer/src/index.ts"],
+			"@mimirmesh/testing": ["packages/testing/src/index.ts"]
+		}
+	},
+	"include": ["apps", "packages", "tests", "scripts"]
+}

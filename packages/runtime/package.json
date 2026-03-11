@@ -1,0 +1,15 @@
+{
+	"name": "@mimirmesh/runtime",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"main": "src/index.ts",
+	"dependencies": {
+		"@mimirmesh/config": "workspace:*",
+		"@mimirmesh/logging": "workspace:*",
+		"@mimirmesh/mcp-adapters": "workspace:*",
+		"@mimirmesh/workspace": "workspace:*",
+		"yaml": "^2.8.1",
+		"zod": "^3.25.76"
+	}
+}

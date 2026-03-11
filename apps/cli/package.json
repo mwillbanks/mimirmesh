@@ -1,0 +1,31 @@
+{
+	"name": "@mimirmesh/cli",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"bin": {
+		"mimirmesh": "dist/mimirmesh",
+		"mm": "dist/mm"
+	},
+	"scripts": {
+		"build": "bun build src/cli.ts --compile --target bun --outfile dist/mimirmesh && cp dist/mimirmesh dist/mm",
+		"dev": "bun run src/cli.ts"
+	},
+	"dependencies": {
+		"@mimirmesh/config": "workspace:*",
+		"@mimirmesh/installer": "workspace:*",
+		"@mimirmesh/logging": "workspace:*",
+		"@mimirmesh/mcp-core": "workspace:*",
+		"@mimirmesh/reports": "workspace:*",
+		"@mimirmesh/runtime": "workspace:*",
+		"@mimirmesh/templates": "workspace:*",
+		"@mimirmesh/ui": "workspace:*",
+		"@mimirmesh/workspace": "workspace:*",
+		"@inkjs/ui": "^2.0.0",
+		"ink": "^6.3.1",
+		"pastel": "^4.0.0",
+		"react": "^19.2.0",
+		"yaml": "^2.8.1",
+		"zod": "^3.25.76"
+	}
+}

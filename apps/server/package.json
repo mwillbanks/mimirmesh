@@ -1,0 +1,22 @@
+{
+	"name": "@mimirmesh/server",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"bin": {
+		"mimirmesh-server": "dist/mimirmesh-server"
+	},
+	"scripts": {
+		"build": "bun build src/index.ts --compile --target bun --outfile dist/mimirmesh-server",
+		"dev": "bun run src/index.ts"
+	},
+	"dependencies": {
+		"@mimirmesh/mcp-adapters": "workspace:*",
+		"@mimirmesh/mcp-core": "workspace:*",
+		"@mimirmesh/config": "workspace:*",
+		"@mimirmesh/runtime": "workspace:*",
+		"@mimirmesh/logging": "workspace:*",
+		"@modelcontextprotocol/sdk": "^1.27.1",
+		"zod": "^3.25.76"
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"name": "@mimirmesh/reports",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"main": "src/index.ts",
+	"dependencies": {
+		"@mimirmesh/runtime": "workspace:*",
+		"@mimirmesh/workspace": "workspace:*"
+	}
+}

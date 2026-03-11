@@ -1,0 +1,8 @@
+{
+	"name": "fixture-bun-monorepo",
+	"private": true,
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	]
+}

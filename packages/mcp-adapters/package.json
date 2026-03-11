@@ -1,0 +1,15 @@
+{
+	"name": "@mimirmesh/mcp-adapters",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"main": "src/index.ts",
+	"dependencies": {
+		"@mimirmesh/config": "workspace:*",
+		"@mimirmesh/mcp-core": "workspace:*",
+		"@mimirmesh/runtime": "workspace:*",
+		"@mimirmesh/templates": "workspace:*",
+		"@mimirmesh/workspace": "workspace:*",
+		"zod": "^3.25.76"
+	}
+}

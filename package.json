@@ -1,0 +1,41 @@
+{
+	"name": "mimirmesh",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"format": "bunx @biomejs/biome format --write .",
+		"lint": "bunx @biomejs/biome lint .",
+		"check": "bunx @biomejs/biome check .",
+		"typecheck": "bunx tsc --noEmit",
+		"build": "bun run scripts/build.ts",
+		"test": "bun run test:packages && bun run test:apps && bun run test:workflow",
+		"test:packages": "bun test packages",
+		"test:apps": "bun test apps",
+		"test:unit": "bun test packages apps",
+		"test:integration": "bun test packages/testing/src/integration",
+		"test:workflow": "bun test tests/workflow",
+		"validate": "bun run check && bun run test && bun run build"
+	},
+	"dependencies": {
+		"@inkjs/ui": "^2.0.0",
+		"@modelcontextprotocol/sdk": "^1.27.1",
+		"ink": "^6.3.1",
+		"pastel": "^4.0.0",
+		"react": "^19.2.0",
+		"react-devtools-core": "^6.1.5",
+		"yaml": "^2.8.1",
+		"zod": "^3.25.76"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.6",
+		"@types/bun": "latest",
+		"@types/node": "^22.18.0",
+		"@types/react": "^19.2.4",
+		"typescript": "^5.9.2"
+	}
+}

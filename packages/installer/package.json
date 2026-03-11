@@ -1,0 +1,10 @@
+{
+	"name": "@mimirmesh/installer",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"main": "src/index.ts",
+	"dependencies": {
+		"@mimirmesh/config": "workspace:*"
+	}
+}

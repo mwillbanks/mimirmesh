@@ -1,0 +1,31 @@
+export type {
+	BackupArtifact,
+	BackupManifest,
+	EngineUpgradeDecision,
+	EngineUpgradeRuntimeAction,
+	PreservedAssetCompatibility,
+	PreservedAssetRecord,
+	PreservedAssetType,
+	PreservedAssetValidationMode,
+	PreservedAssetValidationResult,
+	ProjectRuntimeVersionRecord,
+	RuntimeMigrationKind,
+	RuntimeMigrationRollbackStrategy,
+	RuntimeUpgradeDriftCategory,
+	RuntimeUpgradeMetadata,
+	RuntimeUpgradeRequiredAction,
+	RuntimeUpgradeResult,
+	RuntimeUpgradeState,
+	UpgradeCheckpoint,
+	UpgradeOutcome,
+	UpgradeStatusReport,
+} from "@mimirmesh/config";
+
+export type {
+	MigrationContext,
+	RuntimeMigration,
+	RuntimeMigrationPlan,
+	RuntimeMigrationPlanStep,
+	RuntimeUpgradeActionResult,
+	RuntimeUpgradeExecution,
+} from "./contracts";
