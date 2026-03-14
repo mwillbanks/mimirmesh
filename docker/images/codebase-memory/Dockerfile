@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim
+FROM oven/bun:slim
 
 ARG CODEBASE_MEMORY_VERSION=v0.3.1
 ARG TARGETARCH
@@ -19,7 +19,7 @@ RUN case "$TARGETARCH" in \
   && rm -f /tmp/codebase-memory.tgz
 
 WORKDIR /opt/mimirmesh
-RUN npm init -y && npm install --omit=dev @modelcontextprotocol/sdk@1.27.1
+RUN bun init -y && bun add @modelcontextprotocol/sdk@latest
 COPY common/engine-bridge.mjs /opt/mimirmesh/engine-bridge.mjs
 
 ENV MIMIRMESH_ENGINE_ID=codebase-memory-mcp
@@ -31,4 +31,4 @@ EXPOSE 4701
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=10 CMD curl -fsS http://127.0.0.1:4701/health || exit 1
 
-CMD ["node", "/opt/mimirmesh/engine-bridge.mjs"]
+CMD ["bun", "/opt/mimirmesh/engine-bridge.mjs"]

@@ -1,13 +1,13 @@
-FROM node:22-bookworm-slim
+FROM oven/bun:slim
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates python3 make g++ \
+  && apt-get install -y --no-install-recommends curl ca-certificates python3 python3-setuptools make g++ nodejs npm \
   && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g --omit=dev mcp-adr-analysis-server@2.2.1 openai@4.104.0
+RUN bun install --global mcp-adr-analysis-server@latest openai@latest
 
 WORKDIR /opt/mimirmesh
-RUN npm init -y && npm install --omit=dev @modelcontextprotocol/sdk@1.27.1
+RUN bun init -y && bun add @modelcontextprotocol/sdk@latest
 COPY common/engine-bridge.mjs /opt/mimirmesh/engine-bridge.mjs
 
 ENV MIMIRMESH_ENGINE_ID=mcp-adr-analysis-server
@@ -19,4 +19,4 @@ EXPOSE 4701
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=10 CMD curl -fsS http://127.0.0.1:4701/health || exit 1
 
-CMD ["node", "/opt/mimirmesh/engine-bridge.mjs"]
+CMD ["bun", "/opt/mimirmesh/engine-bridge.mjs"]

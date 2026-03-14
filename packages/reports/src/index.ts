@@ -11,23 +11,23 @@ import type { GeneratedReport } from "./generators/types";
 export type { GeneratedReport };
 
 export {
-  generateArchitectureReport,
-  generateDeploymentReport,
-  generateProjectSummaryReport,
-  generateRuntimeHealthReport,
-  generateSpecKitReport,
-  readReportPath,
+	generateArchitectureReport,
+	generateDeploymentReport,
+	generateProjectSummaryReport,
+	generateRuntimeHealthReport,
+	generateSpecKitReport,
+	readReportPath,
 };
 
 export const generateAllReports = async (
-  projectRoot: string,
-  config: MimirmeshConfig,
+	projectRoot: string,
+	config: MimirmeshConfig,
 ): Promise<GeneratedReport[]> => {
-  return [
-    await generateProjectSummaryReport(projectRoot),
-    await generateArchitectureReport(projectRoot),
-    await generateDeploymentReport(projectRoot),
-    await generateRuntimeHealthReport(projectRoot, config),
-    await generateSpecKitReport(projectRoot),
-  ];
+	return [
+		await generateProjectSummaryReport(projectRoot),
+		await generateArchitectureReport(projectRoot),
+		await generateDeploymentReport(projectRoot),
+		await generateRuntimeHealthReport(projectRoot, config),
+		await generateSpecKitReport(projectRoot),
+	];
 };

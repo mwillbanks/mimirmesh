@@ -1,8 +1,8 @@
 export {
-  generateDocument,
-  listTemplateFamilies,
-  recommendedDocumentPath,
-  templatePreview,
-  type GenerateDocumentInput,
-  type TemplateFamily,
+	type GenerateDocumentInput,
+	generateDocument,
+	listTemplateFamilies,
+	recommendedDocumentPath,
+	type TemplateFamily,
+	templatePreview,
 } from "./generate";

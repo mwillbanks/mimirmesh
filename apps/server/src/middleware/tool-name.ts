@@ -1,2 +1,2 @@
 export const toTransportToolName = (toolName: string): string =>
-  toolName.replaceAll(".", "_").replaceAll("/", "_");
+	toolName.replaceAll(".", "_").replaceAll("/", "_");

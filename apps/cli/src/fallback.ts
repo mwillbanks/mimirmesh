@@ -1,290 +1,223 @@
-import {
-	addDocument,
-	addNote,
-	applyUpdate,
-	configDisableEngine,
-	configEnableEngine,
-	configGet,
-	configSet,
-	configValidate,
-	doctorProject,
-	generateReports,
-	initializeProject,
-	installIde,
-	listNotes,
-	loadCliContext,
-	mcpCallTool,
-	mcpListTools,
-	refreshProject,
-	runtimeAction,
-	runtimeDoctor,
-	runtimeUpgradeMigrate,
-	runtimeUpgradeRepair,
-	runtimeUpgradeStatus,
-	searchNotes,
-	setupProject,
-	showReport,
-	speckitDoctor,
-	speckitInit,
-	speckitStatus,
-	updateCheck,
-} from "./lib/context";
+import { render } from "ink";
+import React from "react";
+import type { ZodType } from "zod/v4";
 
-const print = (value: unknown): void => {
-	if (typeof value === "string") {
-		process.stdout.write(`${value}\n`);
-		return;
-	}
-	process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+type CommandModule = {
+	default: React.ComponentType<never>;
+	args?: ZodType<unknown>;
+	options?: ZodType<unknown>;
+};
+
+const asCommandModule = (loader: () => Promise<unknown>): (() => Promise<CommandModule>) =>
+	loader as () => Promise<CommandModule>;
+
+const commandModules: Record<string, () => Promise<CommandModule>> = {
+	"": asCommandModule(() => import("./commands/index")),
+	init: asCommandModule(() => import("./commands/init")),
+	setup: asCommandModule(() => import("./commands/setup")),
+	refresh: asCommandModule(() => import("./commands/refresh")),
+	doctor: asCommandModule(() => import("./commands/doctor")),
+	upgrade: asCommandModule(() => import("./commands/upgrade")),
+	update: asCommandModule(() => import("./commands/update")),
+	"config/get": asCommandModule(() => import("./commands/config/get")),
+	"config/set": asCommandModule(() => import("./commands/config/set")),
+	"config/enable": asCommandModule(() => import("./commands/config/enable")),
+	"config/disable": asCommandModule(() => import("./commands/config/disable")),
+	"config/validate": asCommandModule(() => import("./commands/config/validate")),
+	"runtime/start": asCommandModule(() => import("./commands/runtime/start")),
+	"runtime/stop": asCommandModule(() => import("./commands/runtime/stop")),
+	"runtime/restart": asCommandModule(() => import("./commands/runtime/restart")),
+	"runtime/status": asCommandModule(() => import("./commands/runtime/status")),
+	"runtime/refresh": asCommandModule(() => import("./commands/runtime/refresh")),
+	"runtime/doctor": asCommandModule(() => import("./commands/runtime/doctor")),
+	"runtime/upgrade": asCommandModule(() => import("./commands/runtime/upgrade/index")),
+	"runtime/upgrade/status": asCommandModule(() => import("./commands/runtime/upgrade/status")),
+	"runtime/upgrade/migrate": asCommandModule(() => import("./commands/runtime/upgrade/migrate")),
+	"runtime/upgrade/repair": asCommandModule(() => import("./commands/runtime/upgrade/repair")),
+	"mcp/list-tools": asCommandModule(() => import("./commands/mcp/list-tools")),
+	"mcp/tool": asCommandModule(() => import("./commands/mcp/tool")),
+	"note/add": asCommandModule(() => import("./commands/note/add")),
+	"note/list": asCommandModule(() => import("./commands/note/list")),
+	"note/search": asCommandModule(() => import("./commands/note/search")),
+	"document/add": asCommandModule(() => import("./commands/document/add")),
+	"report/generate": asCommandModule(() => import("./commands/report/generate")),
+	"report/show": asCommandModule(() => import("./commands/report/show")),
+	"install/ide": asCommandModule(() => import("./commands/install/ide")),
+	"speckit/init": asCommandModule(() => import("./commands/speckit/init")),
+	"speckit/status": asCommandModule(() => import("./commands/speckit/status")),
+	"speckit/doctor": asCommandModule(() => import("./commands/speckit/doctor")),
+};
+
+const commandKeys = Object.keys(commandModules).sort(
+	(left, right) => right.split("/").length - left.split("/").length,
+);
+
+const print = (value: string): void => {
+	process.stdout.write(`${value}\n`);
 };
 
 const printUsage = (): void => {
-	print([
-		"mimirmesh commands:",
-		"  init",
-		"  setup",
-		"  refresh",
-		"  doctor",
-		"  upgrade",
-		"  config get|set|enable|disable|validate",
-		"  runtime start|stop|restart|status|refresh|doctor|upgrade",
-		"  mcp list-tools|tool",
-		"  note add|list|search",
-		"  document add",
-		"  report generate|show",
-		"  install ide",
-		"  update [--check]",
-		"  speckit init|status|doctor",
-		"  server",
-	]);
+	print("mimirmesh");
+	print("  Launch the interactive shell.");
+	print("");
+	print("Core commands:");
+	print("  mimirmesh init [--ide <target>] [--non-interactive] [--json]");
+	print("  mimirmesh setup [--json]");
+	print("  mimirmesh refresh [--non-interactive] [--json]");
+	print("  mimirmesh doctor [--json]");
+	print(
+		"  mimirmesh runtime status|start|stop|restart|refresh|doctor [--non-interactive] [--json]",
+	);
+	print("  mimirmesh runtime upgrade [status|migrate|repair] [--non-interactive] [--json]");
+	print("  mimirmesh mcp list-tools [--json]");
+	print("  mimirmesh mcp tool <tool> [json] [--non-interactive] [--json]");
+	print("  mimirmesh install ide [--target <target>] [--non-interactive] [--json]");
+	print("");
+	print("Command-first workflows:");
+	print("  mimirmesh config get|set|enable|disable|validate");
+	print("  mimirmesh report generate|show");
+	print("  mimirmesh note add|list|search");
+	print("  mimirmesh document add");
+	print("  mimirmesh speckit init|status|doctor");
+	print("  mimirmesh update [--check]");
+	print("  mimirmesh server");
 };
 
-const parseUpdateCheck = (args: string[]): boolean => args.includes("--check");
+const kebabToCamel = (value: string): string =>
+	value.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 
-const parseJsonArg = (value: string | undefined): Record<string, unknown> => {
-	if (!value) {
-		return {};
+const booleanFlags = new Set(["json", "nonInteractive", "check"]);
+const optionAliases: Record<string, string> = {
+	j: "json",
+};
+
+const parseTokens = (
+	tokens: string[],
+): { options: Record<string, unknown>; positionals: string[] } => {
+	const options: Record<string, unknown> = {};
+	const positionals: string[] = [];
+
+	for (let index = 0; index < tokens.length; index += 1) {
+		const token = tokens[index];
+		if (!token) {
+			continue;
+		}
+
+		if (token.startsWith("--")) {
+			const body = token.slice(2);
+			const [rawKey = "", inlineValue] = body.split("=");
+			const key = kebabToCamel(rawKey);
+			if (booleanFlags.has(key)) {
+				options[key] = inlineValue ? inlineValue !== "false" : true;
+				continue;
+			}
+
+			if (inlineValue !== undefined) {
+				options[key] = inlineValue;
+				continue;
+			}
+
+			const next = tokens[index + 1];
+			if (next && !next.startsWith("-")) {
+				options[key] = next;
+				index += 1;
+				continue;
+			}
+
+			options[key] = true;
+			continue;
+		}
+
+		if (token.startsWith("-") && token.length > 1) {
+			const alias = optionAliases[token.slice(1)];
+			if (alias) {
+				options[alias] = true;
+				continue;
+			}
+		}
+
+		positionals.push(token);
 	}
-	const parsed = JSON.parse(value) as unknown;
-	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-		throw new Error("JSON argument must be an object.");
+
+	return { options, positionals };
+};
+
+const resolveCommand = (argv: string[]): { key: string; remaining: string[] } => {
+	for (const key of commandKeys) {
+		if (!key) {
+			continue;
+		}
+		const parts = key.split("/");
+		if (parts.every((part, index) => argv[index] === part)) {
+			return {
+				key,
+				remaining: argv.slice(parts.length),
+			};
+		}
 	}
-	return parsed as Record<string, unknown>;
+
+	if (argv.length === 0 || argv[0]?.startsWith("-")) {
+		return {
+			key: "",
+			remaining: argv,
+		};
+	}
+
+	throw new Error(`Unknown command: ${argv.join(" ")}`);
+};
+
+const validateProps = (module: CommandModule, tokens: string[]): Record<string, unknown> => {
+	const { options, positionals } = parseTokens(tokens);
+	const props: Record<string, unknown> = {};
+
+	if (module.options) {
+		props.options = module.options.parse(options);
+	}
+
+	if (module.args) {
+		props.args = module.args.parse(positionals);
+	}
+
+	return props;
+};
+
+const renderCommand = async (
+	module: CommandModule,
+	props: Record<string, unknown>,
+): Promise<void> => {
+	const app = render(
+		React.createElement(module.default as React.ComponentType<Record<string, unknown>>, props),
+	);
+	await app.waitUntilExit();
 };
 
 export const runFallbackCli = async (argv: string[]): Promise<number> => {
-	const [command, ...rest] = argv;
-	if (!command || command === "--help" || command === "-h") {
+	const [first] = argv;
+	if (first === "--help" || first === "-h") {
 		printUsage();
 		return 0;
 	}
-	if (command === "--version" || command === "-v") {
+	if (first === "--version" || first === "-v") {
 		const packageJson = await Bun.file(new URL("../../package.json", import.meta.url)).json();
 		print((packageJson as { version?: string }).version ?? "1.0.0");
 		return 0;
 	}
-	if (command === "server") {
+	if (first === "server") {
 		const serverModule = await import("../../server/src/index.ts");
 		await serverModule.startMcpServer(process.env.MIMIRMESH_PROJECT_ROOT ?? process.cwd());
 		return 0;
 	}
 
-	const context = await loadCliContext();
-
 	try {
-		if (command === "init") {
-			const result = await initializeProject(context);
-			print(result);
-			return 0;
+		const { key, remaining } = resolveCommand(argv);
+		const loadModule = commandModules[key];
+		if (!loadModule) {
+			throw new Error(`No compiled command module is registered for ${key || "index"}.`);
 		}
-		if (command === "setup") {
-			print(await setupProject(context));
-			return 0;
-		}
-		if (command === "refresh") {
-			print(await refreshProject(context));
-			return 0;
-		}
-		if (command === "doctor") {
-			print(await doctorProject(context));
-			return 0;
-		}
-
-		if (command === "upgrade") {
-			print(await runtimeUpgradeMigrate(context));
-			return 0;
-		}
-
-		if (command === "config") {
-			const [sub, ...args] = rest;
-			if (sub === "get") {
-				print(await configGet(context, args[0] ?? ""));
-				return 0;
-			}
-			if (sub === "set") {
-				if (!args[0] || !args[1]) {
-					throw new Error("Usage: mimirmesh config set <path> <value>");
-				}
-				await configSet(context, args[0], args[1]);
-				print(`Updated ${args[0]}`);
-				return 0;
-			}
-			if (sub === "enable") {
-				if (!args[0]) {
-					throw new Error("Usage: mimirmesh config enable <engine>");
-				}
-				await configEnableEngine(context, args[0] as never);
-				print(`Enabled ${args[0]}`);
-				return 0;
-			}
-			if (sub === "disable") {
-				if (!args[0]) {
-					throw new Error("Usage: mimirmesh config disable <engine>");
-				}
-				await configDisableEngine(context, args[0] as never);
-				print(`Disabled ${args[0]}`);
-				return 0;
-			}
-			if (sub === "validate") {
-				print(await configValidate(context));
-				return 0;
-			}
-			throw new Error("Unknown config subcommand.");
-		}
-
-		if (command === "runtime") {
-			const [sub, nested] = rest;
-			if (sub === "doctor") {
-				print(await runtimeDoctor(context));
-				return 0;
-			}
-			if (sub === "upgrade") {
-				if (!nested || nested === "status") {
-					print(await runtimeUpgradeStatus(context));
-					return 0;
-				}
-				if (nested === "migrate") {
-					print(await runtimeUpgradeMigrate(context));
-					return 0;
-				}
-				if (nested === "repair") {
-					print(await runtimeUpgradeRepair(context));
-					return 0;
-				}
-				throw new Error("Usage: mimirmesh runtime upgrade <status|migrate|repair>");
-			}
-			if (!sub || !["start", "stop", "restart", "status", "refresh"].includes(sub)) {
-				throw new Error(
-					"Usage: mimirmesh runtime <start|stop|restart|status|refresh|doctor|upgrade>",
-				);
-			}
-			print(
-				await runtimeAction(context, sub as "start" | "stop" | "restart" | "status" | "refresh"),
-			);
-			return 0;
-		}
-
-		if (command === "mcp") {
-			const [sub, ...args] = rest;
-			if (sub === "list-tools") {
-				print(await mcpListTools(context));
-				return 0;
-			}
-			if (sub === "tool") {
-				if (!args[0]) {
-					throw new Error("Usage: mimirmesh mcp tool <tool> [json]");
-				}
-				print(await mcpCallTool(context, args[0], parseJsonArg(args[1])));
-				return 0;
-			}
-			throw new Error("Unknown mcp subcommand.");
-		}
-
-		if (command === "note") {
-			const [sub, ...args] = rest;
-			if (sub === "add") {
-				if (!args[0] || !args[1]) {
-					throw new Error("Usage: mimirmesh note add <title> <content>");
-				}
-				print(await addNote(context, args[0], args.slice(1).join(" ")));
-				return 0;
-			}
-			if (sub === "list") {
-				print(await listNotes(context));
-				return 0;
-			}
-			if (sub === "search") {
-				if (!args[0]) {
-					throw new Error("Usage: mimirmesh note search <query>");
-				}
-				print(await searchNotes(context, args.join(" ")));
-				return 0;
-			}
-			throw new Error("Unknown note subcommand.");
-		}
-
-		if (command === "document") {
-			const [sub, ...args] = rest;
-			if (sub !== "add" || !args[0]) {
-				throw new Error("Usage: mimirmesh document add <path>");
-			}
-			print(await addDocument(context, args[0]));
-			return 0;
-		}
-
-		if (command === "report") {
-			const [sub, ...args] = rest;
-			if (sub === "generate") {
-				print(await generateReports(context));
-				return 0;
-			}
-			if (sub === "show") {
-				if (!args[0]) {
-					throw new Error("Usage: mimirmesh report show <name>");
-				}
-				print(await showReport(context, args[0]));
-				return 0;
-			}
-			throw new Error("Unknown report subcommand.");
-		}
-
-		if (command === "install") {
-			const [sub, ...args] = rest;
-			if (sub !== "ide") {
-				throw new Error("Usage: mimirmesh install ide [target]");
-			}
-			print(await installIde(context, (args[0] as never) ?? "vscode"));
-			return 0;
-		}
-
-		if (command === "update") {
-			if (parseUpdateCheck(rest)) {
-				print(await updateCheck(context));
-				return 0;
-			}
-			print(await applyUpdate(context));
-			return 0;
-		}
-
-		if (command === "speckit") {
-			const [sub] = rest;
-			if (sub === "init") {
-				print(await speckitInit(context));
-				return 0;
-			}
-			if (sub === "status") {
-				print(await speckitStatus(context));
-				return 0;
-			}
-			if (sub === "doctor") {
-				print(await speckitDoctor(context));
-				return 0;
-			}
-			throw new Error("Unknown speckit subcommand.");
-		}
-
-		printUsage();
-		return 1;
+		const module = await loadModule();
+		const props = validateProps(module, remaining);
+		await renderCommand(module, props);
+		return 0;
 	} catch (error) {
 		process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
 		return 1;

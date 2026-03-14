@@ -1,22 +1,31 @@
-import { CommandRunner } from "../../lib/command-runner";
-import { loadCliContext, runtimeDoctor } from "../../lib/context";
+import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
+import type zod from "zod/v4";
 
-export default function RuntimeDoctorCommand() {
+import { CommandRunner } from "../../lib/command-runner";
+import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
+import { createRuntimeDoctorWorkflow } from "../../workflows/runtime";
+
+export const options = withPresentationOptions({});
+
+type Props = {
+	options: zod.infer<typeof options>;
+	presentation?: PresentationProfile;
+	exitOnComplete?: boolean;
+	onComplete?: (state: WorkflowRunState) => void;
+};
+
+export default function RuntimeDoctorCommand({
+	options,
+	presentation,
+	exitOnComplete,
+	onComplete,
+}: Props) {
 	return (
 		<CommandRunner
-			title="Runtime Doctor"
-			run={async () => {
-				const context = await loadCliContext();
-				const result = await runtimeDoctor(context);
-				return {
-					state: result.warnings.length === 0 ? "success" : "warning",
-					message:
-						result.warnings.length === 0
-							? "Runtime validation passed."
-							: "Runtime validation found degraded preserved assets.",
-					output: result,
-				};
-			}}
+			definition={createRuntimeDoctorWorkflow()}
+			presentation={presentation ?? resolvePresentationProfile(options)}
+			exitOnComplete={exitOnComplete}
+			onComplete={onComplete}
 		/>
 	);
 }

@@ -1,5 +1,5 @@
 export type CodebaseMemorySettings = {
-  repoPath: string;
-  cachePath: string;
-  forceReindex: boolean;
+	repoPath: string;
+	cachePath: string;
+	forceReindex: boolean;
 };

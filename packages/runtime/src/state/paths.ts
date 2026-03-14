@@ -25,6 +25,8 @@ export const enginesStateDir = (projectRoot: string): string =>
 	join(runtimeRoot(projectRoot), "engines");
 export const engineStatePath = (projectRoot: string, engine: string): string =>
 	join(enginesStateDir(projectRoot), `${engine}.json`);
+export const mcpServerStatePath = (projectRoot: string): string =>
+	join(runtimeRoot(projectRoot), "mcp-server.json");
 export const upgradeMetadataPath = (projectRoot: string): string =>
 	join(runtimeRoot(projectRoot), "upgrade-metadata.json");
 export const upgradeCheckpointPath = (projectRoot: string): string =>

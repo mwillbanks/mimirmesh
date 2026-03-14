@@ -1,4 +1,8 @@
 export {
+	adrDirectoryCandidates,
+	resolveRepositoryAdrDirectory,
+} from "./adr";
+export {
 	createDefaultConfig,
 	defaultEngines,
 } from "./defaults";
@@ -36,6 +40,8 @@ export {
 	engineIdSchema,
 	engineUpgradeDecisionSchema,
 	engineUpgradeRuntimeActionSchema,
+	type GpuMode,
+	gpuModeSchema,
 	MIMIRMESH_DIR,
 	type MimirmeshConfig,
 	type PreservedAssetCompatibility,

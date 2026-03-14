@@ -2,7 +2,7 @@
 
 **Feature Branch**: `[003-interactive-cli-experience]`  
 **Created**: 2026-03-13  
-**Status**: Draft  
+**Status**: Ready  
 **Input**: User description: "Transform the MímirMesh CLI from a mostly JSON-returning command surface into a polished, highly interactive terminal product with an excellent developer experience. The CLI must provide a full TUI entry experience when launched as mimirmesh, where users can navigate and execute the major product workflows from within the interface. Direct subcommands must still be available, but they must present rich human-readable state updates, progress, statuses, and meaningful feedback instead of feeling like raw machine output. Setup, initialization, repair, upgrade, runtime control, MCP inspection, and related workflows must guide the user with prompts, selections, confirmations, and clear operational visibility whenever that improves usability or safety. The experience should feel premium, responsive, and trustworthy, giving users continuous awareness of what the system is doing, what step it is on, what succeeded, what failed, and what requires attention."
 
 ## Clarifications
@@ -32,6 +32,7 @@ As a developer using MímirMesh, I can launch `mimirmesh` with no subcommand and
 3. **Given** the user selects a workflow from the TUI, **When** that workflow begins, **Then** the interface shows the current step, in-progress state, completed steps, and any warnings or required attention.
 4. **Given** the user opens the default TUI entry experience, **When** they review the first-release navigation surface, **Then** they can access home or dashboard, setup or init, runtime control, upgrade or repair, and MCP inspection directly from the interface.
 5. **Given** the user relies on keyboard-only interaction or reduced-motion preferences, **When** they navigate the TUI or run direct commands, **Then** they can complete the workflow without depending on color-only meaning or motion-heavy feedback.
+6. **Given** the shell presents runtime control or MCP inspection as an available workflow, **When** live discovery, bootstrap, readiness, or health checks have not completed successfully, **Then** the interface shows the workflow as not ready or degraded based on observed execution evidence instead of presenting it as ready.
 
 ---
 
@@ -51,6 +52,7 @@ As a developer using direct subcommands, I can run setup, init, repair, upgrade,
 4. **Given** the user runs an inspection or status command in a scripted context, **When** the command executes without interactive flags, **Then** it completes without prompts while still returning the same observed status and outcome semantics.
 5. **Given** the user runs a major workflow in the TUI or as a direct command, **When** the workflow spans multiple operational steps, **Then** the interface shows the active step label, completed steps, an in-flight spinner, and a final summary that preserves any partial-success evidence.
 6. **Given** a workflow reaches a terminal state, **When** the system renders the final outcome, **Then** it classifies the result as success, degraded, or failed and states the impact, completed work, blocked capability, and next action.
+7. **Given** a direct command depends on runtime, project, or integration configuration, **When** required configuration is missing, incompatible, or incomplete during execution, **Then** the command reports the observed configuration-dependent limitation, the affected capability, and the corrective action instead of assuming healthy readiness.
 
 ---
 
@@ -94,11 +96,11 @@ As a developer performing sensitive or complex operations, I can follow guided p
 - **FR-010**: The system MUST explain the purpose and consequence of a prompted decision before asking the user to confirm or choose an option.
 - **FR-011**: The default terminal interface and equivalent direct subcommands MUST use the same workflow state model and express the same operational states and outcomes.
 - **FR-012**: The system MUST classify terminal workflow outcomes explicitly as success, degraded, or failed so users can tell the difference between full success, partial success, and full failure.
-- **FR-013**: The system MUST preserve visibility into workflow progress and status until each command or interface action reaches a terminal state of success, degraded completion, cancellation, or failure, using an active spinner for in-flight work when the workflow is not yet at a terminal state.
+- **FR-013**: The system MUST preserve visibility into workflow progress and status until each command or interface action completes, degrades, fails, or is cancelled by the operator, using an active spinner for in-flight work while work is still running.
 - **FR-014**: The system MUST support a machine-readable mode for eligible direct commands only when the user explicitly requests it.
 - **FR-015**: Machine-readable mode MUST represent the same underlying status and outcome semantics that the human-readable experience presents.
 - **FR-016**: Inspection and status workflows MUST remain non-interactive by default so they can be used safely in automation and scripting without prompt handling.
-- **FR-017**: Mutating workflows MUST default to guided interactive execution for human operators, but MUST support explicit non-interactive invocation for automation-oriented use cases.
+- **FR-017**: Consequential mutating workflows that affect project state, runtime availability, integration wiring, or MCP execution safety MUST default to guided interactive execution for human operators, but MUST support explicit non-interactive invocation for automation-oriented use cases.
 - **FR-018**: The system MUST detect and handle non-interactive execution contexts by avoiding unusable prompt flows and reporting what alternate invocation the user needs when explicit non-interactive flags were not supplied.
 - **FR-019**: The system MUST detect when the terminal cannot comfortably present the full-screen interface and provide a clear fallback or guidance path.
 - **FR-020**: The system MUST provide operator-visible feedback for setup, initialization, repair, upgrade, runtime lifecycle, and MCP inspection workflows that makes the current state of each workflow explicit through step-based progress and terminal outcome summaries.
@@ -169,13 +171,13 @@ As a developer performing sensitive or complex operations, I can follow guided p
 
 ### Measurable Outcomes
 
-- **SC-001**: At least 90% of first-time evaluators can launch `mimirmesh`, identify a major workflow to run, and start it from the TUI within 60 seconds.
+- **SC-001**: Validation proves that bare `mimirmesh` launches the full-screen shell with visible access to the primary workflows and that one of those workflows can be started through keyboard-first navigation without requiring direct command knowledge.
 - **SC-002**: At least 95% of runs of setup, init, repair, upgrade, runtime lifecycle, and MCP inspection workflows present continuous progress or current-state visibility from start until terminal outcome.
-- **SC-003**: At least 90% of surveyed users report that direct commands communicate what the system is doing and what happened clearly enough that they do not feel like raw machine output.
+- **SC-003**: Validation proves that representative direct commands render active step labels, progress visibility, explicit warnings when present, and final outcome summaries instead of raw object-style output.
 - **SC-004**: At least 95% of operator-visible workflow completions end with a summary that correctly states what succeeded, what failed, and what requires attention.
-- **SC-005**: At least 90% of guided prompts in sensitive workflows reduce unsafe or mistaken operator choices compared with the previous argument-only experience.
+- **SC-005**: Validation proves that guided prompts appear for representative sensitive workflows, explain why input is required, identify consequences, and require explicit flags when equivalent non-interactive execution is requested.
 - **SC-006**: In 100% of supported machine-readable command runs, the output can be explicitly requested without changing the command's underlying status or result meaning.
-- **SC-007**: At least 90% of equivalent TUI and direct-command workflow runs produce matching state terminology and matching end-state classifications.
+- **SC-007**: Validation proves that equivalent TUI and direct-command workflow runs produce matching state terminology and matching end-state classifications.
 
 ### Runtime Validation Outcomes *(mandatory for runtime, MCP, adapter, or orchestration features)*
 

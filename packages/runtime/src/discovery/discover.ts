@@ -1,5 +1,5 @@
 import type { EngineId, MimirmeshConfig } from "@mimirmesh/config";
-import { allEngineAdapters, getAdapter } from "@mimirmesh/mcp-adapters";
+import { allEngineAdapters, getAdapter, type RuntimeAdapterContext } from "@mimirmesh/mcp-adapters";
 import { checkBridgeHealth, discoverBridgeTools } from "../services/bridge";
 import { collectSrclightRepoLocalEvidence, hashValue, persistEngineState } from "../state/io";
 import type { EngineRuntimeState, PassthroughRoute, RoutingTable, UnifiedRoute } from "../types";
@@ -34,6 +34,7 @@ export const discoverEngineCapability = async (options: {
 	startedAt: string;
 	attempts?: number;
 	delayMs?: number;
+	adapterContext?: RuntimeAdapterContext;
 }): Promise<{
 	states: EngineRuntimeState[];
 	routingTable: RoutingTable;
@@ -57,7 +58,12 @@ export const discoverEngineCapability = async (options: {
 				? await collectSrclightRepoLocalEvidence(options.projectRoot)
 				: null;
 		const engineConfig = options.config.engines[adapter.id];
-		const translated = getAdapter(adapter.id).translateConfig(options.projectRoot, options.config);
+		const translated = getAdapter(adapter.id).translateConfig(
+			options.projectRoot,
+			options.config,
+			options.adapterContext,
+		);
+		const gpuResolution = options.adapterContext?.gpuResolutions?.[adapter.id];
 		const port = options.bridgePorts[adapter.id];
 		const url = port ? `http://127.0.0.1:${port}` : "";
 
@@ -133,12 +139,21 @@ export const discoverEngineCapability = async (options: {
 			runtimeEvidence:
 				adapter.id === "srclight"
 					? {
-						bootstrapMode: "command",
-						...(srclightEvidence ?? {}),
-					}
+							bootstrapMode: "command",
+							...(srclightEvidence ?? {}),
+							...(gpuResolution
+								? {
+										gpuMode: gpuResolution.configuredMode,
+										effectiveUseGpu: gpuResolution.effectiveUseGpu,
+										runtimeVariant: gpuResolution.runtimeVariant,
+										hostNvidiaAvailable: gpuResolution.hostNvidiaAvailable,
+										gpuResolutionReason: gpuResolution.resolutionReason,
+									}
+								: {}),
+						}
 					: {
-						bootstrapMode: adapter.id === "codebase-memory-mcp" ? "tool" : "none",
-					},
+							bootstrapMode: adapter.id === "codebase-memory-mcp" ? "tool" : "none",
+						},
 		};
 
 		states.push(state);

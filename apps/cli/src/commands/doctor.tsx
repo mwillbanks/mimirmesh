@@ -1,20 +1,31 @@
-import { CommandRunner } from "../lib/command-runner";
-import { doctorProject, loadCliContext } from "../lib/context";
+import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
+import type zod from "zod/v4";
 
-export default function DoctorCommand() {
+import { CommandRunner } from "../lib/command-runner";
+import { resolvePresentationProfile, withPresentationOptions } from "../lib/presentation";
+import { createDoctorWorkflow } from "../workflows/init";
+
+export const options = withPresentationOptions({}, { allowNonInteractive: false });
+
+type Props = {
+	options: zod.infer<typeof options>;
+	presentation?: PresentationProfile;
+	exitOnComplete?: boolean;
+	onComplete?: (state: WorkflowRunState) => void;
+};
+
+export default function DoctorCommand({
+	options,
+	presentation,
+	exitOnComplete,
+	onComplete,
+}: Props) {
 	return (
 		<CommandRunner
-			title="Run Diagnostics"
-			run={async () => {
-				const context = await loadCliContext();
-				const result = await doctorProject(context);
-				return {
-					state: result.status === "healthy" ? "success" : "warning",
-					message:
-						result.status === "healthy" ? "No issues detected." : "Doctor found actionable issues.",
-					output: result.issues,
-				};
-			}}
+			definition={createDoctorWorkflow()}
+			presentation={presentation ?? resolvePresentationProfile(options)}
+			exitOnComplete={exitOnComplete}
+			onComplete={onComplete}
 		/>
 	);
 }

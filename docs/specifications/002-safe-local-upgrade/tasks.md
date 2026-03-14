@@ -43,7 +43,7 @@
 
 ### Tests for User Story 1
 
-- [x] T011 [P] [US1] Add migration planner and no-op upgrade coverage in `packages/runtime/src/upgrade/planner.test.ts` and `packages/testing/src/integration/runtime-upgrade-noop.test.ts`
+- [x] T011 [P] [US1] Add migration planner and no-op upgrade coverage in `packages/runtime/src/upgrade/planner.test.ts` and `packages/testing/tests/integration/runtime-upgrade-noop.test.ts`
 - [x] T012 [P] [US1] Add end-to-end in-place project upgrade coverage in `tests/workflow/project-runtime-upgrade.test.ts`
 
 ### Implementation for User Story 1
@@ -67,7 +67,7 @@
 
 ### Tests for User Story 2
 
-- [x] T019 [P] [US2] Add status classification tests for current, outdated, blocked, and degraded states in `packages/runtime/src/upgrade/status.test.ts` and `packages/testing/src/integration/runtime-upgrade-status.test.ts`
+- [x] T019 [P] [US2] Add status classification tests for current, outdated, blocked, and degraded states in `packages/runtime/src/upgrade/status.test.ts` and `packages/testing/tests/integration/runtime-upgrade-status.test.ts`
 
 ### Implementation for User Story 2
 
@@ -88,7 +88,7 @@
 
 ### Tests for User Story 3
 
-- [x] T024 [P] [US3] Add repair, resume, and degraded preserved-asset coverage in `packages/runtime/src/upgrade/repair.test.ts`, `packages/testing/src/integration/runtime-upgrade-repair.test.ts`, and `tests/workflow/project-runtime-repair.test.ts`
+- [x] T024 [P] [US3] Add repair, resume, and degraded preserved-asset coverage in `packages/runtime/src/upgrade/repair.test.ts`, `packages/testing/tests/integration/runtime-upgrade-repair.test.ts`, and `tests/workflow/project-runtime-repair.test.ts`
 
 ### Implementation for User Story 3
 
@@ -108,7 +108,7 @@
 - [x] T029 [P] Update runtime upgrade feature documentation in `docs/features/runtime-upgrade.md` and `docs/features/cli-command-surface.md`
 - [x] T030 [P] Update runtime operations and runbook guidance in `docs/operations/runtime.md` and `docs/runbooks/first-init.md`
 - [x] T031 Run the upgrade validation scenarios from `docs/specifications/002-safe-local-upgrade/quickstart.md` and record any observed command/output deltas in `docs/features/runtime-upgrade.md`
-- [x] T032 [P] Extend shared regression coverage and fixture support in `packages/testing/src/integration/runtime-lifecycle.test.ts` and `packages/testing/src/fixtures/runtime-upgrade.ts`
+- [x] T032 [P] Extend shared regression coverage and fixture support in `packages/testing/tests/integration/runtime-lifecycle.test.ts` and `packages/testing/src/fixtures/runtime-upgrade.ts`
 
 ---
 
@@ -153,7 +153,7 @@
 
 ```bash
 # Launch the core US1 tests together:
-Task: "Add migration planner and no-op upgrade coverage in packages/runtime/src/upgrade/planner.test.ts and packages/testing/src/integration/runtime-upgrade-noop.test.ts"
+Task: "Add migration planner and no-op upgrade coverage in packages/runtime/src/upgrade/planner.test.ts and packages/testing/tests/integration/runtime-upgrade-noop.test.ts"
 Task: "Add end-to-end in-place project upgrade coverage in tests/workflow/project-runtime-upgrade.test.ts"
 
 # Launch the core US1 implementation work together:

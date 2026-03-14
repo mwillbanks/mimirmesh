@@ -10,6 +10,62 @@ expected to share the same state model and visual language. Human-readable
 output is the default; machine-readable output is supported only when
 explicitly requested.
 
+## Entry Surface
+
+`mimirmesh` is no longer a passive status dump. The bare command launches the
+interactive dashboard shell and uses the shared shell frame, navigation model,
+and workflow launchers to expose:
+
+- home/dashboard summary
+- setup and initialization
+- runtime lifecycle control
+- runtime upgrade and repair
+- MCP inspection
+
+Compact terminals fall back to a command-first guidance view instead of
+pretending the full dashboard fits.
+
+## Direct Command Presentation
+
+Default direct commands now render:
+
+- workflow title and description
+- active step and step history
+- visible warnings and observed state
+- a terminal outcome with `success`, `degraded`, or `failed`
+- impact, completed work, blocked capability, and next action sections
+
+The default human UX is intentionally not raw JSON.
+
+## Prompt Policy
+
+Interactive prompts are the default for consequential mutating workflows.
+Examples include:
+
+- `init`
+- `install ide`
+- `runtime start|stop|restart|refresh`
+- `runtime upgrade migrate|repair`
+- `config set|enable|disable`
+
+If the command runs in a non-interactive terminal without `--non-interactive`,
+the CLI returns a failed workflow outcome that explains the automation-safe
+fallback instead of hanging or guessing.
+
+Inspection commands such as `runtime status`, `runtime upgrade status`, and
+`mcp list-tools` stay non-interactive by default.
+
+## Machine-Readable Mode
+
+Use `--json` when a caller needs the serialized workflow envelope. The JSON
+output preserves:
+
+- workflow identity and phase
+- step state
+- warnings and observed details
+- terminal outcome semantics
+- the command-specific machine payload nested under `outcome.payload`
+
 All runtime and MCP behavior claims in feature documentation are expected to be
 derived from live runtime execution, including prerequisite configuration,
 bootstrap/indexing status, and degraded-mode diagnostics.

@@ -3,7 +3,14 @@ import { Box, Text } from "ink";
 import { Label } from "../base/label";
 import { StateMessage } from "../components/state-message";
 
-export type TaskState = "idle" | "running" | "success" | "warning" | "error";
+export type TaskState =
+	| "idle"
+	| "running"
+	| "success"
+	| "degraded"
+	| "failed"
+	| "warning"
+	| "error";
 
 type TaskStatusViewProps = {
 	title: string;
@@ -12,10 +19,15 @@ type TaskStatusViewProps = {
 	details?: Array<{ label: string; value: string }>;
 };
 
-const variantByState: Record<TaskState, "success" | "error" | "warning" | "info"> = {
+const variantByState: Record<
+	TaskState,
+	"success" | "degraded" | "failed" | "error" | "warning" | "info"
+> = {
 	idle: "info",
 	running: "info",
 	success: "success",
+	degraded: "degraded",
+	failed: "failed",
 	warning: "warning",
 	error: "error",
 };

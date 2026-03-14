@@ -1,40 +1,36 @@
-import zod from "zod";
+import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
+import zod from "zod/v4";
 
 import { CommandRunner } from "../lib/command-runner";
-import { applyUpdate, loadCliContext, updateCheck } from "../lib/context";
+import { resolvePresentationProfile, withPresentationOptions } from "../lib/presentation";
+import { createUpdateWorkflow } from "../workflows/init";
 
-export const options = zod.object({
-	check: zod.boolean().default(false).describe("Check for updates without applying"),
-});
+export const options = withPresentationOptions(
+	{
+		check: zod.boolean().default(false).describe("Check for updates without applying"),
+	},
+	{ allowNonInteractive: true },
+);
 
 type Props = {
 	options: zod.infer<typeof options>;
+	presentation?: PresentationProfile;
+	exitOnComplete?: boolean;
+	onComplete?: (state: WorkflowRunState) => void;
 };
 
-export default function UpdateCommand({ options }: Props) {
+export default function UpdateCommand({
+	options,
+	presentation,
+	exitOnComplete,
+	onComplete,
+}: Props) {
 	return (
 		<CommandRunner
-			title="Update MímirMesh"
-			run={async () => {
-				const context = await loadCliContext();
-				const check = await updateCheck(context);
-				if (options.check) {
-					return {
-						state: check.updateAvailable ? "warning" : "success",
-						message: check.updateAvailable
-							? `Update available: ${check.latestVersion}`
-							: "No updates available.",
-						output: check,
-					};
-				}
-
-				const updateResult = await applyUpdate(context);
-				return {
-					state: updateResult.applied ? "success" : "warning",
-					message: updateResult.details,
-					output: check,
-				};
-			}}
+			definition={createUpdateWorkflow(options.check)}
+			presentation={presentation ?? resolvePresentationProfile(options)}
+			exitOnComplete={exitOnComplete}
+			onComplete={onComplete}
 		/>
 	);
 }

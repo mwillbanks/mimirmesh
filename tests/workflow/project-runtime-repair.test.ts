@@ -18,13 +18,16 @@ describe("workflow project runtime repair", () => {
 	test("repairs resumable runtime state", async () => {
 		const fixture = await createRuntimeUpgradeFixture("repairable");
 		try {
-			const repair = await run([distBinary, "runtime", "upgrade", "repair"], fixture.repo, {
-				MIMIRMESH_PROJECT_ROOT: fixture.repo,
-			});
+			const repair = await run(
+				[distBinary, "runtime", "upgrade", "repair", "--non-interactive", "--json"],
+				fixture.repo,
+				{
+					MIMIRMESH_PROJECT_ROOT: fixture.repo,
+				},
+			);
 			expect(repair.code).toBe(0);
 			expect(
-				repair.stdout.includes('"result": "success"') ||
-					repair.stdout.includes('"result": "degraded"'),
+				repair.stdout.includes('"kind": "success"') || repair.stdout.includes('"kind": "degraded"'),
 			).toBe(true);
 		} finally {
 			await rm(fixture.repo, { recursive: true, force: true });

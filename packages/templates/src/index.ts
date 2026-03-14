@@ -1,9 +1,9 @@
-export {
-  generateDocument,
-  listTemplateFamilies,
-  recommendedDocumentPath,
-  templatePreview,
-  type GenerateDocumentInput,
-  type TemplateFamily,
-} from "./documents";
 export { generateAgentGuidance } from "./agents";
+export {
+	type GenerateDocumentInput,
+	generateDocument,
+	listTemplateFamilies,
+	recommendedDocumentPath,
+	type TemplateFamily,
+	templatePreview,
+} from "./documents";

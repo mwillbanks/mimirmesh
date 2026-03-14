@@ -33,10 +33,12 @@ const translationRoots = [
 	join(".ai", "commands"),
 ];
 
-const translatedDirPath = (projectRoot: string): string => join(projectRoot, "docs", "specifications");
+const translatedDirPath = (projectRoot: string): string =>
+	join(projectRoot, "docs", "specifications");
 const legacyDirPath = (projectRoot: string): string => join(projectRoot, LEGACY_SPECS_DIR);
 const specRootPath = (projectRoot: string): string => join(projectRoot, ".specify");
-const scriptsPath = (projectRoot: string): string => join(projectRoot, ".specify", "scripts", "bash");
+const scriptsPath = (projectRoot: string): string =>
+	join(projectRoot, ".specify", "scripts", "bash");
 const templatesPath = (projectRoot: string): string => join(projectRoot, ".specify", "templates");
 const constitutionPath = (projectRoot: string): string =>
 	join(projectRoot, ".specify", "memory", "constitution.md");
@@ -191,7 +193,10 @@ const readSpecifyVersion = async (binary: string | null): Promise<string | null>
 	return extractVersion(upstreamVersion.stdout) ?? extractVersion(upstreamVersion.stderr);
 };
 
-const installSpecifyCli = async (): Promise<{ binary: string; installMode: SpecKitInstallMode }> => {
+const installSpecifyCli = async (): Promise<{
+	binary: string;
+	installMode: SpecKitInstallMode;
+}> => {
 	const existing = resolveSpecifyBinary();
 	if (existing) {
 		return {
@@ -206,23 +211,20 @@ const installSpecifyCli = async (): Promise<{ binary: string; installMode: SpecK
 	}
 
 	const install = await runCommand(
-		[
-			uv,
-			"tool",
-			"install",
-			"specify-cli",
-			"--from",
-			SPEC_KIT_SOURCE,
-		],
+		[uv, "tool", "install", "specify-cli", "--from", SPEC_KIT_SOURCE],
 		process.cwd(),
 	);
 	if (install.exitCode !== 0) {
-		throw new Error(install.stderr.trim() || install.stdout.trim() || "Unable to install Specify CLI.");
+		throw new Error(
+			install.stderr.trim() || install.stdout.trim() || "Unable to install Specify CLI.",
+		);
 	}
 
 	const toolDir = await runCommand([uv, "tool", "dir", "--bin"], process.cwd());
 	if (toolDir.exitCode !== 0) {
-		throw new Error(toolDir.stderr.trim() || toolDir.stdout.trim() || "Unable to resolve uv tool bin directory.");
+		throw new Error(
+			toolDir.stderr.trim() || toolDir.stdout.trim() || "Unable to resolve uv tool bin directory.",
+		);
 	}
 
 	const binary = join(toolDir.stdout.trim(), "specify");
@@ -286,7 +288,11 @@ const filesContainLegacySpecsPaths = async (projectRoot: string): Promise<boolea
 	for (const relativeTarget of await collectTranslationTargets(projectRoot)) {
 		const absoluteTarget = join(projectRoot, relativeTarget);
 		const content = await readFile(absoluteTarget, "utf8");
-		if (content.includes("$REPO_ROOT/specs") || content.includes("$repo_root/specs") || content.includes("specs/")) {
+		if (
+			content.includes("$REPO_ROOT/specs") ||
+			content.includes("$repo_root/specs") ||
+			content.includes("specs/")
+		) {
 			return true;
 		}
 	}
@@ -332,7 +338,9 @@ export const detectSpecKit = async (projectRoot: string): Promise<SpecKitStatus>
 		missing.push("agent prompt directory");
 	}
 	if (!hasSpecRoot && promptDirectories.length > 0) {
-		findings.push("Spec Kit agent prompts exist, but `.specify/` is missing. Run `mimirmesh speckit init` to complete initialization.");
+		findings.push(
+			"Spec Kit agent prompts exist, but `.specify/` is missing. Run `mimirmesh speckit init` to complete initialization.",
+		);
 	}
 	if (await pathExists(translatedSpecsDir)) {
 		signals.push(TRANSLATED_SPECS_DIR);
@@ -369,7 +377,7 @@ export const detectSpecKit = async (projectRoot: string): Promise<SpecKitStatus>
 		binary,
 		version,
 		installMode,
-		agent: hasSpecRoot ? promptDirectories[0]?.agent ?? null : null,
+		agent: hasSpecRoot ? (promptDirectories[0]?.agent ?? null) : null,
 		promptDirectories: promptDirectories.map((entry) => entry.relativePath),
 		translatedSpecsDir: TRANSLATED_SPECS_DIR,
 		legacySpecsDir: LEGACY_SPECS_DIR,
@@ -386,20 +394,13 @@ export const initializeSpecKit = async (
 
 	if (!statusBefore.ready || options.force) {
 		const init = await runCommand(
-			[
-				binary,
-				"init",
-				"--here",
-				"--force",
-				"--ai",
-				agent,
-				"--ignore-agent-tools",
-				"--no-git",
-			],
+			[binary, "init", "--here", "--force", "--ai", agent, "--ignore-agent-tools", "--no-git"],
 			projectRoot,
 		);
 		if (init.exitCode !== 0) {
-			throw new Error(init.stderr.trim() || init.stdout.trim() || "Spec Kit initialization failed.");
+			throw new Error(
+				init.stderr.trim() || init.stdout.trim() || "Spec Kit initialization failed.",
+			);
 		}
 	}
 

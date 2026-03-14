@@ -48,11 +48,12 @@ describe("workflow end-to-end", () => {
 		const cli = join(installDir, "mimirmesh");
 		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
 		try {
-			const init = await run([cli, "init"], repo, {
+			const init = await run([cli, "init", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 				MIMIRMESH_SPECIFY_BIN: specifyStub,
 			});
 			expect(init.code).toBe(0);
+			expect(init.stdout).toContain("Terminal outcome");
 			expect(await exists(join(repo, ".mimirmesh", "config.yml"))).toBe(true);
 			expect(await exists(join(repo, ".mimirmesh", "reports", "project-summary.md"))).toBe(true);
 			expect(await exists(join(repo, ".specify", "scripts", "bash", "common.sh"))).toBe(true);
@@ -62,45 +63,67 @@ describe("workflow end-to-end", () => {
 			);
 			expect(await exists(join(repo, ".mimirmesh", "runtime", "bootstrap-state.json"))).toBe(true);
 
-			const configSet = await run([cli, "config", "set", "logging.level", "debug"], repo, {
-				MIMIRMESH_PROJECT_ROOT: repo,
-			});
+			const configSet = await run(
+				[cli, "config", "set", "logging.level", "debug", "--non-interactive"],
+				repo,
+				{
+					MIMIRMESH_PROJECT_ROOT: repo,
+				},
+			);
 			expect(configSet.code).toBe(0);
 
-			const refresh = await run([cli, "refresh"], repo, {
+			const refresh = await run([cli, "refresh", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});
 			expect(refresh.code).toBe(0);
 
-			const runtimeStatus = await run([cli, "runtime", "status"], repo, {
+			const runtimeStatus = await run([cli, "runtime", "status", "--json"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});
 			expect(runtimeStatus.code).toBe(0);
 			const runtimeStatusPayload = JSON.parse(runtimeStatus.stdout) as {
-				health: {
-					state: string;
-					reasons: string[];
+				outcome: {
+					payload: {
+						health: {
+							state: string;
+							reasons: string[];
+						};
+					};
 				};
 			};
-			expect(["ready", "degraded", "bootstrapping"]).toContain(runtimeStatusPayload.health.state);
+			expect(["ready", "degraded", "bootstrapping"]).toContain(
+				runtimeStatusPayload.outcome.payload.health.state,
+			);
 			expect(
-				runtimeStatusPayload.health.reasons.some((reason) => reason.includes("srclight")),
+				runtimeStatusPayload.outcome.payload.health.reasons.some((reason) =>
+					reason.includes("srclight"),
+				),
 			).toBe(false);
 
-			const doctor = await run([cli, "doctor"], repo, {
+			const doctor = await run([cli, "doctor", "--json"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});
 			expect(doctor.code).toBe(0);
 			const doctorPayload = JSON.parse(doctor.stdout) as {
-				status: string;
-				issues: string[];
+				outcome: {
+					payload: {
+						status: string;
+						issues: string[];
+					};
+				};
 			};
-			expect(["healthy", "issues-found"]).toContain(doctorPayload.status);
-			expect(doctorPayload.issues.some((issue) => issue.includes("srclight"))).toBe(false);
+			expect(["healthy", "issues-found"]).toContain(doctorPayload.outcome.payload.status);
+			expect(doctorPayload.outcome.payload.issues.some((issue) => issue.includes("srclight"))).toBe(
+				false,
+			);
 
-			const installIde = await run([cli, "install", "ide", "vscode"], repo, {
-				MIMIRMESH_PROJECT_ROOT: repo,
-			});
+			const installIde = await run(
+				[cli, "install", "ide", "--non-interactive", "--target", "vscode"],
+				repo,
+				{
+					MIMIRMESH_PROJECT_ROOT: repo,
+				},
+			);
 			expect(installIde.code).toBe(0);
 			const ideConfig = (await Bun.file(join(repo, ".vscode", "mcp.json")).json()) as {
 				servers?: {
@@ -118,19 +141,26 @@ describe("workflow end-to-end", () => {
 			);
 			expect(ideConfig.servers?.mimirmesh?.args).toEqual(["server"]);
 
-			const specInit = await run([cli, "speckit", "init"], repo, {
+			const specInit = await run([cli, "speckit", "init", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 				MIMIRMESH_SPECIFY_BIN: specifyStub,
 			});
 			expect(specInit.code).toBe(0);
-			const specStatus = await run([cli, "speckit", "status"], repo, {
+			const specStatus = await run([cli, "speckit", "status", "--json"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 				MIMIRMESH_SPECIFY_BIN: specifyStub,
 			});
 			expect(specStatus.code).toBe(0);
-			expect(specStatus.stdout.includes("docs/specifications")).toBe(true);
+			const specStatusPayload = JSON.parse(specStatus.stdout) as {
+				outcome: {
+					payload: {
+						ready: boolean;
+					};
+				};
+			};
+			expect(specStatusPayload.outcome.payload.ready).toBe(true);
 		} finally {
-			await run([cli, "runtime", "stop"], repo, {
+			await run([cli, "runtime", "stop", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});
 			await rm(repo, { recursive: true, force: true });
@@ -146,7 +176,7 @@ describe("workflow end-to-end", () => {
 		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
 		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
 		try {
-			const init = await run([distBinary, "init"], repo, {
+			const init = await run([distBinary, "init", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 				MIMIRMESH_SPECIFY_BIN: specifyStub,
 			});
@@ -192,7 +222,7 @@ describe("workflow end-to-end", () => {
 				passthroughCall.stdout.includes("srclight") || passthroughCall.stdout.includes("content"),
 			).toBe(true);
 		} finally {
-			await run([distBinary, "runtime", "stop"], repo, {
+			await run([distBinary, "runtime", "stop", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});
 			await rm(repo, { recursive: true, force: true });

@@ -2,10 +2,16 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { type EngineId, listEnabledEngines, type MimirmeshConfig } from "@mimirmesh/config";
 import type { ProjectLogger } from "@mimirmesh/logging";
-import { allEngineAdapters, translateAllEngineConfigs } from "@mimirmesh/mcp-adapters";
+import {
+	allEngineAdapters,
+	type EngineGpuResolution,
+	type RuntimeAdapterContext,
+	translateAllEngineConfigs,
+} from "@mimirmesh/mcp-adapters";
 
 import { runBootstrap } from "../bootstrap/run";
 import { generateRuntimeFiles } from "../compose/generate";
+import { renderCompose } from "../compose/render";
 import { discoverEngineCapability } from "../discovery/discover";
 import { parseComposePs } from "../health/compose";
 import { detectDockerAvailability } from "../health/docker";
@@ -37,6 +43,7 @@ import {
 } from "../upgrade";
 import { checkBridgeHealth } from "./bridge";
 import { composeDown, composePsJson, runCompose } from "./compose";
+import { resolveRuntimeAdapterContext } from "./gpu-policy";
 import { resolveBridgePorts } from "./ports";
 
 const enabledServiceNames = (config: MimirmeshConfig): string[] => {
@@ -151,7 +158,7 @@ const applySrclightCapabilityChecks = async (
 	const warnings = withoutSrclightGitWarnings(srclight.capabilityWarnings ?? []);
 	srclight.capabilityWarnings = warnings;
 
-	if (!discoveredGitTools || !srclight.bridge.healthy) {
+	if (!srclight.bridge.healthy) {
 		await persistEngineState(projectRoot, srclight);
 		return;
 	}
@@ -200,7 +207,7 @@ const applySrclightCapabilityChecks = async (
 			gitCapabilityMessage: capabilityMessage,
 		};
 
-		if (!gitBinaryAvailable || !gitRepoVisible || !gitWorkTreeAccessible) {
+		if (!gitBinaryAvailable || !gitRepoVisible || !gitWorkTreeAccessible || !discoveredGitTools) {
 			srclight.capabilityWarnings = [...warnings, ...srclightGitWarnings];
 		} else {
 			srclight.capabilityWarnings = warnings;
@@ -243,8 +250,9 @@ type EngineBuildFailure = {
 const configValidationFailures = (
 	projectRoot: string,
 	config: MimirmeshConfig,
+	adapterContext?: RuntimeAdapterContext,
 ): EngineBuildFailure[] => {
-	return translateAllEngineConfigs(projectRoot, config)
+	return translateAllEngineConfigs(projectRoot, config, adapterContext)
 		.filter((engine) => engine.errors.length > 0)
 		.map((engine) => ({
 			engine: engine.contract.id,
@@ -338,6 +346,7 @@ export const runtimeStatus = async (
 	const enabled = listEnabledEngines(config);
 	const bridgePorts = await resolveBridgePorts(config, enabled);
 	const existingConnection = (await loadConnection(projectRoot)) ?? baseConnection(config);
+	const adapterContext = await resolveRuntimeAdapterContext(config);
 	const discovery = await discoverEngineCapability({
 		projectRoot,
 		config,
@@ -345,6 +354,7 @@ export const runtimeStatus = async (
 		startedAt: existingConnection.startedAt ?? new Date().toISOString(),
 		attempts: 2,
 		delayMs: 500,
+		adapterContext,
 	});
 	await applySrclightCapabilityChecks(projectRoot, config, discovery.states);
 	await persistRoutingTable(projectRoot, discovery.routingTable);
@@ -381,6 +391,13 @@ export const runtimeStatus = async (
 	});
 
 	const connection = existingConnection;
+	if (!connection.startedAt) {
+		const discoveredStartedAt =
+			discovery.states.find(
+				(state) => typeof state.lastStartupAt === "string" && state.lastStartupAt,
+			)?.lastStartupAt ?? (services.length > 0 ? new Date().toISOString() : null);
+		connection.startedAt = discoveredStartedAt;
+	}
 	connection.updatedAt = new Date().toISOString();
 	connection.bridgePorts = bridgePorts;
 
@@ -410,7 +427,10 @@ export const runtimeStart = async (
 	logger?: ProjectLogger,
 ): Promise<RuntimeActionResult> => {
 	await ensureProjectLayout(projectRoot);
-	const generated = await generateRuntimeFiles(projectRoot, config);
+	const adapterContext = await resolveRuntimeAdapterContext(config);
+	const generated = await generateRuntimeFiles(projectRoot, config, {
+		adapterContext,
+	});
 	await persistConnection(projectRoot, generated.connection);
 
 	const availability = await detectDockerAvailability();
@@ -428,7 +448,24 @@ export const runtimeStart = async (
 	}
 
 	const enabledEngines = listEnabledEngines(config);
-	const preflightFailures = configValidationFailures(projectRoot, config);
+	const gpuResolutionBlocks = enabledEngines
+		.map((engineId) => adapterContext.gpuResolutions?.[engineId])
+		.filter((resolution): resolution is EngineGpuResolution => Boolean(resolution?.startupBlocked));
+
+	if (gpuResolutionBlocks.length > 0) {
+		return runtimeUnavailableResult({
+			projectRoot,
+			config,
+			action: "start",
+			reasons: gpuResolutionBlocks.map(
+				(resolution) =>
+					resolution.startupBlockReason ??
+					`GPU policy blocked startup for ${resolution.engineId}: ${resolution.resolutionReason}`,
+			),
+		});
+	}
+
+	const preflightFailures = configValidationFailures(projectRoot, config, adapterContext);
 	const blockedPreflight = new Set(preflightFailures.map((failure) => failure.engine));
 	const buildFailures = await buildEngineServices(
 		config,
@@ -532,6 +569,7 @@ export const runtimeStart = async (
 		startedAt,
 		attempts: 3,
 		delayMs: 1_000,
+		adapterContext,
 	});
 
 	const optionalFailureStates: EngineRuntimeState[] = [];
@@ -539,6 +577,7 @@ export const runtimeStart = async (
 		const engineConfig = config.engines[failure.engine];
 		const srclightEvidence =
 			failure.engine === "srclight" ? await collectSrclightRepoLocalEvidence(projectRoot) : null;
+		const gpuResolution = adapterContext.gpuResolutions?.[failure.engine];
 		const state: EngineRuntimeState = {
 			engine: failure.engine,
 			enabled: true,
@@ -570,6 +609,15 @@ export const runtimeStart = async (
 					? {
 							bootstrapMode: "command",
 							...(srclightEvidence ?? {}),
+							...(gpuResolution
+								? {
+										gpuMode: gpuResolution.configuredMode,
+										effectiveUseGpu: gpuResolution.effectiveUseGpu,
+										runtimeVariant: gpuResolution.runtimeVariant,
+										hostNvidiaAvailable: gpuResolution.hostNvidiaAvailable,
+										gpuResolutionReason: gpuResolution.resolutionReason,
+									}
+								: {}),
 						}
 					: {
 							bootstrapMode: failure.engine === "codebase-memory-mcp" ? "tool" : "none",
@@ -748,10 +796,14 @@ export const runtimeRefresh = async (
 export const dockerComposeRender = async (
 	config: MimirmeshConfig,
 ): Promise<{ ok: boolean; output: string; error?: string }> => {
+	const adapterContext = await resolveRuntimeAdapterContext(config);
+	const fallbackRender = renderCompose(config.project.rootPath, config, {
+		adapterContext,
+	});
 	const rendered = await runCompose(config, ["config"]);
 	return rendered.exitCode === 0
 		? { ok: true, output: rendered.stdout }
-		: { ok: false, output: rendered.stdout, error: rendered.stderr };
+		: { ok: false, output: fallbackRender, error: rendered.stderr };
 };
 
 export const loadRuntimeRouting = async (projectRoot: string) => loadRoutingTable(projectRoot);

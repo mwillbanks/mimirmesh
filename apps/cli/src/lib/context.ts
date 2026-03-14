@@ -64,16 +64,17 @@ const makeRouter = (
 };
 
 export const loadCliContext = async (projectRoot = process.cwd()): Promise<CliContext> => {
-	await ensureProjectLayout(projectRoot);
-	const config = await readConfig(projectRoot, { createIfMissing: true });
+	const resolvedProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT ?? projectRoot;
+	await ensureProjectLayout(resolvedProjectRoot);
+	const config = await readConfig(resolvedProjectRoot, { createIfMissing: true });
 	const logger = await createProjectLogger({
-		projectRoot,
+		projectRoot: resolvedProjectRoot,
 		config,
 		sessionId: process.env.MIMIRMESH_SESSION_ID,
 	});
-	const router = makeRouter(projectRoot, config, logger);
+	const router = makeRouter(resolvedProjectRoot, config, logger);
 	return {
-		projectRoot,
+		projectRoot: resolvedProjectRoot,
 		config,
 		logger,
 		router,
@@ -522,5 +523,25 @@ export const collectInitSignals = async (context: CliContext) => {
 		analysis,
 		fileCount: files.length,
 		configPath: getConfigPath(context.projectRoot),
+	};
+};
+
+export const collectDashboardSnapshot = async (projectRoot?: string) => {
+	const context = await loadCliContext(projectRoot);
+	const [initSignals, configValidation, runtime, upgrade, tools] = await Promise.all([
+		collectInitSignals(context),
+		configValidate(context),
+		runtimeAction(context, "status"),
+		runtimeUpgradeStatus(context),
+		mcpListTools(context),
+	]);
+
+	return {
+		context,
+		initSignals,
+		configValidation,
+		runtime,
+		upgrade,
+		tools,
 	};
 };

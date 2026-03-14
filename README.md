@@ -1,5 +1,7 @@
 # MímirMesh
 
+![MímirMesh logo](logo.svg)
+
 MímirMesh is a local-first project intelligence platform with:
 
 - a production CLI (`mimirmesh` and `mm`)
@@ -89,7 +91,25 @@ into the chosen bin directory.
 From a target repository:
 
 ```bash
+mimirmesh
+```
+
+The bare `mimirmesh` command now opens the interactive dashboard shell when the terminal is large enough for the full layout. The shell shows live project, runtime, upgrade, and MCP state, and exposes keyboard-first launchers for setup, runtime control, upgrade/repair, and MCP inspection.
+
+The shell boot surface now includes a terminal-safe rendering of the MímirMesh logo mark so the dashboard, loading screen, and compact shell all share the same branded entry treatment.
+
+In compact terminals such as the VS Code integrated terminal, the CLI keeps an interactive compact dashboard instead of immediately falling back, and only switches to command-first guidance when the terminal is genuinely too small for safe navigation.
+
+From a target repository, initialize the project with:
+
+```bash
 mimirmesh init
+```
+
+For automation or other non-interactive terminals, use:
+
+```bash
+mimirmesh init --non-interactive
 ```
 
 `init` performs:
@@ -171,6 +191,37 @@ mimirmesh speckit doctor
 - Cursor/Claude/Codex: `mcpServers`
 
 and defaults server invocation to `mimirmesh server` when no dedicated server binary path is resolved.
+
+## CLI UX Model
+
+Default human-facing commands now share one workflow presentation model:
+
+- step-based progress with explicit current-step labels
+- visible spinner or active-state messaging for in-flight work
+- terminal summaries classified as `success`, `degraded`, or `failed`
+- impact, completed work, blocked capability, and next action sections
+- non-color cues such as `[SUCCESS]`, `[DEGRADED]`, `[FAILED]`, `[WARNING]`, and `[INFO]`
+
+The dashboard shell also adapts to terminal size:
+
+- `wide`: full shell with sidebar, detailed status, and the full branded header
+- `standard` and `compact`: reduced chrome and compact navigation so the dashboard remains usable in smaller terminals
+- extremely small terminals: explicit fallback guidance instead of a broken or clipped TUI
+
+Mutating workflows prompt by default in interactive terminals when a decision materially affects the result. Examples include:
+
+- `mimirmesh init`
+- `mimirmesh install ide`
+- `mimirmesh runtime start|stop|restart|refresh`
+- `mimirmesh runtime upgrade migrate|repair`
+- `mimirmesh config set|enable|disable`
+
+Automation-safe execution remains available through explicit flags:
+
+- `--non-interactive` skips prompts and requires the documented safe path
+- `--json` emits the machine-readable workflow envelope instead of the human-facing renderer
+
+Inspection flows such as `runtime status`, `runtime upgrade status`, and `mcp list-tools` remain non-interactive by default.
 
 ## Runtime State
 

@@ -112,7 +112,7 @@ export const classifyUpgradeStatus = async (
 	} else if (requiresMigration(currentVersion, targetVersion) || driftCategories.size > 0) {
 		state = "outdated";
 		requiredActions = [
-			requiresMigration(currentVersion, targetVersion) ? "migrate-state" : "refresh-runtime",
+			requiresMigration(currentVersion, targetVersion) ? "migrate-state" : "restart-runtime",
 		];
 	}
 
@@ -139,7 +139,7 @@ export const recommendedUpgradeCommand = (report: UpgradeStatusReport): string |
 		case "outdated":
 			return report.requiredActions.includes("migrate-state")
 				? "mimirmesh runtime upgrade migrate"
-				: "mimirmesh refresh";
+				: "mimirmesh runtime restart --non-interactive";
 		case "repairable":
 		case "degraded":
 			return "mimirmesh runtime upgrade repair";

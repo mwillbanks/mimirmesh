@@ -1,14 +1,19 @@
 import { Database } from "bun:sqlite";
+import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createDefaultConfig, writeConfig } from "@mimirmesh/config";
+import { translateAllEngineConfigs } from "@mimirmesh/mcp-adapters";
 import {
 	createRuntimeUpgradeMetadata,
 	createTargetVersionRecord,
 	createUpgradeCheckpoint,
 	ensureProjectLayout,
 	generateRuntimeFiles,
+	loadBootstrapState,
+	persistBootstrapState,
+	persistEngineState,
 	persistUpgradeCheckpoint,
 	persistUpgradeMetadata,
 	persistVersionRecord,
@@ -48,6 +53,26 @@ const seedNotes = async (projectRoot: string): Promise<void> => {
 	await writeFile(join(notesDir, "fixture-note.md"), "# Fixture Note\n\nRetained note.\n", "utf8");
 };
 
+const seedCompletedBootstrapState = async (projectRoot: string): Promise<void> => {
+	const startedAt = new Date().toISOString();
+	const existing = await loadBootstrapState(projectRoot);
+	if (!existing) {
+		throw new Error("Bootstrap state must exist before seeding runtime-upgrade fixtures.");
+	}
+
+	await persistBootstrapState(projectRoot, {
+		updatedAt: startedAt,
+		engines: existing.engines.map((entry) => ({
+			...entry,
+			completed: true,
+			lastStartedAt: entry.lastStartedAt ?? startedAt,
+			lastCompletedAt: startedAt,
+			failureReason: null,
+			retryCount: 0,
+		})),
+	});
+};
+
 const seedSrclightIndex = async (projectRoot: string): Promise<void> => {
 	const indexPath = join(projectRoot, ".srclight", "index.db");
 	await mkdir(join(projectRoot, ".srclight"), { recursive: true });
@@ -61,6 +86,50 @@ const seedSrclightIndex = async (projectRoot: string): Promise<void> => {
 	}
 };
 
+const hashValue = (value: unknown): string =>
+	createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+const seedCurrentEngineState = async (
+	projectRoot: string,
+	config: ReturnType<typeof createDefaultConfig>,
+): Promise<void> => {
+	const translated = translateAllEngineConfigs(projectRoot, config);
+	const timestamp = new Date().toISOString();
+
+	await Promise.all(
+		translated.map((engine) =>
+			persistEngineState(projectRoot, {
+				engine: engine.contract.id,
+				enabled: config.engines[engine.contract.id].enabled,
+				required: config.engines[engine.contract.id].required,
+				namespace: engine.contract.namespace,
+				serviceName: engine.contract.serviceName,
+				imageTag: engine.contract.imageTag,
+				configHash: hashValue(engine.contract.env),
+				discoveredTools: [],
+				health: {
+					state: "healthy",
+					message: "fixture state",
+					checkedAt: timestamp,
+				},
+				bridge: {
+					url: "",
+					transport: engine.contract.bridgeTransport,
+					healthy: true,
+					checkedAt: timestamp,
+				},
+				lastStartupAt: timestamp,
+				lastBootstrapAt: timestamp,
+				lastBootstrapResult: "success",
+				capabilityWarnings: [],
+				runtimeEvidence: {
+					bootstrapMode: engine.contract.id === "codebase-memory-mcp" ? "tool" : "none",
+				},
+			}),
+		),
+	);
+};
+
 export const createRuntimeUpgradeFixture = async (
 	state: RuntimeUpgradeFixtureState,
 ): Promise<{ repo: string; config: ReturnType<typeof createDefaultConfig> }> => {
@@ -71,7 +140,9 @@ export const createRuntimeUpgradeFixture = async (
 	await generateRuntimeFiles(repo, config);
 	await seedReports(repo);
 	await seedNotes(repo);
+	await seedCompletedBootstrapState(repo);
 	await seedSrclightIndex(repo);
+	await seedCurrentEngineState(repo, config);
 
 	const outdatedVersion = createTargetVersionRecord("fixture-outdated", {
 		runtimeVersion: "0.9.0",

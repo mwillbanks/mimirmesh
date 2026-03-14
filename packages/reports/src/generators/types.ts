@@ -1,4 +1,4 @@
 export type GeneratedReport = {
-  name: string;
-  path: string;
+	name: string;
+	path: string;
 };

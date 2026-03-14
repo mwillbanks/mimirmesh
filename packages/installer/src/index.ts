@@ -127,6 +127,10 @@ export const installFromArtifacts = async (options: {
 	};
 	const serverPath = await maybeInstallBinary("mimirmesh-server");
 	const clientPath = await maybeInstallBinary("mimirmesh-client");
+	const manifestPath = join(options.artifactDir, "manifest.json");
+	if (await pathExists(manifestPath)) {
+		await copyFile(manifestPath, join(options.targetBinDir, "manifest.json"));
+	}
 	const sourceAssets = join(options.artifactDir, "mimirmesh-assets");
 	if (await pathExists(sourceAssets)) {
 		const targetAssets = join(options.targetBinDir, "mimirmesh-assets");

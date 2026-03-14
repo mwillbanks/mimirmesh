@@ -1,37 +1,31 @@
-import { CommandRunner } from "../../lib/command-runner";
-import { loadCliContext, runtimeAction } from "../../lib/context";
+import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
+import type zod from "zod/v4";
 
-export default function RuntimeStatusCommand() {
+import { CommandRunner } from "../../lib/command-runner";
+import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
+import { createRuntimeActionWorkflow } from "../../workflows/runtime";
+
+export const options = withPresentationOptions({});
+
+type Props = {
+	options: zod.infer<typeof options>;
+	presentation?: PresentationProfile;
+	exitOnComplete?: boolean;
+	onComplete?: (state: WorkflowRunState) => void;
+};
+
+export default function RuntimeStatusCommand({
+	options,
+	presentation,
+	exitOnComplete,
+	onComplete,
+}: Props) {
 	return (
 		<CommandRunner
-			title="Runtime Status"
-			run={async () => {
-				const context = await loadCliContext();
-				const result = await runtimeAction(context, "status");
-				return {
-					state: result.ok ? "success" : "warning",
-					message: result.message,
-					details: [
-						{
-							label: "Runtime version",
-							value: result.runtimeVersion?.runtimeVersion ?? "unknown",
-						},
-						{
-							label: "Schema version",
-							value: String(result.runtimeVersion?.runtimeSchemaVersion ?? "unknown"),
-						},
-						{
-							label: "Health",
-							value: result.health.state,
-						},
-						{
-							label: "Migration status",
-							value: result.health.migrationStatus ?? "none",
-						},
-					],
-					output: result,
-				};
-			}}
+			definition={createRuntimeActionWorkflow("status")}
+			presentation={presentation ?? resolvePresentationProfile(options)}
+			exitOnComplete={exitOnComplete}
+			onComplete={onComplete}
 		/>
 	);
 }

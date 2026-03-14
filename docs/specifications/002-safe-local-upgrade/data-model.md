@@ -26,7 +26,7 @@
 - `currentVersion`: current recorded project-local version evidence
 - `targetVersion`: version implied by the installed CLI/runtime definitions
 - `automaticMigrationAllowed`: boolean derived from the compatibility window
-- `requiredActions`: ordered list of `none`, `refresh-runtime`, `migrate-state`, `repair-state`, `manual-intervention`
+- `requiredActions`: ordered list of `none`, `restart-runtime`, `migrate-state`, `repair-state`, `manual-intervention`
 - `driftCategories`: list such as `runtime-metadata`, `compose-definition`, `engine-image`, `bootstrap-input`, `preserved-asset-validation`
 - `warnings`: human-readable upgrade risks or degraded outcomes
 - `checkedAt`

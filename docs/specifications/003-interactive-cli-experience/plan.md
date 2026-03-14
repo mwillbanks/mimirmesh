@@ -78,6 +78,8 @@ apps/
     │   └── context.ts
     ├── ui/
     └── workflows/
+        ├── init.ts
+        └── runtime.ts
 
 packages/
 └── ui/
@@ -87,6 +89,7 @@ packages/
     ├── hooks/
     ├── patterns/
     ├── theme/
+    ├── workflow/
     └── index.ts
 
 tests/

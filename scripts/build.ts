@@ -58,13 +58,16 @@ await cp(runtimeAssetsSource, runtimeAssetsTarget, { recursive: true });
 const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")) as {
 	version?: string;
 };
+const builtAt = new Date().toISOString();
+const buildId = `${packageJson.version ?? "0.0.0"}+${builtAt}`;
 
 await writeFile(
 	join(distDir, "manifest.json"),
 	`${JSON.stringify(
 		{
 			version: packageJson.version ?? "0.0.0",
-			builtAt: new Date().toISOString(),
+			builtAt,
+			buildId,
 			artifacts: ["mimirmesh", "mm", "mimirmesh-server", "mimirmesh-client", "mimirmesh-assets"],
 		},
 		null,

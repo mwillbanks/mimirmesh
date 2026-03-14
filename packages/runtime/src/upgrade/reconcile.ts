@@ -8,7 +8,7 @@ import { detectDockerAvailability } from "../health/docker";
 import { runCompose } from "../services/compose";
 import { resolveBridgePorts } from "../services/ports";
 import { runtimeStatus } from "../services/runtime-lifecycle";
-import { loadConnection, persistRoutingTable } from "../state/io";
+import { loadConnection, persistConnection, persistRoutingTable } from "../state/io";
 import { collectEngineUpgradeDecisions } from "./decisions";
 
 const unique = <T>(items: T[]): T[] => [...new Set(items)];
@@ -22,8 +22,8 @@ export const reconcileRuntime = async (
 	engineDecisions: Awaited<ReturnType<typeof collectEngineUpgradeDecisions>>;
 	affectedServices: string[];
 }> => {
-	await generateRuntimeFiles(projectRoot, config);
 	const engineDecisions = await collectEngineUpgradeDecisions(projectRoot, config);
+	await generateRuntimeFiles(projectRoot, config);
 	const availability = await detectDockerAvailability();
 	if (
 		!availability.dockerInstalled ||
@@ -41,14 +41,6 @@ export const reconcileRuntime = async (
 	const enabledEngines = Object.entries(config.engines)
 		.filter(([, engine]) => engine.enabled)
 		.map(([engine]) => engine);
-
-	if (!connection?.startedAt) {
-		return {
-			runtime: await runtimeStatus(projectRoot, config),
-			engineDecisions,
-			affectedServices: [],
-		};
-	}
 
 	const servicesToRecreate = engineDecisions
 		.filter((decision) => decision.runtimeAction === "recreate-service")
@@ -86,7 +78,13 @@ export const reconcileRuntime = async (
 	}
 
 	const bridgePorts = await resolveBridgePorts(config, enabledEngines as never);
-	const startedAt = connection.startedAt ?? new Date().toISOString();
+	const startedAt = connection?.startedAt ?? new Date().toISOString();
+	if (connection && connection.startedAt !== startedAt) {
+		connection.startedAt = startedAt;
+		connection.updatedAt = new Date().toISOString();
+		connection.bridgePorts = bridgePorts;
+		await persistConnection(projectRoot, connection);
+	}
 	const discovery = await discoverEngineCapability({
 		projectRoot,
 		config,

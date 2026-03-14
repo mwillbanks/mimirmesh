@@ -29,6 +29,12 @@ export {
 	composeUp,
 	runCompose,
 } from "./services/compose";
+export {
+	detectHostGpuCapability,
+	type HostGpuCapability,
+	resolveGpuPolicy,
+	resolveRuntimeAdapterContext,
+} from "./services/gpu-policy";
 export { resolveBridgePorts } from "./services/ports";
 export {
 	dockerComposeRender,
@@ -61,6 +67,16 @@ export {
 	runtimeFiles,
 } from "./state/io";
 export { ensureProjectLayout } from "./state/layout";
+export type { BuildManifest, McpServerSession } from "./state/mcp-server";
+export {
+	clearMcpServerSession,
+	detectMcpServerStaleness,
+	hasLatestBuildManifest,
+	loadExecutableBuildManifest,
+	loadLatestBuildManifest,
+	loadMcpServerSession,
+	persistMcpServerSession,
+} from "./state/mcp-server";
 export {
 	backupSnapshotRoot,
 	backupsRoot,
@@ -70,6 +86,7 @@ export {
 	engineStatePath,
 	enginesStateDir,
 	healthPath,
+	mcpServerStatePath,
 	quarantineRoot,
 	routingTablePath,
 	runtimeRoot,

@@ -1,5 +1,4 @@
 import type { EngineDiscoveredTool } from "@mimirmesh/runtime";
 
-export const normalizeDocumentMcpTools = (
-  tools: EngineDiscoveredTool[],
-): EngineDiscoveredTool[] => tools;
+export const normalizeDocumentMcpTools = (tools: EngineDiscoveredTool[]): EngineDiscoveredTool[] =>
+	tools;

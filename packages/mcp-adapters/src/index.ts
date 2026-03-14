@@ -9,7 +9,10 @@ export type {
 	AdapterRoutingRule,
 	EngineAdapterModule,
 	EngineBootstrapDefinition,
+	EngineGpuResolution,
 	EngineRuntimeContract,
+	RuntimeAdapterContext,
+	RuntimeVariant,
 } from "./types";
 
 export const allEngineAdapters: EngineAdapterModule[] = [
@@ -34,10 +37,13 @@ export const translateEngineConfig = (
 	engine: EngineId,
 	projectRoot: string,
 	config: MimirmeshConfig,
-): EngineConfigTranslationResult => getAdapter(engine).translateConfig(projectRoot, config);
+	context?: import("./types").RuntimeAdapterContext,
+): EngineConfigTranslationResult =>
+	getAdapter(engine).translateConfig(projectRoot, config, context);
 
 export const translateAllEngineConfigs = (
 	projectRoot: string,
 	config: MimirmeshConfig,
+	context?: import("./types").RuntimeAdapterContext,
 ): EngineConfigTranslationResult[] =>
-	allEngineAdapters.map((adapter) => adapter.translateConfig(projectRoot, config));
+	allEngineAdapters.map((adapter) => adapter.translateConfig(projectRoot, config, context));

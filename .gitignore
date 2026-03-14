@@ -2,9 +2,22 @@ node_modules
 bun.lock
 .DS_Store
 dist
+build
 tmp
 coverage
+*.log
+.env
+.env.*
+Thumbs.db
+*.tmp
+*.swp
+.idea/
 
 # Auto-generated MCP server context (added automatically)
 .mcp-server-context.md
 .srclight/
+.vscode/mcp.json
+.mimirmesh/
+.agents/task-state.md
+.agents/reports/
+apps/cli/src/.pastel-runtime-*

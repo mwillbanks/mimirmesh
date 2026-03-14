@@ -17,7 +17,7 @@
 		"test:packages": "bun test packages",
 		"test:apps": "bun test apps",
 		"test:unit": "bun test packages apps",
-		"test:integration": "bun test packages/testing/src/integration",
+		"test:integration": "bun run scripts/run-integration-tests.ts",
 		"test:workflow": "bun test tests/workflow",
 		"validate": "bun run check && bun run test && bun run build"
 	},

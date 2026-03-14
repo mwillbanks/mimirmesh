@@ -10,6 +10,7 @@ const assetRoots = ["common", "srclight", "document-mcp", "adr-analysis", "codeb
 const requiredAssetFiles = [
 	"common/engine-bridge.mjs",
 	"srclight/Dockerfile",
+	"srclight/Dockerfile.cpu",
 	"document-mcp/Dockerfile",
 	"adr-analysis/Dockerfile",
 	"codebase-memory/Dockerfile",

@@ -1,23 +1,31 @@
-import { CommandRunner } from "../lib/command-runner";
-import { loadCliContext, refreshProject } from "../lib/context";
+import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
+import type zod from "zod/v4";
 
-export default function RefreshCommand() {
+import { CommandRunner } from "../lib/command-runner";
+import { resolvePresentationProfile, withPresentationOptions } from "../lib/presentation";
+import { createRefreshWorkflow } from "../workflows/init";
+
+export const options = withPresentationOptions({}, { allowNonInteractive: true });
+
+type Props = {
+	options: zod.infer<typeof options>;
+	presentation?: PresentationProfile;
+	exitOnComplete?: boolean;
+	onComplete?: (state: WorkflowRunState) => void;
+};
+
+export default function RefreshCommand({
+	options,
+	presentation,
+	exitOnComplete,
+	onComplete,
+}: Props) {
 	return (
 		<CommandRunner
-			title="Refresh Indexes and Reports"
-			run={async () => {
-				const context = await loadCliContext();
-				const result = await refreshProject(context);
-				return {
-					state: "success",
-					message: "Refresh completed.",
-					details: [
-						{ label: "Runtime", value: result.runtimeMessage },
-						{ label: "Reports", value: String(result.reports.length) },
-					],
-					output: result.reports,
-				};
-			}}
+			definition={createRefreshWorkflow()}
+			presentation={presentation ?? resolvePresentationProfile(options)}
+			exitOnComplete={exitOnComplete}
+			onComplete={onComplete}
 		/>
 	);
 }

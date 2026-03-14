@@ -129,8 +129,9 @@ export const repairRuntime = async (
 	return {
 		ok: result === "success" || result === "degraded",
 		action: "repair" as const,
-		message:
-			result === "success"
+		message: finalStatus.report.requiredActions.includes("restart-runtime")
+			? "Runtime repair completed, but Docker containers still need a runtime restart to load the rebuilt runtime definition."
+			: result === "success"
 				? "Runtime repair completed."
 				: "Runtime repair completed with remaining degraded assets.",
 		report: finalStatus.report,

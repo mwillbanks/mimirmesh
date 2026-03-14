@@ -23,6 +23,11 @@ Version evidence records the CLI/runtime version, runtime schema version, engine
 - `mimirmesh runtime doctor`
 - `mimirmesh runtime status`
 
+Mutating runtime upgrade commands are guided by default in interactive
+terminals. `upgrade`, `runtime upgrade migrate`, and `runtime upgrade repair`
+now explain consequences before proceeding and require `--non-interactive`
+when invoked from automation or another non-interactive terminal.
+
 `mimirmesh update` remains the CLI self-update flow and does not imply that a project-local runtime is current.
 
 ## Upgrade Model
@@ -64,3 +69,7 @@ Use `mimirmesh runtime upgrade repair` when:
 - an upgrade was interrupted and a checkpoint is resumable
 - preserved assets were quarantined and the runtime is degraded
 - upgrade status reports `repairable`
+
+All runtime upgrade commands now conclude with a terminal outcome classified as
+`success`, `degraded`, or `failed`, including blocked capability and next
+action sections so partial-success cases are explicit.

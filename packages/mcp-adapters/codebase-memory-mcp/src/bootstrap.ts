@@ -1,17 +1,5 @@
 import type { EngineBootstrapDefinition } from "../../src/types";
 
-export const codebaseMemoryBootstrap: EngineBootstrapDefinition = {
-  required: true,
-  mode: "tool",
-  tool: "index_repository",
-  args: (_projectRoot, config) => {
-    const settings = config.engines["codebase-memory-mcp"].settings as {
-      repoPath: string;
-      forceReindex: boolean;
-    };
-    return {
-      repo_path: settings.repoPath,
-      mode: settings.forceReindex ? "full" : "fast",
-    };
-  },
-};
+// The codebase-memory engine auto-indexes from REPO_PATH during startup, so issuing
+// an additional index_repository bootstrap call creates a duplicate index race.
+export const codebaseMemoryBootstrap: EngineBootstrapDefinition | null = null;

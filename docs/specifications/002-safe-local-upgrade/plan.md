@@ -14,7 +14,7 @@ Implement a non-destructive project-local runtime upgrade system for `.mimirmesh
 **Language/Version**: TypeScript 5.9 on Bun workspace tooling for CLI, runtime, config, and tests  
 **Primary Dependencies**: Bun workspace packages, `zod`, `ink`, `pastel`, `yaml`, Docker Compose runtime management, existing `@mimirmesh/config`, `@mimirmesh/runtime`, `@mimirmesh/logging`, and `@mimirmesh/testing` packages  
 **Storage**: Project-local `.mimirmesh/config.yml`, `.mimirmesh/runtime/*.json`, `.mimirmesh/runtime/engines/*.json`, `.mimirmesh/reports/*`, `.mimirmesh/logs/*`, `.mimirmesh/indexes/*`, `.mimirmesh/memory/*`, `.mimirmesh/cache/*`, and repo-local engine artifacts such as `.srclight/*` where applicable  
-**Testing**: `bun test` package-local tests, runtime integration tests in `packages/testing/src/integration`, app tests under `apps/*`, and workflow regression tests in `tests/workflow`  
+**Testing**: `bun test` package-local tests, runtime integration tests in `packages/testing/tests/integration`, app tests under `apps/*`, and workflow regression tests in `tests/workflow`  
 **Target Platform**: macOS/Linux hosts running project-scoped Docker containers with local filesystem access to the repository and `.mimirmesh` state  
 **Project Type**: Bun workspace monorepo with CLI app, reusable runtime/config packages, project-local state management, and containerized engine orchestration  
 **Performance Goals**: Upgrade status classification completes in under 30 seconds, no-op upgrades avoid unnecessary rebuild/rebootstrap work, and upgraded runtimes only report healthy after required reconciliation and preserved-state validation complete  

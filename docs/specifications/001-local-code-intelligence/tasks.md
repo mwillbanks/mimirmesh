@@ -54,7 +54,7 @@
 
 - [X] T014 [P] [US1] Add Srclight adapter config and routing tests in `packages/mcp-adapters/srclight/src/config.test.ts` and `packages/mcp-adapters/srclight/src/routing.test.ts`
 - [X] T015 [P] [US1] Update unified routing and router tests for Srclight priority and passthrough namespace in `packages/mcp-core/src/routing/table.test.ts` and `packages/mcp-core/src/registry/router.test.ts`
-- [X] T016 [P] [US1] Update MCP integration coverage for Srclight-backed unified and passthrough queries in `packages/testing/src/integration/mcp-integration.test.ts`
+- [X] T016 [P] [US1] Update MCP integration coverage for Srclight-backed unified and passthrough queries in `packages/testing/tests/integration/mcp-integration.test.ts`
 
 ### Implementation for User Story 1
 
@@ -75,7 +75,7 @@
 
 ### Tests for User Story 2
 
-- [X] T021 [P] [US2] Add engine integration coverage for Srclight image build, startup, discovery, and bootstrap in `packages/testing/src/integration/engines.test.ts` and `packages/testing/src/integration/runtime-lifecycle.test.ts`
+- [X] T021 [P] [US2] Add engine integration coverage for Srclight image build, startup, discovery, and bootstrap in `packages/testing/tests/integration/engines.test.ts` and `packages/testing/tests/integration/runtime-lifecycle.test.ts`
 - [X] T022 [P] [US2] Add bridge transport and reconnect regression tests for upstream HTTP/SSE behavior in `packages/mcp-core/src/transport/bridge.test.ts` and `packages/runtime/src/discovery/discover.test.ts`
 
 ### Implementation for User Story 2
@@ -114,9 +114,9 @@
 
 **Purpose**: Finish deletion cleanup, run the required validations, and verify the docs match the observed runtime.
 
-- [X] T032 [P] Remove lingering codebrain references from runtime-facing and integration surfaces in `packages/testing/src/integration/engines.test.ts`, `packages/testing/src/integration/mcp-integration.test.ts`, and `tests/workflow/end-to-end.test.ts`
+- [X] T032 [P] Remove lingering codebrain references from runtime-facing and integration surfaces in `packages/testing/tests/integration/engines.test.ts`, `packages/testing/tests/integration/mcp-integration.test.ts`, and `tests/workflow/end-to-end.test.ts`
 - [X] T033 Run package-local test suites for config, adapter, runtime, and routing changes in `packages/config/src/schema/config.test.ts`, `packages/mcp-adapters/srclight/src/config.test.ts`, `packages/mcp-adapters/srclight/src/routing.test.ts`, `packages/runtime/src/discovery/discover.test.ts`, `packages/runtime/src/compose/render.test.ts`, `packages/runtime/src/health/compose.test.ts`, `packages/mcp-core/src/routing/table.test.ts`, and `packages/mcp-core/src/transport/bridge.test.ts`
-- [X] T034 Run engine integration, MCP integration, and workflow validation for Srclight in `packages/testing/src/integration/engines.test.ts`, `packages/testing/src/integration/runtime-lifecycle.test.ts`, `packages/testing/src/integration/mcp-integration.test.ts`, and `tests/workflow/end-to-end.test.ts`
+- [X] T034 Run engine integration, MCP integration, and workflow validation for Srclight in `packages/testing/tests/integration/engines.test.ts`, `packages/testing/tests/integration/runtime-lifecycle.test.ts`, `packages/testing/tests/integration/mcp-integration.test.ts`, and `tests/workflow/end-to-end.test.ts`
 - [X] T035 Verify `docs/features/mcp-server.md` and `docs/features/mcp-client.md` against the observed Srclight runtime output captured through `docs/specifications/001-local-code-intelligence/quickstart.md`
 
 ---
@@ -162,7 +162,7 @@
 # Launch the Srclight adapter test updates together:
 Task: "Add Srclight adapter config and routing tests in packages/mcp-adapters/srclight/src/config.test.ts and packages/mcp-adapters/srclight/src/routing.test.ts"
 Task: "Update unified routing and router tests for Srclight priority and passthrough namespace in packages/mcp-core/src/routing/table.test.ts and packages/mcp-core/src/registry/router.test.ts"
-Task: "Update MCP integration coverage for Srclight-backed unified and passthrough queries in packages/testing/src/integration/mcp-integration.test.ts"
+Task: "Update MCP integration coverage for Srclight-backed unified and passthrough queries in packages/testing/tests/integration/mcp-integration.test.ts"
 ```
 
 ---
@@ -171,7 +171,7 @@ Task: "Update MCP integration coverage for Srclight-backed unified and passthrou
 
 ```bash
 # Launch runtime validation test work together:
-Task: "Add engine integration coverage for Srclight image build, startup, discovery, and bootstrap in packages/testing/src/integration/engines.test.ts and packages/testing/src/integration/runtime-lifecycle.test.ts"
+Task: "Add engine integration coverage for Srclight image build, startup, discovery, and bootstrap in packages/testing/tests/integration/engines.test.ts and packages/testing/tests/integration/runtime-lifecycle.test.ts"
 Task: "Add bridge transport and reconnect regression tests for upstream HTTP/SSE behavior in packages/mcp-core/src/transport/bridge.test.ts and packages/runtime/src/discovery/discover.test.ts"
 ```
 

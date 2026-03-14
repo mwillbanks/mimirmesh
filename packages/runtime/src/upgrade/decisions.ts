@@ -35,13 +35,20 @@ export const collectEngineUpgradeDecisions = async (
 			? previousBootstrap.lastCompletedAt !== null &&
 				previousBootstrap.bootstrapInputHash !== bootstrapInputHash
 			: false;
+		const bootstrapIncomplete = Boolean(
+			adapter.bootstrap &&
+				config.engines[adapter.id].enabled &&
+				(!previousBootstrap ||
+					!previousBootstrap.completed ||
+					previousBootstrap.lastCompletedAt === null),
+		);
 
 		let runtimeAction: EngineUpgradeDecision["runtimeAction"] = "none";
 		if (!currentState && config.engines[adapter.id].enabled) {
 			runtimeAction = "recreate-service";
 		} else if (currentState?.imageTag !== translated.contract.imageTag || configHashChanged) {
 			runtimeAction = "recreate-service";
-		} else if (bootstrapInputChanged) {
+		} else if (bootstrapInputChanged || bootstrapIncomplete) {
 			runtimeAction = "rebootstrap";
 		} else if (config.engines[adapter.id].enabled) {
 			runtimeAction = "rediscover-only";

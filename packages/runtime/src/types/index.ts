@@ -88,6 +88,11 @@ export type EngineRuntimeState = {
 		repoLocalStateDir?: string;
 		repoLocalIndexPresent?: boolean;
 		repoLocalEmbeddingFiles?: string[];
+		gpuMode?: "auto" | "on" | "off";
+		effectiveUseGpu?: boolean;
+		runtimeVariant?: "cpu" | "cuda";
+		hostNvidiaAvailable?: boolean;
+		gpuResolutionReason?: string;
 		gitBinaryAvailable?: boolean;
 		gitRepoVisible?: boolean;
 		gitWorkTreeAccessible?: boolean;
@@ -128,6 +133,7 @@ export type UnifiedRoute = {
 	engine: EngineId;
 	engineTool: string;
 	priority: number;
+	inputSchema?: Record<string, unknown>;
 };
 
 export type RoutingTable = {

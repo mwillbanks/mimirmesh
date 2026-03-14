@@ -1,19 +1,31 @@
-import { CommandRunner } from "../../../lib/command-runner";
-import { loadCliContext, runtimeUpgradeStatus } from "../../../lib/context";
+import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
+import type zod from "zod/v4";
 
-export default function RuntimeUpgradeIndexCommand() {
+import { CommandRunner } from "../../../lib/command-runner";
+import { resolvePresentationProfile, withPresentationOptions } from "../../../lib/presentation";
+import { createRuntimeUpgradeStatusWorkflow } from "../../../workflows/runtime";
+
+export const options = withPresentationOptions({});
+
+type Props = {
+	options: zod.infer<typeof options>;
+	presentation?: PresentationProfile;
+	exitOnComplete?: boolean;
+	onComplete?: (state: WorkflowRunState) => void;
+};
+
+export default function RuntimeUpgradeIndexCommand({
+	options,
+	presentation,
+	exitOnComplete,
+	onComplete,
+}: Props) {
 	return (
 		<CommandRunner
-			title="Runtime Upgrade"
-			run={async () => {
-				const context = await loadCliContext();
-				const result = await runtimeUpgradeStatus(context);
-				return {
-					state: result.report.state === "current" ? "success" : "warning",
-					message: `Runtime upgrade state: ${result.report.state}.`,
-					output: result,
-				};
-			}}
+			definition={createRuntimeUpgradeStatusWorkflow()}
+			presentation={presentation ?? resolvePresentationProfile(options)}
+			exitOnComplete={exitOnComplete}
+			onComplete={onComplete}
 		/>
 	);
 }

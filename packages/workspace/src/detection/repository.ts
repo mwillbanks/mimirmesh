@@ -1,6 +1,6 @@
 import { access, lstat, readdir, readFile } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
-
+import { loadRepositoryIgnoreMatcher } from "../ignore";
 import { detectSpecKit } from "../speckit/manager";
 import type { SpecKitStatus } from "../speckit/types";
 
@@ -28,19 +28,6 @@ export type SearchHit = {
 	preview: string;
 	score: number;
 };
-
-const ignoredDirectories = new Set([
-	".git",
-	"node_modules",
-	"dist",
-	"build",
-	"coverage",
-	"tmp",
-	".next",
-	".turbo",
-	".cache",
-	"vendor",
-]);
 
 const docsExtensions = new Set([".md", ".mdx", ".txt", ".rst", ".adoc", ".html"]);
 const codeExtensions = new Set([
@@ -144,6 +131,7 @@ export const collectRepositoryFiles = async (
 ): Promise<string[]> => {
 	const output: string[] = [];
 	const maxFiles = options.maxFiles ?? 20000;
+	const matcher = await loadRepositoryIgnoreMatcher(rootPath);
 
 	const walk = async (dirPath: string): Promise<void> => {
 		if (output.length >= maxFiles) {
@@ -156,17 +144,12 @@ export const collectRepositoryFiles = async (
 				break;
 			}
 
-			if (entry.name.startsWith(".") && entry.name !== ".mimirmesh" && entry.name !== ".github") {
-				if (entry.name !== ".vscode" && entry.name !== ".cursor" && entry.name !== ".claude") {
-					continue;
-				}
-			}
-
-			if (ignoredDirectories.has(entry.name)) {
+			const absolutePath = join(dirPath, entry.name);
+			const relativePath = normalizePath(relative(rootPath, absolutePath));
+			if (matcher.ignores(relativePath, { isDirectory: entry.isDirectory() })) {
 				continue;
 			}
 
-			const absolutePath = join(dirPath, entry.name);
 			if (entry.isDirectory()) {
 				await walk(absolutePath);
 				continue;

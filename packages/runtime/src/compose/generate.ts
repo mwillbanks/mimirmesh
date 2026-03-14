@@ -1,9 +1,16 @@
 import type { MimirmeshConfig } from "@mimirmesh/config";
-import { translateAllEngineConfigs } from "@mimirmesh/mcp-adapters";
+import {
+	allEngineAdapters,
+	type RuntimeAdapterContext,
+	translateAllEngineConfigs,
+} from "@mimirmesh/mcp-adapters";
 import { materializeRuntimeImages } from "../images/materialize";
+import { resolveRuntimeAdapterContext } from "../services/gpu-policy";
 import {
 	collectSrclightRepoLocalEvidence,
 	hashValue,
+	loadBootstrapState,
+	loadConnection,
 	persistBackupManifest,
 	persistBootstrapState,
 	persistConnection,
@@ -22,22 +29,52 @@ import { createRuntimeUpgradeMetadata } from "../upgrade/metadata";
 import { createTargetVersionRecord } from "../upgrade/versioning";
 import { renderCompose } from "./render";
 
+const bootstrapModeForEngine = (engineId: string): "tool" | "command" | "none" => {
+	const adapter = allEngineAdapters.find((entry) => entry.id === engineId);
+	return adapter?.bootstrap?.mode ?? "none";
+};
+
+const bootstrapInputHashForEngine = (
+	projectRoot: string,
+	config: MimirmeshConfig,
+	engineId: string,
+): string => {
+	const adapter = allEngineAdapters.find((entry) => entry.id === engineId);
+	if (!adapter?.bootstrap) {
+		return hashValue({ skipped: true });
+	}
+
+	return hashValue({
+		mode: adapter.bootstrap.mode,
+		args: adapter.bootstrap.args(projectRoot, config),
+	});
+};
+
 export const generateRuntimeFiles = async (
 	projectRoot: string,
 	config: MimirmeshConfig,
+	options: { adapterContext?: RuntimeAdapterContext } = {},
 ): Promise<{ connection: RuntimeConnection; composeFile: string }> => {
 	await materializeRuntimeImages(projectRoot);
 	const srclightEvidence = await collectSrclightRepoLocalEvidence(projectRoot);
-	const compose = renderCompose(projectRoot, config);
+	const adapterContext = options.adapterContext ?? (await resolveRuntimeAdapterContext(config));
+	const compose = renderCompose(projectRoot, config, {
+		adapterContext,
+	});
 	await writeComposeFile(projectRoot, compose);
 
-	const translated = translateAllEngineConfigs(projectRoot, config);
+	const translated = translateAllEngineConfigs(projectRoot, config, adapterContext);
+	const existingConnection = await loadConnection(projectRoot);
+	const existingBootstrap = await loadBootstrapState(projectRoot);
+	const existingBootstrapByEngine = new Map(
+		(existingBootstrap?.engines ?? []).map((entry) => [entry.engine, entry]),
+	);
 
 	const connection: RuntimeConnection = {
 		projectName: config.runtime.projectName,
 		composeFile: config.runtime.composeFile,
 		updatedAt: new Date().toISOString(),
-		startedAt: null,
+		startedAt: existingConnection?.startedAt ?? null,
 		mounts: {
 			repository: projectRoot,
 			mimirmesh: `${projectRoot}/.mimirmesh`,
@@ -48,7 +85,7 @@ export const generateRuntimeFiles = async (
 				.filter((engine) => config.engines[engine.contract.id].enabled)
 				.map((engine) => engine.contract.serviceName),
 		],
-		bridgePorts: {},
+		bridgePorts: existingConnection?.bridgePorts ?? {},
 	};
 
 	const health: RuntimeHealth = {
@@ -72,18 +109,31 @@ export const generateRuntimeFiles = async (
 	});
 	await persistBootstrapState(projectRoot, {
 		updatedAt: new Date().toISOString(),
-		engines: translated.map((engine) => ({
-			engine: engine.contract.id,
-			required: Boolean(config.engines[engine.contract.id].required),
-			mode: "none",
-			completed: false,
-			bootstrapInputHash: hashValue({ pending: true }),
-			projectRootHash: hashValue(projectRoot),
-			lastStartedAt: null,
-			lastCompletedAt: null,
-			failureReason: null,
-			retryCount: 0,
-		})),
+		engines: translated.map((engine) => {
+			const engineId = engine.contract.id;
+			const bootstrapMode = bootstrapModeForEngine(engineId);
+			const existing = existingBootstrapByEngine.get(engineId);
+			const enabled = Boolean(config.engines[engineId].enabled);
+			const completedByDefault = !enabled || bootstrapMode === "none";
+
+			return {
+				engine: engineId,
+				required: Boolean(config.engines[engineId].required),
+				mode: bootstrapMode,
+				completed: completedByDefault ? true : (existing?.completed ?? false),
+				bootstrapInputHash:
+					existing?.bootstrapInputHash ??
+					bootstrapInputHashForEngine(projectRoot, config, engineId),
+				projectRootHash: hashValue(projectRoot),
+				lastStartedAt: existing?.lastStartedAt ?? null,
+				lastCompletedAt:
+					existing?.lastCompletedAt ?? (completedByDefault ? new Date().toISOString() : null),
+				failureReason: existing?.failureReason ?? null,
+				retryCount: existing?.retryCount ?? 0,
+				...(existing?.command ? { command: existing.command } : {}),
+				...(existing?.args ? { args: existing.args } : {}),
+			};
+		}),
 	});
 
 	for (const engine of translated) {
@@ -94,6 +144,7 @@ export const generateRuntimeFiles = async (
 				: engine.contract.id === "codebase-memory-mcp"
 					? "tool"
 					: "none";
+		const gpuResolution = adapterContext.gpuResolutions?.[engine.contract.id];
 		await persistEngineState(projectRoot, {
 			engine: engine.contract.id,
 			enabled,
@@ -125,6 +176,15 @@ export const generateRuntimeFiles = async (
 					? {
 							bootstrapMode,
 							...srclightEvidence,
+							...(gpuResolution
+								? {
+										gpuMode: gpuResolution.configuredMode,
+										effectiveUseGpu: gpuResolution.effectiveUseGpu,
+										runtimeVariant: gpuResolution.runtimeVariant,
+										hostNvidiaAvailable: gpuResolution.hostNvidiaAvailable,
+										gpuResolutionReason: gpuResolution.resolutionReason,
+									}
+								: {}),
 						}
 					: {
 							bootstrapMode,

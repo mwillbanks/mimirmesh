@@ -14,7 +14,7 @@ export const runtimeUpgradeStateSchema = z.enum([
 export const runtimeUpgradeResultSchema = z.enum(["success", "degraded", "blocked", "failed"]);
 export const runtimeUpgradeRequiredActionSchema = z.enum([
 	"none",
-	"refresh-runtime",
+	"restart-runtime",
 	"migrate-state",
 	"repair-state",
 	"manual-intervention",
@@ -94,6 +94,7 @@ export const engineIdSchema = z.enum([
 ]);
 
 export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
+export const gpuModeSchema = z.enum(["auto", "on", "off"]);
 
 export const engineBridgeSchema = z.object({
 	containerPort: z.number().int().positive().default(4701),
@@ -123,7 +124,8 @@ export const srclightSettingsSchema = z.object({
 	rootPath: z.string(),
 	indexOnStart: z.boolean().default(true),
 	embedModel: z.string().nullable().default(null),
-	ollamaBaseUrl: z.string().nullable().default(null),
+	defaultEmbedModel: z.string().default("nomic-embed-text"),
+	ollamaBaseUrl: z.string().nullable().default("http://host.docker.internal:11434"),
 	embedRequestTimeoutSeconds: z.number().int().positive().default(20),
 });
 
@@ -202,6 +204,7 @@ export const runtimeConfigSchema = z.object({
 	autoStart: z.boolean(),
 	preferInternalNetwork: z.boolean(),
 	useRandomPorts: z.boolean(),
+	gpuMode: gpuModeSchema.default("auto"),
 	state: runtimeStateSchema.default("failed"),
 });
 
@@ -350,6 +353,7 @@ export const runtimeUpgradeMetadataSchema = z.object({
 
 export type RuntimeState = z.infer<typeof runtimeStateSchema>;
 export type EngineId = z.infer<typeof engineIdSchema>;
+export type GpuMode = z.infer<typeof gpuModeSchema>;
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
 export type MimirmeshConfig = z.infer<typeof configSchema>;
 export type RuntimeUpgradeState = z.infer<typeof runtimeUpgradeStateSchema>;

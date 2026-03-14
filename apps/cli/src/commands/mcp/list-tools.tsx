@@ -1,19 +1,31 @@
-import { CommandRunner } from "../../lib/command-runner";
-import { loadCliContext, mcpListTools } from "../../lib/context";
+import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
+import type zod from "zod/v4";
 
-export default function McpListToolsCommand() {
+import { CommandRunner } from "../../lib/command-runner";
+import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
+import { createMcpListToolsWorkflow } from "../../workflows/mcp";
+
+export const options = withPresentationOptions({});
+
+type Props = {
+	options: zod.infer<typeof options>;
+	presentation?: PresentationProfile;
+	exitOnComplete?: boolean;
+	onComplete?: (state: WorkflowRunState) => void;
+};
+
+export default function McpListToolsCommand({
+	options,
+	presentation,
+	exitOnComplete,
+	onComplete,
+}: Props) {
 	return (
 		<CommandRunner
-			title="List MCP Tools"
-			run={async () => {
-				const context = await loadCliContext();
-				const tools = await mcpListTools(context);
-				return {
-					state: "success",
-					message: `Discovered ${tools.length} MCP tools.`,
-					output: tools,
-				};
-			}}
+			definition={createMcpListToolsWorkflow()}
+			presentation={presentation ?? resolvePresentationProfile(options)}
+			exitOnComplete={exitOnComplete}
+			onComplete={onComplete}
 		/>
 	);
 }

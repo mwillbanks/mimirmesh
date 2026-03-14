@@ -1,5 +1,6 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
+import { resolveRepositoryAdrDirectory } from "../adr";
 import { getMimirmeshDir, projectSlug, runtimeDir } from "../paths";
 import type { EngineConfig, MimirmeshConfig } from "../schema";
 
@@ -19,32 +20,6 @@ const engineImage = (service: string, dockerfile: string): EngineConfig["image"]
 	context: runtimeImagesRoot,
 	tag: `mimirmesh/${service}:local`,
 });
-
-const directoryHasAdrFiles = (directory: string): boolean => {
-	if (!existsSync(directory)) {
-		return false;
-	}
-
-	return readdirSync(directory).some((entry) => entry.endsWith(".md") || entry.endsWith(".mdx"));
-};
-
-const detectAdrDirectory = (projectRoot: string): string => {
-	const candidates = ["docs/adr", "docs/decisions", "docs/adrs", "adr", "decisions", "adrs"];
-
-	for (const candidate of candidates) {
-		if (directoryHasAdrFiles(join(projectRoot, candidate))) {
-			return candidate;
-		}
-	}
-
-	for (const candidate of candidates) {
-		if (existsSync(join(projectRoot, candidate))) {
-			return candidate;
-		}
-	}
-
-	return "docs/adr";
-};
 
 const detectDocumentMountConfig = (
 	projectRoot: string,
@@ -96,7 +71,9 @@ export const defaultEngines = (projectRoot: string): MimirmeshConfig["engines"] 
 				rootPath: repoMount,
 				indexOnStart: true,
 				embedModel: process.env.MIMIRMESH_SRCLIGHT_EMBED_MODEL ?? null,
-				ollamaBaseUrl: process.env.MIMIRMESH_SRCLIGHT_OLLAMA_BASE_URL ?? null,
+				defaultEmbedModel: process.env.MIMIRMESH_SRCLIGHT_DEFAULT_EMBED_MODEL ?? "nomic-embed-text",
+				ollamaBaseUrl:
+					process.env.MIMIRMESH_SRCLIGHT_OLLAMA_BASE_URL ?? "http://host.docker.internal:11434",
 				embedRequestTimeoutSeconds: 20,
 			},
 		},
@@ -143,7 +120,7 @@ export const defaultEngines = (projectRoot: string): MimirmeshConfig["engines"] 
 			mounts,
 			settings: {
 				projectPath: repoMount,
-				adrDirectory: detectAdrDirectory(projectRoot),
+				adrDirectory: resolveRepositoryAdrDirectory(projectRoot),
 				executionMode: process.env.OPENROUTER_API_KEY ? "full" : "prompt-only",
 				openrouterApiKey: process.env.OPENROUTER_API_KEY ?? null,
 			},
@@ -194,6 +171,7 @@ export const createDefaultConfig = (projectRoot: string): MimirmeshConfig => {
 			autoStart: true,
 			preferInternalNetwork: true,
 			useRandomPorts: true,
+			gpuMode: "auto",
 			state: "failed",
 		},
 		logging: {

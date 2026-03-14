@@ -18,15 +18,23 @@ describe("workflow project runtime upgrade", () => {
 	test("upgrades supported older runtime in place", async () => {
 		const fixture = await createRuntimeUpgradeFixture("outdated");
 		try {
-			const status = await run([distBinary, "runtime", "upgrade", "status"], fixture.repo, {
-				MIMIRMESH_PROJECT_ROOT: fixture.repo,
-			});
+			const status = await run(
+				[distBinary, "runtime", "upgrade", "status", "--json"],
+				fixture.repo,
+				{
+					MIMIRMESH_PROJECT_ROOT: fixture.repo,
+				},
+			);
 			expect(status.code).toBe(0);
 			expect(status.stdout.includes('"state": "outdated"')).toBe(true);
 
-			const migrate = await run([distBinary, "runtime", "upgrade", "migrate"], fixture.repo, {
-				MIMIRMESH_PROJECT_ROOT: fixture.repo,
-			});
+			const migrate = await run(
+				[distBinary, "runtime", "upgrade", "migrate", "--non-interactive"],
+				fixture.repo,
+				{
+					MIMIRMESH_PROJECT_ROOT: fixture.repo,
+				},
+			);
 			expect(migrate.code).toBe(0);
 
 			const version = await readFile(

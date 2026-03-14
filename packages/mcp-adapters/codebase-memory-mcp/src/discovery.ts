@@ -1,5 +1,5 @@
 import type { EngineDiscoveredTool } from "@mimirmesh/runtime";
 
 export const normalizeCodebaseMemoryTools = (
-  tools: EngineDiscoveredTool[],
+	tools: EngineDiscoveredTool[],
 ): EngineDiscoveredTool[] => tools;

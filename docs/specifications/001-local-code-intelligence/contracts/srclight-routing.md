@@ -21,12 +21,19 @@ Expected high-value passthrough tools include:
 - `mimirmesh.srclight.get_implementors`
 - `mimirmesh.srclight.get_tests_for`
 - `mimirmesh.srclight.get_type_hierarchy`
+- `mimirmesh.srclight.get_platform_variants`
+- `mimirmesh.srclight.platform_conditionals`
 - `mimirmesh.srclight.semantic_search`
 - `mimirmesh.srclight.hybrid_search`
 - `mimirmesh.srclight.index_status`
 - `mimirmesh.srclight.reindex`
+- `mimirmesh.srclight.list_projects`
+- `mimirmesh.srclight.changes_to`
 - `mimirmesh.srclight.embedding_status`
 - `mimirmesh.srclight.embedding_health`
+- `mimirmesh.srclight.setup_guide`
+- `mimirmesh.srclight.server_stats`
+- `mimirmesh.srclight.restart_server`
 
 No Srclight passthrough tool may be registered from a static catalog.
 
@@ -41,11 +48,16 @@ Planned mappings:
 | `explain_project` | `codebase_map` | Primary repository orientation surface |
 | `explain_subsystem` | `get_symbol`, `symbols_in_file`, `search_symbols` | Adapter may combine steps for subsystem summaries |
 | `find_symbol` | `search_symbols`, `get_symbol`, `get_signature` | Prefer exact/fuzzy symbol lookup over generic grep-style search |
+| `find_tests` | `get_tests_for` | Friendly test-discovery surface over Srclight symbol coverage |
+| `inspect_type_hierarchy` | `get_type_hierarchy` | Single-step type hierarchy lookup |
+| `inspect_platform_code` | `get_platform_variants`, `platform_conditionals` | Symbol input selects variants; empty input selects global conditional scan |
+| `list_workspace_projects` | `list_projects` | Workspace/project inventory without passthrough naming |
+| `refresh_index` | `reindex` | Incremental refresh using the live Srclight indexer |
 | `search_code` | `hybrid_search`, `search_symbols`, `semantic_search` | Use semantic capability only when live discovery and config support it |
 | `trace_dependency` | `get_callers`, `get_callees`, `get_dependents` | Relationship navigation should come from Srclight graph tools |
 | `trace_integration` | `get_dependents`, `get_implementors`, `get_build_targets` when available | Fallback to discovered dependency-adjacent tools only |
-| `investigate_issue` | `hybrid_search`, `whats_changed`, `recent_changes`, `blame_symbol` | Likely requires adapter-managed multi-step execution |
-| `evaluate_codebase` | `codebase_map`, `git_hotspots`, `index_status`, build-aware tools | Prefer Srclight evidence over legacy codebrain health |
+| `investigate_issue` | `hybrid_search`, `whats_changed`, `recent_changes`, `blame_symbol`, `changes_to` | Likely requires adapter-managed multi-step execution |
+| `evaluate_codebase` | `codebase_map`, `git_hotspots`, `index_status`, `embedding_status`, build-aware tools | Prefer Srclight evidence over legacy codebrain health |
 
 ## Fallback Rules
 

@@ -1,28 +1,199 @@
+import { z } from "zod";
+
 import type { UnifiedToolName } from "../types";
 
-export const unifiedToolDescriptions: Record<UnifiedToolName, string> = {
-  explain_project: "Summarize repository architecture, key boundaries, and operating model.",
-  explain_subsystem: "Explain the design and responsibilities of a project subsystem.",
-  find_symbol: "Find symbols and declarations across source files.",
-  search_code: "Search code content with ranked relevance.",
-  search_docs: "Search documentation and operational guidance.",
-  trace_dependency: "Trace package/module dependency relationships.",
-  trace_integration: "Trace integrations, CI/CD, and external system touch points.",
-  investigate_issue: "Investigate a reported issue using multi-engine evidence.",
-  evaluate_codebase: "Evaluate maintainability, risks, and architecture quality.",
-  generate_adr: "Generate ADR-oriented decision analysis.",
-  document_feature: "Generate feature documentation from project context.",
-  document_architecture: "Generate architecture documentation from project context.",
-  document_runbook: "Generate operational runbooks from project context.",
-  runtime_status: "Return runtime health and engine availability.",
-  config_get: "Read project-local MímirMesh config values.",
-  config_set: "Set project-local MímirMesh config values.",
+type UnifiedToolSchema = Record<string, z.ZodTypeAny>;
+
+type UnifiedToolDefinition = {
+	description: string;
+	inputSchema: UnifiedToolSchema;
 };
 
-export const unifiedToolList = Object.entries(unifiedToolDescriptions).map(([name, description]) => ({
-  name: name as UnifiedToolName,
-  description,
+const optionalText = (description: string) =>
+	z.string().trim().min(1).optional().describe(description);
+
+const optionalLimit = (description: string) =>
+	z.number().int().positive().optional().describe(description);
+
+const humanQuerySchema = {
+	query: optionalText("Human-readable request or search text."),
+	context: optionalText("Optional extra context that refines the request."),
+};
+
+export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefinition> = {
+	explain_project: {
+		description: "Summarize repository architecture, key boundaries, and operating model.",
+		inputSchema: {
+			...humanQuerySchema,
+			path: optionalText("Optional repository path or module path to focus the summary."),
+		},
+	},
+	explain_subsystem: {
+		description: "Explain the design and responsibilities of a project subsystem.",
+		inputSchema: {
+			subsystem: optionalText("Subsystem, package, module, or component name."),
+			path: optionalText("Optional file or directory path for the subsystem."),
+			...humanQuerySchema,
+			limit: optionalLimit("Maximum number of supporting results to include."),
+		},
+	},
+	find_symbol: {
+		description: "Find symbols and declarations across source files.",
+		inputSchema: {
+			query: optionalText("Symbol name, identifier, or code reference to locate."),
+			path: optionalText("Optional file or directory path to narrow the search."),
+			limit: optionalLimit("Maximum number of symbol matches to return."),
+		},
+	},
+	find_tests: {
+		description: "Find test functions that cover a given symbol.",
+		inputSchema: {
+			query: optionalText("Symbol name to find tests for."),
+			path: optionalText("Optional file or directory path to narrow the search."),
+		},
+	},
+	inspect_type_hierarchy: {
+		description: "Inspect the inheritance hierarchy for a type.",
+		inputSchema: {
+			query: optionalText("Class, interface, or struct name to inspect."),
+			path: optionalText("Optional file or directory path to narrow the search."),
+		},
+	},
+	inspect_platform_code: {
+		description: "Inspect platform-specific variants or conditional code paths.",
+		inputSchema: {
+			query: optionalText("Optional symbol name to inspect for platform variants."),
+			path: optionalText("Optional file or directory path to narrow the search."),
+		},
+	},
+	list_workspace_projects: {
+		description: "List indexed workspace projects and their current stats.",
+		inputSchema: {},
+	},
+	refresh_index: {
+		description: "Trigger an incremental refresh of the active code index.",
+		inputSchema: {
+			path: optionalText("Optional subpath to refresh instead of the whole repository."),
+		},
+	},
+	search_code: {
+		description: "Search code content with ranked relevance.",
+		inputSchema: {
+			query: optionalText("Text, identifier, or phrase to search for."),
+			path: optionalText("Optional file path or glob-like scope hint."),
+			limit: optionalLimit("Maximum number of matches to return."),
+		},
+	},
+	search_docs: {
+		description: "Search documentation and operational guidance.",
+		inputSchema: {
+			query: optionalText("Documentation topic, phrase, or question."),
+			scope: optionalText("Optional scope such as documents or chunks."),
+			limit: optionalLimit("Maximum number of documentation matches to return."),
+		},
+	},
+	trace_dependency: {
+		description: "Trace package/module dependency relationships.",
+		inputSchema: {
+			query: optionalText("Symbol, function, or module to trace."),
+			path: optionalText("Optional file or module path to scope the trace."),
+			direction: z
+				.enum(["inbound", "outbound", "both"])
+				.optional()
+				.describe("Dependency traversal direction."),
+			depth: z.number().int().positive().max(5).optional().describe("Maximum trace depth."),
+		},
+	},
+	trace_integration: {
+		description: "Trace integrations, CI/CD, and external system touch points.",
+		inputSchema: {
+			...humanQuerySchema,
+			path: optionalText("Optional file or directory path to scope the analysis."),
+			environment: optionalText("Optional target environment such as development or production."),
+		},
+	},
+	investigate_issue: {
+		description: "Investigate a reported issue using multi-engine evidence.",
+		inputSchema: {
+			query: optionalText("Issue description, symptom, or failure message."),
+			path: optionalText("Optional file or directory path to scope the investigation."),
+			context: optionalText("Optional extra context such as reproduction details."),
+		},
+	},
+	evaluate_codebase: {
+		description: "Evaluate maintainability, risks, and architecture quality.",
+		inputSchema: {
+			...humanQuerySchema,
+			path: optionalText("Optional file or directory path to focus the evaluation."),
+		},
+	},
+	generate_adr: {
+		description: "Generate ADR-oriented decision analysis.",
+		inputSchema: {
+			...humanQuerySchema,
+			prdPath: optionalText("Optional PRD path when generating ADRs from a PRD."),
+			path: optionalText("Optional file or directory path for supporting context."),
+		},
+	},
+	document_feature: {
+		description: "Generate feature documentation from project context.",
+		inputSchema: {
+			...humanQuerySchema,
+			path: optionalText("Optional feature file or directory path."),
+		},
+	},
+	document_architecture: {
+		description: "Generate architecture documentation from project context.",
+		inputSchema: {
+			...humanQuerySchema,
+			path: optionalText("Optional architecture file or directory path."),
+		},
+	},
+	document_runbook: {
+		description: "Generate operational runbooks from project context.",
+		inputSchema: {
+			...humanQuerySchema,
+			path: optionalText("Optional service or runbook path."),
+		},
+	},
+	runtime_status: {
+		description: "Return runtime health and engine availability.",
+		inputSchema: {},
+	},
+	config_get: {
+		description: "Read project-local MímirMesh config values.",
+		inputSchema: {
+			path: optionalText("Optional dotted config path."),
+		},
+	},
+	config_set: {
+		description: "Set project-local MímirMesh config values.",
+		inputSchema: {
+			path: z.string().trim().min(1).describe("Dotted config path to update."),
+			value: z.any().optional().describe("Value to write at the config path."),
+		},
+	},
+};
+
+export const unifiedToolDescriptions: Record<UnifiedToolName, string> = Object.fromEntries(
+	Object.entries(unifiedToolDefinitions).map(([name, definition]) => [
+		name,
+		definition.description,
+	]),
+) as Record<UnifiedToolName, string>;
+
+export const unifiedToolInputSchemas: Record<UnifiedToolName, UnifiedToolSchema> =
+	Object.fromEntries(
+		Object.entries(unifiedToolDefinitions).map(([name, definition]) => [
+			name,
+			definition.inputSchema,
+		]),
+	) as Record<UnifiedToolName, UnifiedToolSchema>;
+
+export const unifiedToolList = Object.entries(unifiedToolDefinitions).map(([name, definition]) => ({
+	name: name as UnifiedToolName,
+	description: definition.description,
 }));
 
 export const isUnifiedTool = (name: string): name is UnifiedToolName =>
-  Object.hasOwn(unifiedToolDescriptions, name);
+	Object.hasOwn(unifiedToolDefinitions, name);

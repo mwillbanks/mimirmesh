@@ -8,6 +8,7 @@ Upgrade state and safety evidence also live under `.mimirmesh/runtime/`:
 - `upgrade-metadata.json`
 - `upgrade-checkpoint.json`
 - `upgrade-backups.json`
+- `mcp-server.json`
 
 Commands:
 
@@ -21,7 +22,25 @@ Commands:
 - `mimirmesh runtime upgrade migrate`
 - `mimirmesh runtime upgrade repair`
 
+The bare `mimirmesh` dashboard shell exposes runtime lifecycle and upgrade
+surfaces directly from the TUI. Direct commands remain fully supported and use
+the same workflow rendering language when run outside the shell.
+
 If Docker is not installed or daemon is unavailable, runtime commands fail safely with degraded status and clear diagnostics.
+
+Human-facing runtime commands now show:
+
+- active step progress
+- warning and observed-state sections
+- explicit `success`, `degraded`, or `failed` outcomes
+- blocked capabilities and next actions for partial-success cases
+
+For automation:
+
+- use `--non-interactive` on mutating runtime commands
+- use `--json` when callers need the serialized workflow envelope
+
+Status and inspection commands remain non-interactive by default.
 
 Runtime upgrade behavior:
 
@@ -35,3 +54,4 @@ Runtime upgrade behavior:
 Operational note:
 
 - `runtime refresh` and `runtime upgrade migrate` reconcile metadata and already-started services but do not auto-start a stopped runtime. Use `mimirmesh runtime start` when a start is explicitly desired.
+- `runtime upgrade repair` repairs preserved runtime state only. It does not rebuild or restart Docker containers. If the reported required action is `restart-runtime`, run `mimirmesh runtime restart --non-interactive` after repair so the live runtime actually picks up the rebuilt images and compose definition.

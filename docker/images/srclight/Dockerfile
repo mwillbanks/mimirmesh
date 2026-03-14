@@ -1,13 +1,21 @@
-FROM python:3.12-slim
+FROM oven/bun:slim AS bun-runtime
+
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends curl ca-certificates git nodejs npm \
-	&& rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends curl ca-certificates git poppler-utils python3 python3-pip \
+  && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir srclight
+COPY --from=bun-runtime /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=bun-runtime /usr/local/bin/bunx /usr/local/bin/bunx
+ENV PATH=/usr/local/bin:$PATH
+
+RUN ln -sf /usr/bin/python3 /usr/local/bin/python \
+  && ln -sf /usr/bin/pip3 /usr/local/bin/pip \
+  && pip install --no-cache-dir 'srclight[all]'
 
 WORKDIR /opt/mimirmesh
-RUN npm init -y && npm install --omit=dev @modelcontextprotocol/sdk@1.27.1
+RUN bun init -y && bun add @modelcontextprotocol/sdk@latest
 COPY common/engine-bridge.mjs /opt/mimirmesh/engine-bridge.mjs
 
 ENV PYTHONUNBUFFERED=1
@@ -22,4 +30,4 @@ EXPOSE 4701 8742
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=12 CMD curl -fsS http://127.0.0.1:4701/health || exit 1
 
-CMD ["node", "/opt/mimirmesh/engine-bridge.mjs"]
+CMD ["bun", "/opt/mimirmesh/engine-bridge.mjs"]
