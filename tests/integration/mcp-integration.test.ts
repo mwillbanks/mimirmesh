@@ -20,6 +20,10 @@ describe("integration mcp", () => {
 			const tools = (await mcpListTools(context)) as ToolDefinition[];
 			expect(Array.isArray(tools)).toBe(true);
 			const srclightPassthrough = tools.find((tool) => tool.name.startsWith("mimirmesh.srclight."));
+			const retiredTool = tools.find(
+				(tool) =>
+					tool.name.startsWith("mimirmesh.codebase.") || tool.name.includes("codebase-memory"),
+			);
 			const hasUnifiedSearch = tools.some((tool) => tool.name === "search_code");
 			const hasFindTests = tools.some((tool) => tool.name === "find_tests");
 			const hasInspectPlatform = tools.some((tool) => tool.name === "inspect_platform_code");
@@ -30,6 +34,7 @@ describe("integration mcp", () => {
 			const status = await runtimeAction(context, "status");
 
 			expect(srclightPassthrough).toBeDefined();
+			expect(retiredTool).toBeUndefined();
 			expect(hasFindTests).toBe(true);
 			expect(hasInspectPlatform).toBe(true);
 			expect(hasListWorkspaceProjects).toBe(true);

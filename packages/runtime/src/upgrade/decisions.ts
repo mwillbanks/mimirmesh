@@ -1,5 +1,5 @@
 import type { EngineId, EngineUpgradeDecision, MimirmeshConfig } from "@mimirmesh/config";
-import { allEngineAdapters, getAdapter } from "@mimirmesh/mcp-adapters";
+import { allEngineAdapters, getAdapter, type RuntimeAdapterContext } from "@mimirmesh/mcp-adapters";
 
 import { hashValue, loadBootstrapState, loadEngineState } from "../state/io";
 
@@ -21,13 +21,14 @@ const bootstrapInputHashForEngine = (
 export const collectEngineUpgradeDecisions = async (
 	projectRoot: string,
 	config: MimirmeshConfig,
+	adapterContext?: RuntimeAdapterContext,
 ): Promise<EngineUpgradeDecision[]> => {
 	const bootstrapState = await loadBootstrapState(projectRoot);
 	const decisions: EngineUpgradeDecision[] = [];
 
 	for (const adapter of allEngineAdapters) {
 		const currentState = await loadEngineState(projectRoot, adapter.id);
-		const translated = adapter.translateConfig(projectRoot, config);
+		const translated = adapter.translateConfig(projectRoot, config, adapterContext);
 		const bootstrapInputHash = bootstrapInputHashForEngine(projectRoot, config, adapter.id);
 		const previousBootstrap = bootstrapState?.engines.find((entry) => entry.engine === adapter.id);
 		const configHashChanged = currentState?.configHash !== hashValue(translated.contract.env);

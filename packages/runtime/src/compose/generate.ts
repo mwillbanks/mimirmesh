@@ -1,3 +1,5 @@
+import { rm } from "node:fs/promises";
+
 import type { MimirmeshConfig } from "@mimirmesh/config";
 import {
 	allEngineAdapters,
@@ -138,12 +140,7 @@ export const generateRuntimeFiles = async (
 
 	for (const engine of translated) {
 		const enabled = Boolean(config.engines[engine.contract.id].enabled);
-		const bootstrapMode =
-			engine.contract.id === "srclight"
-				? "command"
-				: engine.contract.id === "codebase-memory-mcp"
-					? "tool"
-					: "none";
+		const bootstrapMode = bootstrapModeForEngine(engine.contract.id);
 		const gpuResolution = adapterContext.gpuResolutions?.[engine.contract.id];
 		await persistEngineState(projectRoot, {
 			engine: engine.contract.id,
@@ -191,6 +188,7 @@ export const generateRuntimeFiles = async (
 						},
 		});
 	}
+	await rm(`${config.runtime.enginesStateDir}/codebase-memory-mcp.json`, { force: true });
 
 	const version = createTargetVersionRecord("generate-runtime-files");
 	await persistVersionRecord(projectRoot, version);

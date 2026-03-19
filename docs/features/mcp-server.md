@@ -1,6 +1,7 @@
 # MCP Server
 
 This document describes the current Srclight-backed MCP server behavior that MímirMesh validates through runtime state, integration tests, and workflow smoke tests.
+Srclight is the only active code-intelligence engine; `codebase-memory-mcp` is retired and excluded from live runtime surfaces.
 
 ## Server Role
 

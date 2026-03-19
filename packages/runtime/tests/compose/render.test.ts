@@ -15,10 +15,9 @@ describe("runtime compose render", () => {
 		expect(rendered.includes("mm-srclight")).toBe(true);
 		expect(rendered.includes("mm-document-mcp")).toBe(true);
 		expect(rendered.includes("mm-adr-analysis")).toBe(true);
-		expect(rendered.includes("mm-codebase-memory")).toBe(true);
+		expect(rendered.includes("mm-codebase-memory")).toBe(false);
 		expect(rendered.includes("dockerfile")).toBe(true);
 		expect(rendered.includes("MIMIRMESH_ENGINE_TRANSPORT: 'sse'")).toBe(true);
-		expect(rendered.includes("MIMIRMESH_ENGINE_URL: 'http://127.0.0.1:8742/sse'")).toBe(true);
 		expect(rendered.includes("host.docker.internal:host-gateway")).toBe(true);
 	});
 
@@ -62,8 +61,6 @@ describe("runtime compose render", () => {
 
 		expect(gpuRendered.includes("driver: nvidia")).toBe(true);
 		expect(gpuRendered.includes("capabilities: [gpu]")).toBe(true);
-		expect(gpuRendered.includes("Dockerfile.cpu")).toBe(false);
 		expect(cpuRendered.includes("driver: nvidia")).toBe(false);
-		expect(cpuRendered.includes("Dockerfile.cpu")).toBe(true);
 	});
 });

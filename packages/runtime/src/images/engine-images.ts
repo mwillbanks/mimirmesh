@@ -41,12 +41,6 @@ export const engineCommand = (
 				args: [],
 				transport: "stdio",
 			};
-		case "codebase-memory-mcp":
-			return {
-				command: "/usr/local/bin/codebase-memory-mcp",
-				args: [],
-				transport: "stdio",
-			};
 		default: {
 			const exhaustive: never = engine;
 			throw new Error(`Unsupported engine: ${String(exhaustive)}`);

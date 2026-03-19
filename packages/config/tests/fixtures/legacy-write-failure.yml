@@ -1,0 +1,182 @@
+version: 2
+project:
+  name: spec-fixture
+  rootPath: __PROJECT_ROOT__
+  initializedAt: 2026-03-18T00:00:00.000Z
+engines:
+  srclight:
+    enabled: true
+    required: false
+    displayName: Srclight
+    namespace: mimirmesh.srclight
+    serviceName: mm-srclight
+    image:
+      service: mm-srclight
+      dockerfile: .mimirmesh/runtime/images/srclight/Dockerfile
+      context: .mimirmesh/runtime/images
+      tag: mimirmesh/mm-srclight:local
+    bridge:
+      containerPort: 4701
+      healthPath: /health
+      discoverPath: /discover
+      callPath: /call
+    mounts:
+      repo: /workspace
+      mimirmesh: /mimirmesh
+      logs: /mimirmesh/logs
+      indexes: /mimirmesh/indexes
+      templates: /mimirmesh/templates
+    settings:
+      transport: sse
+      port: 8742
+      rootPath: ""
+      defaultEmbedModel: nomic-embed-text
+      embedModel: null
+      ollamaBaseUrl: http://host.docker.internal:11434
+      embedRequestTimeoutSeconds: 20
+  document-mcp:
+    enabled: true
+    required: false
+    displayName: Document MCP
+    namespace: mimirmesh.docs
+    serviceName: mm-document-mcp
+    image:
+      service: mm-document-mcp
+      dockerfile: .mimirmesh/runtime/images/document-mcp/Dockerfile
+      context: .mimirmesh/runtime/images
+      tag: mimirmesh/mm-document-mcp:local
+    bridge:
+      containerPort: 4701
+      healthPath: /health
+      discoverPath: /discover
+      callPath: /call
+    mounts:
+      repo: /workspace
+      mimirmesh: /mimirmesh
+      logs: /mimirmesh/logs
+      indexes: /mimirmesh/indexes
+      templates: /mimirmesh/templates
+    settings:
+      watchFolders:
+        - /workspace
+      lancedbPath: /mimirmesh/indexes/document-mcp
+      llmModel: llama3.2:3b
+      embeddingModel: all-MiniLM-L6-v2
+      fileExtensions:
+        - .pdf
+        - .docx
+        - .doc
+        - .txt
+        - .md
+        - .rtf
+      chunkSize: 1000
+      chunkOverlap: 200
+      maxFileSizeMb: 100
+      ollamaBaseUrl: http://host.docker.internal:11434
+      batchSize: 10
+  mcp-adr-analysis-server:
+    enabled: true
+    required: false
+    displayName: ADR Analysis
+    namespace: mimirmesh.adr
+    serviceName: mm-adr-analysis
+    image:
+      service: mm-adr-analysis
+      dockerfile: .mimirmesh/runtime/images/adr-analysis/Dockerfile
+      context: .mimirmesh/runtime/images
+      tag: mimirmesh/mm-adr-analysis:local
+    bridge:
+      containerPort: 4701
+      healthPath: /health
+      discoverPath: /discover
+      callPath: /call
+    mounts:
+      repo: /workspace
+      mimirmesh: /mimirmesh
+      logs: /mimirmesh/logs
+      indexes: /mimirmesh/indexes
+      templates: /mimirmesh/templates
+    settings:
+      projectPath: /workspace
+      adrDirectory: docs/adr
+      executionMode: prompt-only
+      openrouterApiKey: null
+  codebase-memory-mcp:
+    enabled: true
+    required: true
+    displayName: Codebase Memory
+    namespace: mimirmesh.codebase
+    serviceName: mm-codebase-memory
+    image:
+      service: mm-codebase-memory
+      dockerfile: .mimirmesh/runtime/images/codebase-memory/Dockerfile
+      context: .mimirmesh/runtime/images
+      tag: mimirmesh/mm-codebase-memory:local
+    bridge:
+      containerPort: 4701
+      healthPath: /health
+      discoverPath: /discover
+      callPath: /call
+    mounts:
+      repo: /workspace
+      mimirmesh: /mimirmesh
+      logs: /mimirmesh/logs
+      indexes: /mimirmesh/indexes
+      templates: /mimirmesh/templates
+    settings:
+      repoPath: /workspace/failure-root
+      cachePath: /mimirmesh/indexes/codebase-memory
+      forceReindex: true
+runtime:
+  composeFile: __PROJECT_ROOT__/.mimirmesh/runtime/docker-compose.yml
+  connectionFile: __PROJECT_ROOT__/.mimirmesh/runtime/connection.json
+  healthFile: __PROJECT_ROOT__/.mimirmesh/runtime/health.json
+  routingTableFile: __PROJECT_ROOT__/.mimirmesh/runtime/routing-table.json
+  bootstrapStateFile: __PROJECT_ROOT__/.mimirmesh/runtime/bootstrap-state.json
+  enginesStateDir: __PROJECT_ROOT__/.mimirmesh/runtime/engines
+  projectName: mimirmesh-spec-fixture
+  autoStart: true
+  preferInternalNetwork: true
+  useRandomPorts: true
+  gpuMode: auto
+  state: failed
+logging:
+  level: info
+  sessionLogging: true
+  redactPatterns:
+    - (?i)apikey
+    - (?i)token
+    - (?i)password
+    - (?i)secret
+    - (?i)authorization
+templates:
+  overrideDir: __PROJECT_ROOT__/.mimirmesh/templates
+  families:
+    architecture: architecture.md
+    feature: feature.md
+    runbook: runbook.md
+    operationalNote: operational-note.md
+    decisionNote: decision-note.md
+    agentGuidance: agent-guidance.md
+ide:
+  targets:
+    vscode:
+      installed: false
+      configPath: __PROJECT_ROOT__/.vscode/mcp.json
+    cursor:
+      installed: false
+      configPath: __PROJECT_ROOT__/.cursor/mcp.json
+    claude:
+      installed: false
+      configPath: __PROJECT_ROOT__/.claude/mcp.json
+    codex:
+      installed: false
+      configPath: __PROJECT_ROOT__/.codex/mcp.json
+update:
+  channel: stable
+  autoCheck: true
+metadata:
+  lastInitAt: null
+  lastRefreshAt: null
+  lastDoctorAt: null
+  specKitExpected: true

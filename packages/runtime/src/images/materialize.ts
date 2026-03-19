@@ -1,19 +1,18 @@
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const runtimeImagesRoot = (projectRoot: string): string =>
 	join(projectRoot, ".mimirmesh", "runtime", "images");
 
-const assetRoots = ["common", "srclight", "document-mcp", "adr-analysis", "codebase-memory"];
+const assetRoots = ["common", "srclight", "document-mcp", "adr-analysis"];
 const requiredAssetFiles = [
 	"common/engine-bridge.mjs",
 	"srclight/Dockerfile",
 	"srclight/Dockerfile.cpu",
 	"document-mcp/Dockerfile",
 	"adr-analysis/Dockerfile",
-	"codebase-memory/Dockerfile",
 ];
 
 const sourceCheckoutAssetsRoot = resolve(
@@ -103,6 +102,7 @@ export const materializeRuntimeImages = async (
 	const root = runtimeImagesRoot(projectRoot);
 	const assetsRoot = resolveRuntimeAssetsRoot(projectRoot);
 	const written: string[] = [];
+	await rm(join(root, "codebase-memory"), { recursive: true, force: true });
 	const assetFiles = (
 		await Promise.all(assetRoots.map((relativeRoot) => listAssetFiles(assetsRoot, relativeRoot)))
 	).flat();

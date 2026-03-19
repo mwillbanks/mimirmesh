@@ -18,7 +18,7 @@ import {
 
 export const CURRENT_RUNTIME_VERSION = "1.0.0";
 export const CURRENT_RUNTIME_SCHEMA_VERSION = 4;
-export const CURRENT_ENGINE_DEFINITION_VERSION = "4";
+export const CURRENT_ENGINE_DEFINITION_VERSION = "5";
 export const CURRENT_STATE_COMPATIBILITY_VERSION = "safe-local-upgrade-v1";
 export const MIN_AUTOMATIC_RUNTIME_SCHEMA_VERSION = 1;
 
@@ -91,12 +91,7 @@ const inferLegacyVersionRecord = async (
 		return null;
 	}
 
-	const knownEngines = [
-		"srclight",
-		"document-mcp",
-		"mcp-adr-analysis-server",
-		"codebase-memory-mcp",
-	];
+	const knownEngines = ["srclight", "document-mcp", "mcp-adr-analysis-server"];
 	const engineStatePresent = await Promise.all(
 		knownEngines.map((engine) => pathExists(engineStatePath(projectRoot, engine))),
 	);

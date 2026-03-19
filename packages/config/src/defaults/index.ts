@@ -125,26 +125,6 @@ export const defaultEngines = (projectRoot: string): MimirmeshConfig["engines"] 
 				openrouterApiKey: process.env.OPENROUTER_API_KEY ?? null,
 			},
 		},
-		"codebase-memory-mcp": {
-			enabled: true,
-			required: true,
-			displayName: "Codebase Memory",
-			namespace: "mimirmesh.codebase",
-			serviceName: "mm-codebase-memory",
-			image: engineImage("mm-codebase-memory", `${runtimeImagesRoot}/codebase-memory/Dockerfile`),
-			bridge: {
-				containerPort: 4701,
-				healthPath: "/health",
-				discoverPath: "/discover",
-				callPath: "/call",
-			},
-			mounts,
-			settings: {
-				repoPath: repoMount,
-				cachePath: `${mimirmeshMount}/indexes/codebase-memory`,
-				forceReindex: false,
-			},
-		},
 	};
 };
 

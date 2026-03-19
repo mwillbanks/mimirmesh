@@ -62,12 +62,7 @@ describe("engine integration", () => {
 			const routing = await loadRoutingTable(repo);
 			const bootstrap = await loadBootstrapState(repo);
 
-			const engines = [
-				"srclight",
-				"document-mcp",
-				"mcp-adr-analysis-server",
-				"codebase-memory-mcp",
-			] as const;
+			const engines = ["srclight", "document-mcp", "mcp-adr-analysis-server"] as const;
 
 			for (const engine of engines) {
 				const state = await loadEngineState(repo, engine);
@@ -76,7 +71,9 @@ describe("engine integration", () => {
 			}
 
 			expect(Boolean(routing)).toBe(true);
-			expect(bootstrap?.engines.some((entry) => entry.engine === "codebase-memory-mcp")).toBe(true);
+			expect((bootstrap?.engines.map((entry) => entry.engine) ?? []) as string[]).not.toContain(
+				"codebase-memory-mcp",
+			);
 			expect(bootstrap?.engines.find((entry) => entry.engine === "document-mcp")).toEqual(
 				expect.objectContaining({
 					mode: "none",

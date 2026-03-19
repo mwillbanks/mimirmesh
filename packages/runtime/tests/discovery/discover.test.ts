@@ -46,7 +46,6 @@ describe("discoverEngineCapability", () => {
 			const config = createDefaultConfig(projectRoot);
 			config.engines.srclight.enabled = false;
 			config.engines["mcp-adr-analysis-server"].enabled = false;
-			config.engines["codebase-memory-mcp"].enabled = false;
 			const port = await reservePort();
 
 			bridgeServer = Bun.serve({
@@ -125,7 +124,6 @@ describe("discoverEngineCapability", () => {
 			const config = createDefaultConfig(projectRoot);
 			config.engines["document-mcp"].enabled = false;
 			config.engines["mcp-adr-analysis-server"].enabled = false;
-			config.engines["codebase-memory-mcp"].enabled = false;
 			const port = await reservePort();
 
 			bridgeServer = Bun.serve({

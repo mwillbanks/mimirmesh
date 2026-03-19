@@ -2,6 +2,9 @@
 
 Runtime state is project-scoped under `.mimirmesh/runtime`.
 
+Active runtime engine services now center on Srclight, `document-mcp`, and `mcp-adr-analysis-server`.
+`codebase-memory-mcp` has been retired, so runtime renders and health state should not include `mm-codebase-memory`.
+
 Upgrade state and safety evidence also live under `.mimirmesh/runtime/`:
 
 - `version.json`

@@ -11,12 +11,7 @@ import { createGuardedWorkflow } from "../../lib/guarded-workflow";
 import { getPromptGuardError, shouldPrompt } from "../../lib/non-interactive";
 import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
 
-const engineSchema = zod.enum([
-	"codebase-memory-mcp",
-	"srclight",
-	"document-mcp",
-	"mcp-adr-analysis-server",
-]);
+const engineSchema = zod.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"]);
 
 export const args = zod.tuple([
 	engineSchema.describe(argument({ name: "engine", description: "Engine id to disable" })),

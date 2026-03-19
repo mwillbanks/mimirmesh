@@ -1,8 +1,8 @@
-# MímirMesh
-
-![MímirMesh logo](logo.svg)
-
-MímirMesh is a local-first project intelligence platform with:
+<div align="center">
+  <img src="logo.svg" alt="MímirMesh logo" width="160" height="auto" />
+  <h1>MímirMesh</h1>
+  <p><b>Local-first project intelligence platform</b></p>
+</div>
 
 - a production CLI (`mimirmesh` and `mm`)
 - a unified MCP server (`mimirmesh-server`)

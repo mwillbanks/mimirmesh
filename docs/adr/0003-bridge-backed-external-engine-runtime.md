@@ -8,7 +8,7 @@
 
 The external engines integrated by MímirMesh do not share a single runtime model. They include Node-based MCP servers, Python workloads launched with `uv`, and binary-backed servers. Most of them expose stdio-oriented MCP behavior rather than an HTTP control surface that MímirMesh can query uniformly for health, discovery, and tool invocation.
 
-The remediation specification requires real runnable services, truthful readiness, dynamic tool discovery, and required bootstrap/index execution for engines such as `srclight` and `codebase-memory-mcp`.
+The remediation specification requires real runnable services, truthful readiness, dynamic tool discovery, and required bootstrap/index execution for engines such as `srclight`.
 
 ## Decision
 
@@ -27,7 +27,6 @@ The initial engine set is:
 - `mm-srclight`
 - `mm-document-mcp`
 - `mm-adr-analysis`
-- `mm-codebase-memory`
 - supporting runtime dependencies such as `mm-postgres` where required
 
 ## Consequences

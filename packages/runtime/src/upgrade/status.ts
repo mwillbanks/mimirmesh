@@ -4,6 +4,7 @@ import type {
 	RuntimeUpgradeDriftCategory,
 	UpgradeStatusReport,
 } from "@mimirmesh/config";
+import type { RuntimeAdapterContext } from "@mimirmesh/mcp-adapters";
 import { loadUpgradeMetadata } from "../state/io";
 import { collectPreservedAssets } from "./assets";
 import { loadCheckpoint } from "./checkpoints";
@@ -32,6 +33,7 @@ const preservedAssetWarnings = (assets: PreservedAssetRecord[]): string[] =>
 export const classifyUpgradeStatus = async (
 	projectRoot: string,
 	config: MimirmeshConfig,
+	adapterContext?: RuntimeAdapterContext,
 ): Promise<{
 	report: UpgradeStatusReport;
 	preservedAssets: PreservedAssetRecord[];
@@ -47,7 +49,7 @@ export const classifyUpgradeStatus = async (
 		metadata.version.runtimeSchemaVersion === targetVersion.runtimeSchemaVersion
 			? metadata.preservedAssets
 			: await collectPreservedAssets(projectRoot, currentVersion);
-	const engineDecisions = await collectEngineUpgradeDecisions(projectRoot, config);
+	const engineDecisions = await collectEngineUpgradeDecisions(projectRoot, config, adapterContext);
 
 	const driftCategories = new Set<RuntimeUpgradeDriftCategory>(
 		collectVersionDrift(currentVersion, targetVersion),

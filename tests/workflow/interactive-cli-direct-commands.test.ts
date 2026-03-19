@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createFixtureCopy, createSpecifyStub } from "@mimirmesh/testing";
@@ -34,6 +34,9 @@ describe("workflow interactive direct commands", () => {
 					init.stdout.includes("[DEGRADED]") ||
 					init.stdout.includes("[FAILED]"),
 			).toBe(true);
+			expect(await readFile(join(repo, ".mimirmesh", "config.yml"), "utf8")).not.toContain(
+				"codebase-memory-mcp",
+			);
 
 			const runtimeStatus = await run([distBinary, "runtime", "status"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,

@@ -12,14 +12,20 @@ const projectRoot = process.cwd();
 const cliOptions = parseIntegrationCliOptions(process.argv.slice(2), process.env);
 
 if (!cliOptions.shouldRunIntegration) {
-	console.log("Skipping integration tests (MIMIRMESH_RUN_INTEGRATION_TESTS=false or --skip-integration).");
+	console.log(
+		"Skipping integration tests (MIMIRMESH_RUN_INTEGRATION_TESTS=false or --skip-integration).",
+	);
 	process.exit(0);
 }
 
 const dockerImagesDir = join(projectRoot, "docker", "images");
-const targetArch = process.arch === "arm64" ? "arm64" : "amd64";
-const codebaseMemoryVersion = process.env.CODEBASE_MEMORY_VERSION ?? "v0.3.1";
-const engineImages = [
+type EngineImageBuild = {
+	tag: string;
+	dockerfile: string;
+	buildArgs?: string[];
+};
+
+const engineImages: EngineImageBuild[] = [
 	{
 		tag: "mimirmesh/mm-srclight:local",
 		dockerfile: join(dockerImagesDir, "srclight", "Dockerfile"),
@@ -31,16 +37,6 @@ const engineImages = [
 	{
 		tag: "mimirmesh/mm-adr-analysis:local",
 		dockerfile: join(dockerImagesDir, "adr-analysis", "Dockerfile"),
-	},
-	{
-		tag: "mimirmesh/mm-codebase-memory:local",
-		dockerfile: join(dockerImagesDir, "codebase-memory", "Dockerfile"),
-		buildArgs: [
-			"--build-arg",
-			`TARGETARCH=${targetArch}`,
-			"--build-arg",
-			`CODEBASE_MEMORY_VERSION=${codebaseMemoryVersion}`,
-		],
 	},
 ];
 
@@ -101,9 +97,13 @@ try {
 	}
 
 	if (cliOptions.shouldWarmContainers) {
-		const warmed = await warmIntegrationContainers(projectRoot, engineImages.map((entry) => entry.tag), {
-			reuse: cliOptions.keepWarmContainers,
-		});
+		const warmed = await warmIntegrationContainers(
+			projectRoot,
+			engineImages.map((entry) => entry.tag),
+			{
+				reuse: cliOptions.keepWarmContainers,
+			},
+		);
 		warmContainersCreated = warmed.length > 0;
 		console.log(
 			`Prepared ${warmed.length} warm integration container(s) in ${integrationCacheDir(projectRoot)}.`,

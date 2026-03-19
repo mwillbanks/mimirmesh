@@ -229,7 +229,6 @@ export const runtimeFiles = (projectRoot: string): string[] => [
 	join(enginesStateDir(projectRoot), "srclight.json"),
 	join(enginesStateDir(projectRoot), "document-mcp.json"),
 	join(enginesStateDir(projectRoot), "mcp-adr-analysis-server.json"),
-	join(enginesStateDir(projectRoot), "codebase-memory-mcp.json"),
 	upgradeMetadataPath(projectRoot),
 	upgradeCheckpointPath(projectRoot),
 	upgradeBackupsPath(projectRoot),

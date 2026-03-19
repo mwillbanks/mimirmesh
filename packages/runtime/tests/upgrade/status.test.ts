@@ -28,7 +28,7 @@ type AdapterFixtureConfig = {
 const installAdapterTestDoubles = () => {
 	mock.module("@mimirmesh/mcp-adapters", () => {
 		const makeAdapter = (
-			engine: "srclight" | "document-mcp" | "mcp-adr-analysis-server" | "codebase-memory-mcp",
+			engine: "srclight" | "document-mcp" | "mcp-adr-analysis-server",
 			bootstrapMode: "tool" | "command" | "none",
 		) => ({
 			id: engine,
@@ -37,9 +37,7 @@ const installAdapterTestDoubles = () => {
 					? "mimirmesh.srclight"
 					: engine === "document-mcp"
 						? "mimirmesh.docs"
-						: engine === "mcp-adr-analysis-server"
-							? "mimirmesh.adr"
-							: "mimirmesh.codebase",
+						: "mimirmesh.adr",
 			bootstrap:
 				bootstrapMode === "command"
 					? {
@@ -90,7 +88,6 @@ const installAdapterTestDoubles = () => {
 			makeAdapter("srclight", "command"),
 			makeAdapter("document-mcp", "none"),
 			makeAdapter("mcp-adr-analysis-server", "none"),
-			makeAdapter("codebase-memory-mcp", "tool"),
 		];
 
 		return {

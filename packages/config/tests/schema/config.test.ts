@@ -19,6 +19,7 @@ describe("config schema", () => {
 		expect(result.config?.engines["mcp-adr-analysis-server"].settings).toMatchObject({
 			adrDirectory: "docs/adr",
 		});
+		expect(Object.keys(result.config?.engines ?? {})).not.toContain("codebase-memory-mcp");
 	});
 
 	test("supports get/set and engine toggles", () => {

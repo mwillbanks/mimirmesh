@@ -29,7 +29,7 @@ export const engineStateMigration: RuntimeMigration = {
 				...current,
 				capabilityWarnings: current.capabilityWarnings ?? [],
 				runtimeEvidence: current.runtimeEvidence ?? {
-					bootstrapMode: adapter.id === "codebase-memory-mcp" ? "tool" : "none",
+					bootstrapMode: adapter.bootstrap?.mode ?? "none",
 				},
 			});
 		}

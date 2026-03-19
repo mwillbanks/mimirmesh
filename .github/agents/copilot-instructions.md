@@ -9,6 +9,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-13
 - Project-local `.mimirmesh/*` runtime/config/reports/notes state, CLI command arguments, and machine-readable terminal output when explicitly requested (003-interactive-cli-experience)
 - TypeScript (Bun workspace) plus Python 3.12 in engine containers + `@modelcontextprotocol/sdk`, Docker Compose, Srclight (`srclight[all]`), Zod schemas in `packages/config` (004-srclight-full-capability)
 - Project-local runtime artifacts in `.mimirmesh/runtime/*`; repo-local Srclight state in `.srclight/*` (004-srclight-full-capability)
+- TypeScript 5.9 on Bun workspace + Bun, Zod (`@mimirmesh/config`), MCP SDK (`@modelcontextprotocol/sdk`), Ink/Pastel for CLI surfaces (005-remove-codebase-memory)
+- Project YAML config (`.mimirmesh/config.yml`) and runtime state files under `.mimirmesh/runtime/` (005-remove-codebase-memory)
 
 - TypeScript on Bun for MímirMesh packages and Python 3.12 for the Srclight container workload + `@modelcontextprotocol/sdk`, Bun workspace packages, Docker Compose runtime, Srclight `0.12.x`, SQLite FTS5, tree-sitter, optional Ollama embeddings (001-local-code-intelligence)
 
@@ -28,9 +30,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 TypeScript on Bun for MímirMesh packages and Python 3.12 for the Srclight container workload: Follow standard conventions
 
 ## Recent Changes
+- 005-remove-codebase-memory: Added TypeScript 5.9 on Bun workspace + Bun, Zod (`@mimirmesh/config`), MCP SDK (`@modelcontextprotocol/sdk`), Ink/Pastel for CLI surfaces
 - 004-srclight-full-capability: Added TypeScript (Bun workspace) plus Python 3.12 in engine containers + `@modelcontextprotocol/sdk`, Docker Compose, Srclight (`srclight[all]`), Zod schemas in `packages/config`
 - 003-interactive-cli-experience: Added TypeScript 5.9 on Bun with React 19 for Ink-based terminal UI + `pastel`, `ink`, `@inkjs/ui`, `zod`, existing `@mimirmesh/ui`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/installer`, and `@mimirmesh/workspace` packages
-- 002-safe-local-upgrade: Added TypeScript 5.9 on Bun workspace tooling for CLI, runtime, config, and tests + Bun workspace packages, `zod`, `ink`, `pastel`, `yaml`, Docker Compose runtime management, existing `@mimirmesh/config`, `@mimirmesh/runtime`, `@mimirmesh/logging`, and `@mimirmesh/testing` packages
 
 
 <!-- MANUAL ADDITIONS START -->

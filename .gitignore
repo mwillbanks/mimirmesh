@@ -21,3 +21,5 @@ Thumbs.db
 .agents/task-state.md
 .agents/reports/
 apps/cli/src/.pastel-runtime-*
+.codex/config.toml
+.reviews/

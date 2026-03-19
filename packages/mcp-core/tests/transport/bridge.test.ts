@@ -30,10 +30,10 @@ describe("invokeEngineTool", () => {
 		runtimeMock.reconnectBridge.mockResolvedValueOnce({ ok: true });
 
 		const result = await transport.invokeEngineTool({
-			bridgePorts: { "codebase-memory-mcp": 55032 },
-			engine: "codebase-memory-mcp",
-			tool: "search_code",
-			args: { pattern: "runtime status" },
+			bridgePorts: { "document-mcp": 55032 },
+			engine: "document-mcp",
+			tool: "search_documents",
+			args: { query: "runtime status" },
 		});
 
 		expect(result.ok).toBe(true);
@@ -45,9 +45,9 @@ describe("invokeEngineTool", () => {
 	test("returns a missing-port error without reconnect attempts", async () => {
 		const result = await transport.invokeEngineTool({
 			bridgePorts: {},
-			engine: "codebase-memory-mcp",
-			tool: "search_code",
-			args: { pattern: "runtime status" },
+			engine: "document-mcp",
+			tool: "search_documents",
+			args: { query: "runtime status" },
 		});
 
 		expect(result.ok).toBe(false);
@@ -94,10 +94,10 @@ describe("invokeEngineTool", () => {
 		runtimeMock.reconnectBridge.mockResolvedValueOnce({ ok: true });
 
 		const result = await transport.invokeEngineTool({
-			bridgePorts: { "codebase-memory-mcp": 55032 },
-			engine: "codebase-memory-mcp",
-			tool: "search_code",
-			args: { pattern: "runtime status" },
+			bridgePorts: { "document-mcp": 55032 },
+			engine: "document-mcp",
+			tool: "search_documents",
+			args: { query: "runtime status" },
 		});
 
 		expect(result.ok).toBe(true);

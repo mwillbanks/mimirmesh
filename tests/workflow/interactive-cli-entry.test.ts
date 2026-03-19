@@ -38,6 +38,7 @@ describe("workflow interactive cli entry", () => {
 				shell.stdout.includes("Sections") || shell.stdout.includes("Loading dashboard state"),
 			).toBe(true);
 			expect(shell.stdout).toContain("Keyboard:");
+			expect(shell.stdout).not.toContain("codebase-memory-mcp");
 		} finally {
 			await rm(repo, { recursive: true, force: true });
 		}

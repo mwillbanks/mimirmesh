@@ -29,6 +29,36 @@ export type RuntimeUpgradeFixtureState =
 	| "degraded"
 	| "legacy";
 
+export const retiredEngineRuntimeMarkers = {
+	engineId: "codebase-memory-mcp",
+	serviceName: "mm-codebase-memory",
+	stateFileName: "codebase-memory-mcp.json",
+} as const;
+
+export const collectRetiredEngineRuntimeLeaks = (input: {
+	services?: string[];
+	bootstrapEngines?: string[];
+	runtimeFiles?: string[];
+}): string[] => {
+	const leaks: string[] = [];
+
+	if (input.services?.includes(retiredEngineRuntimeMarkers.serviceName)) {
+		leaks.push(retiredEngineRuntimeMarkers.serviceName);
+	}
+	if (input.bootstrapEngines?.includes(retiredEngineRuntimeMarkers.engineId)) {
+		leaks.push(retiredEngineRuntimeMarkers.engineId);
+	}
+	if (
+		input.runtimeFiles?.some((file) =>
+			file.endsWith(`/${retiredEngineRuntimeMarkers.stateFileName}`),
+		)
+	) {
+		leaks.push(retiredEngineRuntimeMarkers.stateFileName);
+	}
+
+	return leaks;
+};
+
 const requiredReports = [
 	"project-summary.md",
 	"architecture.md",
@@ -123,7 +153,7 @@ const seedCurrentEngineState = async (
 				lastBootstrapResult: "success",
 				capabilityWarnings: [],
 				runtimeEvidence: {
-					bootstrapMode: engine.contract.id === "codebase-memory-mcp" ? "tool" : "none",
+					bootstrapMode: engine.contract.id === "srclight" ? "command" : "none",
 				},
 			}),
 		),

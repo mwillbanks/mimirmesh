@@ -20,7 +20,7 @@ describe("mcp tool router", () => {
 				repository: repo,
 				mimirmesh: `${repo}/.mimirmesh`,
 			},
-			services: ["mm-codebase-memory"],
+			services: ["mm-srclight"],
 			bridgePorts: {
 				srclight: 65530,
 			},
@@ -38,8 +38,8 @@ describe("mcp tool router", () => {
 			unified: [
 				{
 					unifiedTool: "search_code",
-					engine: "codebase-memory-mcp",
-					engineTool: "search_code",
+					engine: "document-mcp",
+					engineTool: "search_documents",
 					priority: 95,
 				},
 				{
@@ -78,7 +78,7 @@ describe("mcp tool router", () => {
 				repository: repo,
 				mimirmesh: `${repo}/.mimirmesh`,
 			},
-			services: ["mm-codebase-memory"],
+			services: ["mm-srclight"],
 			bridgePorts: {
 				srclight: 65530,
 			},

@@ -20,8 +20,6 @@ const routePriority = (engine: UnifiedRoute["engine"]): number => {
 	switch (engine) {
 		case "srclight":
 			return 3;
-		case "codebase-memory-mcp":
-			return 2;
 		default:
 			return 1;
 	}
@@ -152,7 +150,7 @@ export const discoverEngineCapability = async (options: {
 								: {}),
 						}
 					: {
-							bootstrapMode: adapter.id === "codebase-memory-mcp" ? "tool" : "none",
+							bootstrapMode: adapter.bootstrap?.mode ?? "none",
 						},
 		};
 

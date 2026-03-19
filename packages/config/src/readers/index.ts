@@ -5,6 +5,10 @@ import { parse } from "yaml";
 import { createDefaultConfig } from "../defaults";
 import { getConfigPath, getMimirmeshDir } from "../paths";
 import { type ConfigValidationResult, type MimirmeshConfig, validateConfigValue } from "../schema";
+import {
+	migrateCodebaseMemoryConfigValue,
+	persistMigratedCodebaseMemoryConfig,
+} from "./migrate-codebase-memory";
 
 export const ensureConfigParent = async (projectRoot: string): Promise<void> => {
 	await mkdir(getMimirmeshDir(projectRoot), { recursive: true });
@@ -20,9 +24,22 @@ export const readConfig = async (
 	try {
 		const raw = await readFile(configPath, "utf8");
 		const parsedYaml = parse(raw);
-		const validation = validateConfigValue(parsedYaml);
+		const migration = migrateCodebaseMemoryConfigValue(parsedYaml);
+		const validation = validateConfigValue(migration.value);
 		if (!validation.ok || !validation.config) {
+			if (migration.changed) {
+				throw new Error(
+					[
+						`Legacy codebase-memory config migration failed for ${configPath}.`,
+						...validation.errors,
+						"Remediation: remove the retired engines.codebase-memory-mcp block or add the missing Srclight fields, then retry.",
+					].join("\n"),
+				);
+			}
 			throw new Error(`Invalid config at ${configPath}\n${validation.errors.join("\n")}`);
+		}
+		if (migration.changed) {
+			await persistMigratedCodebaseMemoryConfig(configPath, validation.config);
 		}
 		return validation.config;
 	} catch (error) {

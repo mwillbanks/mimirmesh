@@ -1,6 +1,7 @@
 # MCP Client
 
 This document describes the current client-side behavior for the Srclight-backed MímirMesh runtime.
+Srclight is the only active code-intelligence engine; `codebase-memory-mcp` is retired and no longer appears in config, discovery, or routing.
 
 ## Client Role
 

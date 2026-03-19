@@ -1,5 +1,4 @@
 import type { EngineId, MimirmeshConfig } from "@mimirmesh/config";
-import { codebaseMemoryAdapter } from "../codebase-memory-mcp/src";
 import { documentMcpAdapter } from "../document-mcp/src";
 import { adrAdapter } from "../mcp-adr-analysis-server/src";
 import { srclightAdapter } from "../srclight/src";
@@ -19,7 +18,6 @@ export const allEngineAdapters: EngineAdapterModule[] = [
 	srclightAdapter,
 	documentMcpAdapter,
 	adrAdapter,
-	codebaseMemoryAdapter,
 ];
 
 export const getAdapter = (engine: EngineId): EngineAdapterModule => {

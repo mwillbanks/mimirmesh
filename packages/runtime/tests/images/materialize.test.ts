@@ -15,9 +15,9 @@ describe("materializeRuntimeImages", () => {
 			const assetFiles = [
 				["common", "engine-bridge.mjs", "console.log('bridge');\n"],
 				["srclight", "Dockerfile", "FROM scratch\n"],
+				["srclight", "Dockerfile.cpu", "FROM scratch\n"],
 				["document-mcp", "Dockerfile", "FROM scratch\n"],
 				["adr-analysis", "Dockerfile", "FROM scratch\n"],
-				["codebase-memory", "Dockerfile", "FROM scratch\n"],
 			] as const;
 
 			for (const [directory, fileName, content] of assetFiles) {

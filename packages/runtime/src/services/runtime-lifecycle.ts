@@ -363,7 +363,7 @@ export const runtimeStatus = async (
 	const bootstrap = await loadBootstrapState(projectRoot);
 	const hasRequiredReports = await reportsGenerated(projectRoot);
 	const runtimeVersion = await detectProjectRuntimeVersion(projectRoot);
-	const upgradeStatus = await classifyUpgradeStatus(projectRoot, config);
+	const upgradeStatus = await classifyUpgradeStatus(projectRoot, config, adapterContext);
 
 	const inferred = inferRuntimeState({
 		enabledEngineStates: discovery.states.filter((engine) => engine.enabled),
@@ -527,7 +527,6 @@ export const runtimeStart = async (
 			srclight: { ...config.engines.srclight },
 			"document-mcp": { ...config.engines["document-mcp"] },
 			"mcp-adr-analysis-server": { ...config.engines["mcp-adr-analysis-server"] },
-			"codebase-memory-mcp": { ...config.engines["codebase-memory-mcp"] },
 		},
 	};
 
@@ -548,12 +547,6 @@ export const runtimeStart = async (
 			case "mcp-adr-analysis-server":
 				runtimeConfig.engines["mcp-adr-analysis-server"] = {
 					...runtimeConfig.engines["mcp-adr-analysis-server"],
-					enabled: false,
-				};
-				break;
-			case "codebase-memory-mcp":
-				runtimeConfig.engines["codebase-memory-mcp"] = {
-					...runtimeConfig.engines["codebase-memory-mcp"],
 					enabled: false,
 				};
 				break;
@@ -620,7 +613,7 @@ export const runtimeStart = async (
 								: {}),
 						}
 					: {
-							bootstrapMode: failure.engine === "codebase-memory-mcp" ? "tool" : "none",
+							bootstrapMode: "none",
 						},
 		};
 		if (failure.kind === "config") {
@@ -644,7 +637,7 @@ export const runtimeStart = async (
 	const bridges = await resolveBridgeState(bridgePorts, runtimeConfig);
 	const hasRequiredReports = await reportsGenerated(projectRoot);
 	const runtimeVersion = await detectProjectRuntimeVersion(projectRoot);
-	const upgradeStatus = await classifyUpgradeStatus(projectRoot, config);
+	const upgradeStatus = await classifyUpgradeStatus(projectRoot, config, adapterContext);
 
 	const allEngineStates = [...discovery.states, ...optionalFailureStates];
 	const inferred = inferRuntimeState({
@@ -782,7 +775,8 @@ export const runtimeRefresh = async (
 	config: MimirmeshConfig,
 	logger?: ProjectLogger,
 ): Promise<RuntimeActionResult> => {
-	const refreshed = await reconcileRuntime(projectRoot, config, logger);
+	const adapterContext = await resolveRuntimeAdapterContext(config);
+	const refreshed = await reconcileRuntime(projectRoot, config, logger, adapterContext);
 	return {
 		...refreshed.runtime,
 		action: "refresh",

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 
 import { createDefaultConfig } from "@mimirmesh/config";
-import { createFixtureCopy } from "@mimirmesh/testing";
+import { collectRetiredEngineRuntimeLeaks, createFixtureCopy } from "@mimirmesh/testing";
 
 import { generateRuntimeFiles } from "../../src/compose/generate";
 import {
@@ -31,20 +31,21 @@ describe("runtime state persistence", () => {
 			const connection = await loadConnection(repo);
 			const routing = await loadRoutingTable(repo);
 			const bootstrap = await loadBootstrapState(repo);
-			const codebase = await loadEngineState(repo, "codebase-memory-mcp");
 			const srclight = await loadEngineState(repo, "srclight");
+			const retiredLeaks = collectRetiredEngineRuntimeLeaks({
+				services: connection?.services,
+				bootstrapEngines: bootstrap?.engines.map((entry) => entry.engine),
+				runtimeFiles: files,
+			});
 
 			expect(connection?.composeFile.endsWith("docker-compose.yml")).toBe(true);
 			expect(Array.isArray(routing?.passthrough)).toBe(true);
 			expect(Array.isArray(bootstrap?.engines)).toBe(true);
+			expect(retiredLeaks).toEqual([]);
 			expect(bootstrap?.engines.find((entry) => entry.engine === "srclight")?.mode).toBe("command");
-			expect(bootstrap?.engines.find((entry) => entry.engine === "codebase-memory-mcp")?.mode).toBe(
-				"none",
-			);
 			expect(bootstrap?.engines.find((entry) => entry.engine === "document-mcp")?.mode).toBe(
 				"none",
 			);
-			expect(codebase?.engine).toBe("codebase-memory-mcp");
 			expect(srclight?.runtimeEvidence?.gpuMode).toBe("auto");
 			expect(["cpu", "cuda"]).toContain(srclight?.runtimeEvidence?.runtimeVariant ?? "cpu");
 		} finally {
@@ -65,10 +66,9 @@ describe("runtime state persistence", () => {
 					repository: repo,
 					mimirmesh: `${repo}/.mimirmesh`,
 				},
-				services: ["mm-postgres", "mm-srclight", "mm-codebase-memory"],
+				services: ["mm-postgres", "mm-srclight"],
 				bridgePorts: {
 					srclight: 4100,
-					"codebase-memory-mcp": 4101,
 				},
 			});
 			await persistBootstrapState(repo, {
@@ -88,18 +88,6 @@ describe("runtime state persistence", () => {
 						command: "srclight",
 						args: ["index", "/workspace"],
 					},
-					{
-						engine: "codebase-memory-mcp",
-						required: true,
-						mode: "tool",
-						completed: true,
-						bootstrapInputHash: "codebase-hash",
-						projectRootHash: "root-hash",
-						lastStartedAt: "2026-03-14T00:00:00.000Z",
-						lastCompletedAt: "2026-03-14T00:01:30.000Z",
-						failureReason: null,
-						retryCount: 0,
-					},
 				],
 			});
 
@@ -107,22 +95,21 @@ describe("runtime state persistence", () => {
 
 			const connection = await loadConnection(repo);
 			const bootstrap = await loadBootstrapState(repo);
+			const retiredLeaks = collectRetiredEngineRuntimeLeaks({
+				services: connection?.services,
+				bootstrapEngines: bootstrap?.engines.map((entry) => entry.engine),
+				runtimeFiles: runtimeFiles(repo),
+			});
 
 			expect(connection?.startedAt).toBe("2026-03-14T00:00:00.000Z");
 			expect(connection?.bridgePorts.srclight).toBe(4100);
+			expect(retiredLeaks).toEqual([]);
 			expect(bootstrap?.engines.find((entry) => entry.engine === "srclight")).toEqual(
 				expect.objectContaining({
 					mode: "command",
 					completed: true,
 					lastCompletedAt: "2026-03-14T00:01:00.000Z",
 					command: "srclight",
-				}),
-			);
-			expect(bootstrap?.engines.find((entry) => entry.engine === "codebase-memory-mcp")).toEqual(
-				expect.objectContaining({
-					mode: "none",
-					completed: true,
-					lastCompletedAt: "2026-03-14T00:01:30.000Z",
 				}),
 			);
 			expect(bootstrap?.engines.find((entry) => entry.engine === "document-mcp")).toEqual(

@@ -16,8 +16,8 @@ const table: RoutingTable = {
 	unified: [
 		{
 			unifiedTool: "search_code",
-			engine: "codebase-memory-mcp",
-			engineTool: "search_code",
+			engine: "document-mcp",
+			engineTool: "search_documents",
 			priority: 90,
 		},
 		{

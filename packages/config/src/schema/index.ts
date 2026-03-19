@@ -86,12 +86,7 @@ export const engineUpgradeRuntimeActionSchema = z.enum([
 	"rebootstrap",
 ]);
 
-export const engineIdSchema = z.enum([
-	"srclight",
-	"document-mcp",
-	"mcp-adr-analysis-server",
-	"codebase-memory-mcp",
-]);
+export const engineIdSchema = z.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"]);
 
 export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 export const gpuModeSchema = z.enum(["auto", "on", "off"]);
@@ -149,17 +144,10 @@ export const adrSettingsSchema = z.object({
 	openrouterApiKey: z.string().nullable(),
 });
 
-export const codebaseMemorySettingsSchema = z.object({
-	repoPath: z.string().default("/workspace"),
-	cachePath: z.string().default("/mimirmesh/indexes/codebase-memory"),
-	forceReindex: z.boolean().default(false),
-});
-
 export const engineSettingsSchema = z.union([
 	srclightSettingsSchema,
 	documentSettingsSchema,
 	adrSettingsSchema,
-	codebaseMemorySettingsSchema,
 ]);
 
 export const engineConfigBaseSchema = z.object({
@@ -189,10 +177,6 @@ export const adrEngineConfigSchema = engineConfigBaseSchema.extend({
 	settings: adrSettingsSchema,
 });
 
-export const codebaseMemoryEngineConfigSchema = engineConfigBaseSchema.extend({
-	settings: codebaseMemorySettingsSchema,
-});
-
 export const runtimeConfigSchema = z.object({
 	composeFile: z.string(),
 	connectionFile: z.string(),
@@ -219,7 +203,6 @@ export const configSchema = z.object({
 		srclight: srclightEngineConfigSchema,
 		"document-mcp": documentEngineConfigSchema,
 		"mcp-adr-analysis-server": adrEngineConfigSchema,
-		"codebase-memory-mcp": codebaseMemoryEngineConfigSchema,
 	}),
 	runtime: runtimeConfigSchema,
 	logging: z.object({

@@ -572,7 +572,10 @@ MímirMesh must integrate multiple embedded MCP engines inside its runtime.
 ### 8.1 Required embedded engines
 
 #### `codebase-memory-mcp`
-Role:
+Status:
+- retired by specification `005-remove-codebase-memory`
+
+Historical role:
 - structural code graph
 - repository memory
 - entity and relationship discovery
@@ -1194,7 +1197,8 @@ Runtime:
 
 ### Phase 3
 Engine integration:
-- codebase-memory adapter
+- Srclight adapter
+- codebase-memory adapter (retired in `005-remove-codebase-memory`)
 - codebrain adapter
 - document engine adapter
 - ADR adapter

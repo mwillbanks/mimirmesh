@@ -1,5 +1,6 @@
 import type { MimirmeshConfig } from "@mimirmesh/config";
 import type { ProjectLogger } from "@mimirmesh/logging";
+import type { RuntimeAdapterContext } from "@mimirmesh/mcp-adapters";
 
 import { runBootstrap } from "../bootstrap/run";
 import { generateRuntimeFiles } from "../compose/generate";
@@ -17,12 +18,13 @@ export const reconcileRuntime = async (
 	projectRoot: string,
 	config: MimirmeshConfig,
 	logger?: ProjectLogger,
+	adapterContext?: RuntimeAdapterContext,
 ): Promise<{
 	runtime: Awaited<ReturnType<typeof runtimeStatus>>;
 	engineDecisions: Awaited<ReturnType<typeof collectEngineUpgradeDecisions>>;
 	affectedServices: string[];
 }> => {
-	const engineDecisions = await collectEngineUpgradeDecisions(projectRoot, config);
+	const engineDecisions = await collectEngineUpgradeDecisions(projectRoot, config, adapterContext);
 	await generateRuntimeFiles(projectRoot, config);
 	const availability = await detectDockerAvailability();
 	if (
@@ -92,6 +94,7 @@ export const reconcileRuntime = async (
 		startedAt,
 		attempts: 2,
 		delayMs: 500,
+		adapterContext,
 	});
 	await persistRoutingTable(projectRoot, discovery.routingTable);
 
