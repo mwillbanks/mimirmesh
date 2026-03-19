@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Typecheck, test, build, and Biome
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      # Hosted runners are not a reliable target for live runtime validation.
+      MIMIRMESH_RUN_INTEGRATION_TESTS: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+      - name: Biome final enforcement
+        run: bunx @biomejs/biome check --write --unsafe --changed --no-errors-on-unmatched --files-ignore-unknown=true --reporter=json
+
+      - name: Ensure Biome produced no uncommitted edits
+        run: git diff --exit-code

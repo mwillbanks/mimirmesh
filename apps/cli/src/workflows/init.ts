@@ -380,7 +380,7 @@ export const createUpdateWorkflow = (checkOnly = false): WorkflowDefinition => (
 	title: checkOnly ? "Check for CLI Updates" : "Apply CLI Update",
 	description: checkOnly
 		? "Inspect the configured update channel and report whether a newer CLI release is available."
-		: "Install the locally built CLI artifacts and verify the updated binary.",
+		: "Install the latest CLI release artifacts and verify the updated binary.",
 	category: "upgrade",
 	entryModes: ["tui-launcher", "direct-command"],
 	interactivePolicy: checkOnly ? "default-non-interactive" : "default-interactive",
@@ -410,7 +410,7 @@ export const createUpdateWorkflow = (checkOnly = false): WorkflowDefinition => (
 			stepId,
 			checkOnly
 				? "Checking the configured update channel."
-				: "Installing the current build artifacts.",
+				: "Downloading and installing release artifacts.",
 		);
 		const result = checkOnly ? await updateCheck(context) : await applyUpdate(context);
 		controller.completeStep(stepId, {
@@ -441,7 +441,7 @@ export const createUpdateWorkflow = (checkOnly = false): WorkflowDefinition => (
 				],
 				blockedCapabilities: [],
 				nextAction: result.updateAvailable
-					? "Run `mimirmesh update` to apply the latest locally available artifacts."
+					? "Run `mimirmesh update` to apply the latest published release artifacts."
 					: "Continue using the current CLI build.",
 				machineReadablePayload: result,
 			};
@@ -453,13 +453,13 @@ export const createUpdateWorkflow = (checkOnly = false): WorkflowDefinition => (
 				? "CLI update applied."
 				: "CLI update did not replace the current binary.",
 			impact: result.applied
-				? "The locally built CLI artifacts are installed in the configured bin directory."
-				: "The current binary remains in place because no newer artifact was applied or verification failed.",
+				? "The latest release CLI artifacts are installed in the configured bin directory."
+				: "The current binary remains in place because no newer artifact was applied, verification failed, or release download was unavailable.",
 			completedWork: ["Loaded the project-local update configuration", result.details],
 			blockedCapabilities: result.applied ? [] : ["Verified updated CLI binary"],
 			nextAction: result.applied
 				? "Run `mimirmesh --version` to confirm the installed binary."
-				: "Inspect the build artifacts in `dist/` and rerun the update when they are ready.",
+				: "Set `MIMIRMESH_GITHUB_REPOSITORY` or provide local `dist/` artifacts, then rerun `mimirmesh update`.",
 			machineReadablePayload: result,
 		};
 	},

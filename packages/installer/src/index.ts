@@ -1,4 +1,15 @@
-import { access, chmod, copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	access,
+	chmod,
+	copyFile,
+	cp,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import type { MimirmeshConfig } from "@mimirmesh/config";
@@ -9,7 +20,7 @@ export type UpdateCheckResult = {
 	currentVersion: string;
 	latestVersion: string;
 	updateAvailable: boolean;
-	source: "npm" | "local";
+	source: "github" | "local";
 };
 
 export type InstallResult = {
@@ -62,6 +73,212 @@ const run = async (cmd: string[]): Promise<{ code: number; stdout: string; stder
 	return { code, stdout, stderr };
 };
 
+const parseGitHubRepository = (remote: string): string | null => {
+	const trimmed = remote.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const sshMatch = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i.exec(trimmed);
+	if (sshMatch) {
+		return `${sshMatch[1]}/${sshMatch[2]}`;
+	}
+
+	const httpsMatch = /^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/i.exec(trimmed);
+	if (httpsMatch) {
+		return `${httpsMatch[1]}/${httpsMatch[2]}`;
+	}
+
+	return null;
+};
+
+const readInstalledManifest = async (
+	targetBinDir: string,
+): Promise<{ version?: string; repository?: string } | null> => {
+	const manifestPath = join(targetBinDir, "manifest.json");
+	if (!(await pathExists(manifestPath))) {
+		return null;
+	}
+
+	try {
+		const raw = await readFile(manifestPath, "utf8");
+		return JSON.parse(raw) as { version?: string; repository?: string };
+	} catch {
+		return null;
+	}
+};
+
+const resolveGitHubRepository = async (
+	projectRoot: string,
+	targetBinDir?: string,
+	overrideRepository?: string,
+): Promise<string | null> => {
+	if (overrideRepository?.trim()) {
+		return overrideRepository.trim();
+	}
+
+	const fromEnv = process.env.MIMIRMESH_GITHUB_REPOSITORY ?? process.env.GITHUB_REPOSITORY;
+	if (fromEnv?.trim()) {
+		return fromEnv.trim();
+	}
+
+	if (targetBinDir) {
+		const manifest = await readInstalledManifest(targetBinDir);
+		if (manifest?.repository?.trim()) {
+			return manifest.repository.trim();
+		}
+	}
+
+	const remoteResult = await run(["git", "-C", projectRoot, "remote", "get-url", "origin"]);
+	if (remoteResult.code === 0) {
+		return parseGitHubRepository(remoteResult.stdout);
+	}
+
+	return null;
+};
+
+const mapPlatform = (platform: NodeJS.Platform): string | null => {
+	if (platform === "darwin") {
+		return "darwin";
+	}
+	if (platform === "linux") {
+		return "linux";
+	}
+	return null;
+};
+
+const mapArch = (arch: string): string | null => {
+	if (arch === "x64") {
+		return "x64";
+	}
+	if (arch === "arm64" || arch === "aarch64") {
+		return "arm64";
+	}
+	return null;
+};
+
+type GitHubReleaseMetadata = {
+	tagName: string;
+	version: string;
+	htmlUrl: string;
+};
+
+const parseReleaseMetadata = (payload: unknown): GitHubReleaseMetadata | null => {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+
+	const raw = payload as { tag_name?: unknown; html_url?: unknown };
+	if (typeof raw.tag_name !== "string" || !raw.tag_name.trim()) {
+		return null;
+	}
+
+	return {
+		tagName: raw.tag_name.trim(),
+		version: raw.tag_name.trim().replace(/^v/i, ""),
+		htmlUrl: typeof raw.html_url === "string" ? raw.html_url : "",
+	};
+};
+
+const fetchReleaseMetadata = async (
+	repository: string,
+	channel: MimirmeshConfig["update"]["channel"],
+): Promise<GitHubReleaseMetadata | null> => {
+	const headers = {
+		Accept: "application/vnd.github+json",
+		"User-Agent": "mimirmesh-installer",
+	};
+
+	if (channel === "stable") {
+		const response = await fetch(`https://api.github.com/repos/${repository}/releases/latest`, {
+			headers,
+		});
+		if (!response.ok) {
+			return null;
+		}
+		const payload = await response.json();
+		return parseReleaseMetadata(payload);
+	}
+
+	const response = await fetch(`https://api.github.com/repos/${repository}/releases?per_page=40`, {
+		headers,
+	});
+	if (!response.ok) {
+		return null;
+	}
+
+	const releases = (await response.json()) as Array<{ tag_name?: string; prerelease?: boolean }>;
+	const match = releases.find((release) => {
+		if (!release.tag_name) {
+			return false;
+		}
+		if (channel === "beta") {
+			return /beta/i.test(release.tag_name) || release.prerelease === true;
+		}
+		return /nightly|canary/i.test(release.tag_name) || release.prerelease === true;
+	});
+
+	if (!match) {
+		return null;
+	}
+
+	return parseReleaseMetadata(match);
+};
+
+const resolveCurrentVersion = async (
+	projectRoot: string,
+	targetBinDir?: string,
+): Promise<string> => {
+	if (targetBinDir) {
+		const manifest = await readInstalledManifest(targetBinDir);
+		if (manifest?.version?.trim()) {
+			return manifest.version.trim();
+		}
+	}
+
+	return getCurrentVersion(projectRoot);
+};
+
+const downloadReleaseArtifacts = async (options: {
+	repository: string;
+	tagName: string;
+	workingDirectory: string;
+}): Promise<string> => {
+	const platform = mapPlatform(process.platform);
+	const arch = mapArch(process.arch);
+	if (!platform || !arch) {
+		throw new Error(
+			`Unsupported platform for release artifacts: ${process.platform}/${process.arch}. Use local artifacts instead.`,
+		);
+	}
+
+	const archiveName = `mimirmesh-${platform}-${arch}.tar.gz`;
+	const downloadUrl = `https://github.com/${options.repository}/releases/download/${options.tagName}/${archiveName}`;
+	const archivePath = join(options.workingDirectory, archiveName);
+
+	const response = await fetch(downloadUrl, {
+		headers: {
+			Accept: "application/octet-stream",
+			"User-Agent": "mimirmesh-installer",
+		},
+	});
+	if (!response.ok) {
+		throw new Error(`Failed to download release artifact ${archiveName} (${response.status}).`);
+	}
+
+	const bytes = new Uint8Array(await response.arrayBuffer());
+	await writeFile(archivePath, bytes);
+
+	const extractResult = await run(["tar", "-xzf", archivePath, "-C", options.workingDirectory]);
+	if (extractResult.code !== 0) {
+		throw new Error(
+			`Failed to extract release artifact: ${extractResult.stderr || extractResult.stdout}`,
+		);
+	}
+
+	return options.workingDirectory;
+};
+
 export const getCurrentVersion = async (projectRoot: string): Promise<string> => {
 	const packageJsonPath = join(projectRoot, "package.json");
 	const raw = await readFile(packageJsonPath, "utf8");
@@ -72,11 +289,15 @@ export const getCurrentVersion = async (projectRoot: string): Promise<string> =>
 export const checkForUpdates = async (
 	projectRoot: string,
 	channel: MimirmeshConfig["update"]["channel"] = "stable",
+	options?: { targetBinDir?: string; repository?: string },
 ): Promise<UpdateCheckResult> => {
-	const currentVersion = await getCurrentVersion(projectRoot);
-	const packageName = channel === "stable" ? "mimirmesh" : `mimirmesh@${channel}`;
-	const result = await run(["npm", "view", packageName, "version"]);
-	if (result.code !== 0) {
+	const currentVersion = await resolveCurrentVersion(projectRoot, options?.targetBinDir);
+	const repository = await resolveGitHubRepository(
+		projectRoot,
+		options?.targetBinDir,
+		options?.repository,
+	);
+	if (!repository) {
 		return {
 			currentVersion,
 			latestVersion: currentVersion,
@@ -85,12 +306,22 @@ export const checkForUpdates = async (
 		};
 	}
 
-	const latestVersion = result.stdout.trim() || currentVersion;
+	const release = await fetchReleaseMetadata(repository, channel);
+	if (!release) {
+		return {
+			currentVersion,
+			latestVersion: currentVersion,
+			updateAvailable: false,
+			source: "local",
+		};
+	}
+
+	const latestVersion = release.version || currentVersion;
 	return {
 		currentVersion,
 		latestVersion,
 		updateAvailable: isVersionGreater(latestVersion, currentVersion),
-		source: "npm",
+		source: "github",
 	};
 };
 
@@ -213,22 +444,72 @@ export const installIdeConfig = async (options: {
 
 export const performUpdate = async (options: {
 	projectRoot: string;
-	artifactDir: string;
 	targetBinDir: string;
+	artifactDir?: string;
+	channel?: MimirmeshConfig["update"]["channel"];
+	repository?: string;
 }): Promise<{ applied: boolean; details: string }> => {
-	const currentVersion = await getCurrentVersion(options.projectRoot);
-	const updateInfo = await checkForUpdates(options.projectRoot);
-	if (!updateInfo.updateAvailable && updateInfo.source === "npm") {
+	const channel = options.channel ?? "stable";
+	const currentVersion = await resolveCurrentVersion(options.projectRoot, options.targetBinDir);
+	const repository = await resolveGitHubRepository(
+		options.projectRoot,
+		options.targetBinDir,
+		options.repository,
+	);
+	const updateInfo = await checkForUpdates(options.projectRoot, channel, {
+		targetBinDir: options.targetBinDir,
+		repository: repository ?? undefined,
+	});
+	if (!updateInfo.updateAvailable && updateInfo.source === "github") {
 		return {
 			applied: false,
 			details: `Already up to date (${currentVersion}).`,
 		};
 	}
 
-	const installResult = await installFromArtifacts({
-		artifactDir: options.artifactDir,
-		targetBinDir: options.targetBinDir,
-	});
+	let installResult: InstallResult | null = null;
+	let githubFailure: string | null = null;
+
+	if (repository) {
+		try {
+			const release = await fetchReleaseMetadata(repository, channel);
+			if (release) {
+				const tempDir = await mkdtemp(join(tmpdir(), "mimirmesh-update-"));
+				try {
+					const artifactDir = await downloadReleaseArtifacts({
+						repository,
+						tagName: release.tagName,
+						workingDirectory: tempDir,
+					});
+					installResult = await installFromArtifacts({
+						artifactDir,
+						targetBinDir: options.targetBinDir,
+					});
+				} finally {
+					await rm(tempDir, { recursive: true, force: true });
+				}
+			}
+		} catch (error) {
+			githubFailure = error instanceof Error ? error.message : String(error);
+		}
+	}
+
+	if (!installResult && options.artifactDir) {
+		installResult = await installFromArtifacts({
+			artifactDir: options.artifactDir,
+			targetBinDir: options.targetBinDir,
+		});
+	}
+
+	if (!installResult) {
+		return {
+			applied: false,
+			details: githubFailure
+				? `Unable to download release artifacts (${githubFailure}). Set MIMIRMESH_GITHUB_REPOSITORY or provide local dist artifacts.`
+				: "No release artifacts were available and no local artifact directory was provided.",
+		};
+	}
+
 	if (!installResult.verified) {
 		return {
 			applied: false,

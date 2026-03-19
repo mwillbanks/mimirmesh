@@ -14,6 +14,40 @@ const run = async (cmd: string[]): Promise<void> => {
 	}
 };
 
+const resolveRepository = async (): Promise<string | null> => {
+	const fromEnv = process.env.MIMIRMESH_GITHUB_REPOSITORY ?? process.env.GITHUB_REPOSITORY;
+	if (fromEnv?.trim()) {
+		return fromEnv.trim();
+	}
+
+	const processHandle = Bun.spawn({
+		cmd: ["git", "remote", "get-url", "origin"],
+		cwd: projectRoot,
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const [stdout, code] = await Promise.all([
+		new Response(processHandle.stdout).text(),
+		processHandle.exited,
+	]);
+	if (code !== 0) {
+		return null;
+	}
+
+	const remote = stdout.trim();
+	const sshMatch = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i.exec(remote);
+	if (sshMatch) {
+		return `${sshMatch[1]}/${sshMatch[2]}`;
+	}
+
+	const httpsMatch = /^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/i.exec(remote);
+	if (httpsMatch) {
+		return `${httpsMatch[1]}/${httpsMatch[2]}`;
+	}
+
+	return null;
+};
+
 await mkdir(distDir, { recursive: true });
 
 await run([
@@ -61,6 +95,7 @@ await writeBundledSkillAssets(join(distDir, "mimirmesh-assets", "skills"));
 const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")) as {
 	version?: string;
 };
+const repository = await resolveRepository();
 const builtAt = new Date().toISOString();
 const buildId = `${packageJson.version ?? "0.0.0"}+${builtAt}`;
 
@@ -69,6 +104,7 @@ await writeFile(
 	`${JSON.stringify(
 		{
 			version: packageJson.version ?? "0.0.0",
+			repository,
 			builtAt,
 			buildId,
 			artifacts: ["mimirmesh", "mm", "mimirmesh-server", "mimirmesh-client", "mimirmesh-assets"],

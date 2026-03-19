@@ -1,7 +1,8 @@
 {
 	"name": "mimirmesh",
-	"version": "1.0.0",
+	"version": "0.0.0",
 	"private": true,
+	"license": "MIT",
 	"type": "module",
 	"workspaces": [
 		"apps/*",
@@ -13,13 +14,16 @@
 		"check": "bunx @biomejs/biome check .",
 		"typecheck": "bunx tsc --noEmit",
 		"build": "bun run scripts/build.ts",
+		"release:assets": "bun run scripts/release-assets.ts",
+		"release": "bunx release-it",
 		"test": "bun run test:packages && bun run test:apps && bun run test:workflow",
 		"test:packages": "bun test packages",
 		"test:apps": "bun test apps",
 		"test:unit": "bun test packages apps",
 		"test:integration": "bun run scripts/run-integration-tests.ts",
 		"test:workflow": "bun test tests/workflow",
-		"validate": "bun run check && bun run test && bun run build"
+		"validate": "bun run check && bun run test && bun run build",
+		"prepare": "husky"
 	},
 	"dependencies": {
 		"@inkjs/ui": "^2.0.0",
@@ -33,9 +37,50 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.8",
+		"@commitlint/cli": "^20.5.0",
+		"@commitlint/config-conventional": "^20.5.0",
+		"@release-it/conventional-changelog": "^10.0.6",
 		"@types/bun": "1.3.11",
 		"@types/node": "^25.5.0",
 		"@types/react": "^19.2.4",
+		"conventional-changelog-conventionalcommits": "^9.3.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.4.0",
+		"release-it": "^19.2.4",
 		"typescript": "^5.9.2"
+	},
+	"lint-staged": {
+		"*": [
+			"bunx biome check --write --unsafe --no-errors-on-unmatched --files-ignore-unknown=true"
+		]
+	},
+	"release-it": {
+		"hooks": {
+			"before:init": "bun run test",
+			"before:github:release": "bun run build && bun run release:assets"
+		},
+		"git": {
+			"commitMessage": "chore: release v${version}",
+			"pushRepo": "origin",
+			"requireBranch": "main",
+			"requireCommits": true
+		},
+		"github": {
+			"release": true,
+			"assets": [
+				"dist/releases/*.tar.gz",
+				"dist/releases/install.sh",
+				"dist/releases/checksums.txt"
+			]
+		},
+		"npm": {
+			"publish": false
+		},
+		"plugins": {
+			"@release-it/conventional-changelog": {
+				"preset": "angular",
+				"infile": "docs/changelog.md"
+			}
+		}
 	}
 }

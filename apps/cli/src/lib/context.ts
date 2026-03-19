@@ -476,16 +476,22 @@ export const installIde = async (
 	};
 };
 
-export const updateCheck = async (context: CliContext) =>
-	checkForUpdates(context.projectRoot, context.config.update.channel);
+export const updateCheck = async (context: CliContext) => {
+	const targetBinDir =
+		process.env.MIMIRMESH_INSTALL_DIR ?? join(Bun.env.HOME ?? ".", ".local", "bin");
+	return checkForUpdates(context.projectRoot, context.config.update.channel, {
+		targetBinDir,
+	});
+};
 
 export const applyUpdate = async (
 	context: CliContext,
 ): Promise<{ applied: boolean; details: string }> =>
 	performUpdate({
 		projectRoot: context.projectRoot,
-		artifactDir: join(context.projectRoot, "dist"),
 		targetBinDir: process.env.MIMIRMESH_INSTALL_DIR ?? join(Bun.env.HOME ?? ".", ".local", "bin"),
+		artifactDir: join(context.projectRoot, "dist"),
+		channel: context.config.update.channel,
 	});
 
 const resolveSkillInstallMode = async (): Promise<SkillInstallMode> => {
