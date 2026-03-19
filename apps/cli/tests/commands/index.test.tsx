@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { renderInkStatic } from "../../src/testing/render-ink";
 import IndexCommand from "../../src/commands/index";
+import { renderInkStatic } from "../../src/testing/render-ink";
 
 const withTerminalSize = async <T,>(
 	columns: number,
@@ -33,6 +33,7 @@ const withTerminalSize = async <T,>(
 	}
 };
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: This is intentional to strip ANSI escape codes from the test output for easier assertions.
 const stripAnsi = (value: string): string => value.replace(/\u001b\[[0-9;]*m/g, "");
 
 describe("index command", () => {

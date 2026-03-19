@@ -1,6 +1,8 @@
 import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { writeBundledSkillAssets } from "../packages/skills/src/index";
+
 const projectRoot = process.cwd();
 const distDir = join(projectRoot, "dist");
 
@@ -54,6 +56,7 @@ const runtimeAssetsTarget = join(distDir, "mimirmesh-assets", "docker", "images"
 await rm(runtimeAssetsTarget, { recursive: true, force: true });
 await mkdir(join(distDir, "mimirmesh-assets", "docker"), { recursive: true });
 await cp(runtimeAssetsSource, runtimeAssetsTarget, { recursive: true });
+await writeBundledSkillAssets(join(distDir, "mimirmesh-assets", "skills"));
 
 const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")) as {
 	version?: string;

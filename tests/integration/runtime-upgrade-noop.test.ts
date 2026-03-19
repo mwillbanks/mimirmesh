@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { access, rm } from "node:fs/promises";
 import { loadVersionRecord } from "@mimirmesh/runtime";
-
-import { loadCliContext, runtimeUpgradeMigrate } from "apps/cli/src/lib/context";
 import { createRuntimeUpgradeFixture } from "@mimirmesh/testing";
+import { loadCliContext, runtimeUpgradeMigrate } from "apps/cli/src/lib/context";
 
 const pathExists = async (path: string): Promise<boolean> => {
 	try {

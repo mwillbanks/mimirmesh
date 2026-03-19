@@ -11,7 +11,7 @@ import {
 	type UpgradeCheckpoint,
 	upgradeCheckpointSchema,
 } from "@mimirmesh/config";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodType } from "zod";
 
 import type {
 	BootstrapStateFile,
@@ -49,10 +49,7 @@ const readJsonParsed = async (path: string): Promise<unknown | null> => {
 	}
 };
 
-const readJsonWithSchema = async <T>(
-	path: string,
-	schema: ZodType<T, ZodTypeDef, unknown>,
-): Promise<T | null> => {
+const readJsonWithSchema = async <T>(path: string, schema: ZodType<T>): Promise<T | null> => {
 	const parsed = await readJsonParsed(path);
 	if (parsed === null) {
 		return null;

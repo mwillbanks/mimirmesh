@@ -18,6 +18,10 @@ import {
 } from "@mimirmesh/runtime";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type {
+	AnySchema as McpAnySchema,
+	ZodRawShapeCompat,
+} from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { z } from "zod";
 
 import { toTransportToolName } from "../middleware/tool-name";
@@ -94,9 +98,9 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 			transportToolName === tool.name
 				? tool.description
 				: `${tool.description} (alias: ${tool.name})`;
-		const inputSchema = isUnifiedTool(tool.name)
-			? unifiedToolInputSchemas[tool.name]
-			: passthroughSchema;
+		const inputSchema: McpAnySchema | ZodRawShapeCompat = isUnifiedTool(tool.name)
+			? (unifiedToolInputSchemas[tool.name] as unknown as ZodRawShapeCompat)
+			: (passthroughSchema as unknown as McpAnySchema);
 
 		server.registerTool(
 			transportToolName,

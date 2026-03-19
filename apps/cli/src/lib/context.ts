@@ -9,6 +9,7 @@ import {
 	type MimirmeshConfig,
 	parseConfigPrimitive,
 	readConfig,
+	readGlobalConfig,
 	setConfigValue,
 	validateConfigFile,
 	writeConfig,
@@ -32,6 +33,14 @@ import {
 	runtimeStop,
 	validatePreservedAssets,
 } from "@mimirmesh/runtime";
+import {
+	type InstalledBundledSkill,
+	installBundledSkills,
+	listInstalledBundledSkills,
+	removeBundledSkills,
+	type SkillInstallMode,
+	updateBundledSkills,
+} from "@mimirmesh/skills";
 import {
 	analyzeRepository,
 	collectRepositoryFiles,
@@ -477,6 +486,84 @@ export const applyUpdate = async (
 		projectRoot: context.projectRoot,
 		artifactDir: join(context.projectRoot, "dist"),
 		targetBinDir: process.env.MIMIRMESH_INSTALL_DIR ?? join(Bun.env.HOME ?? ".", ".local", "bin"),
+	});
+
+const resolveSkillInstallMode = async (): Promise<SkillInstallMode> => {
+	try {
+		const globalConfig = await readGlobalConfig({ createIfMissing: false });
+		return globalConfig.skills.install.symbolic ? "symlink" : "copy";
+	} catch (error) {
+		if (`${error}`.includes("ENOENT")) {
+			return "symlink";
+		}
+
+		throw error;
+	}
+};
+
+export const listSkills = async (
+	context: CliContext,
+): Promise<{
+	mode: SkillInstallMode;
+	skills: InstalledBundledSkill[];
+}> => ({
+	mode: await resolveSkillInstallMode(),
+	skills: await listInstalledBundledSkills(context.projectRoot),
+});
+
+export const installSkills = async (
+	context: CliContext,
+	names: string[],
+): Promise<{
+	mode: SkillInstallMode;
+	installed: string[];
+	skipped: string[];
+}> => {
+	const mode = await resolveSkillInstallMode();
+	const result = await installBundledSkills({
+		projectRoot: context.projectRoot,
+		names,
+		mode,
+	});
+
+	return {
+		mode,
+		installed: result.installed,
+		skipped: result.skipped,
+	};
+};
+
+export const updateSkills = async (
+	context: CliContext,
+	names?: string[],
+): Promise<{
+	mode: SkillInstallMode;
+	updated: string[];
+	skipped: string[];
+	missing: string[];
+}> => {
+	const mode = await resolveSkillInstallMode();
+	const result = await updateBundledSkills({
+		projectRoot: context.projectRoot,
+		names,
+		mode,
+	});
+
+	return {
+		mode,
+		updated: result.updated,
+		skipped: result.skipped,
+		missing: result.missing,
+	};
+};
+
+export const removeSkills = async (
+	context: CliContext,
+	names: string[],
+): Promise<{ removed: string[]; skipped: string[] }> =>
+	removeBundledSkills({
+		projectRoot: context.projectRoot,
+		names,
 	});
 
 export const speckitStatus = async (context: CliContext) => detectSpecKit(context.projectRoot);

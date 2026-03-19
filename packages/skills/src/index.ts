@@ -1,0 +1,26 @@
+export {
+	type BundledSkill,
+	bundledSkillManifestDirectory,
+	bundledSkillNames,
+	createBundledSkillCatalog,
+	getSkillsPackageRoot,
+	listBundledSkillDirectories,
+	readBundledSkill,
+	type SkillFrontmatter,
+	type SkillValidationIssue,
+	validateBundledSkills,
+	writeBundledSkillAssets,
+} from "./catalog";
+export {
+	type BundledSkillsRootResolutionOptions,
+	bundledSkillsInstallDir,
+	type InstalledBundledSkill,
+	installBundledSkills,
+	listInstalledBundledSkills,
+	removeBundledSkills,
+	resolveBundledSkillsRoot,
+	type SkillInstallMode,
+	type SkillInstallResult,
+	type SkillUpdateResult,
+	updateBundledSkills,
+} from "./install";

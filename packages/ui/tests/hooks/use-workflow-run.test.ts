@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
-
-import type { PresentationProfile, WorkflowDefinition } from "../../src/workflow/types";
 import {
 	applyWorkflowEvent,
 	createInitialWorkflowRunState,
 	executeWorkflowRun,
 } from "../../src/hooks/use-workflow-run";
+import type { PresentationProfile, WorkflowDefinition } from "../../src/workflow/types";
 
 const presentation: PresentationProfile = {
 	mode: "direct-human",

@@ -4,7 +4,10 @@ import { rm } from "node:fs/promises";
 import { createRuntimeUpgradeFixture } from "@mimirmesh/testing";
 import { executeWorkflowRun, type PresentationProfile } from "@mimirmesh/ui";
 
-import { createRuntimeActionWorkflow, createRuntimeUpgradeStatusWorkflow } from "../../src/workflows/runtime";
+import {
+	createRuntimeActionWorkflow,
+	createRuntimeUpgradeStatusWorkflow,
+} from "../../src/workflows/runtime";
 
 const presentation: PresentationProfile = {
 	mode: "direct-human",

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-03-12
-- Sources: `INITIAL_SPEC.md`, `docs/operations/runtime.md`, `README.md`
+- Sources: `AGENTS.md`, `docs/operations/runtime.md`, `README.md`
 
 ## Context
 

@@ -2,6 +2,7 @@ export { Label } from "./base/label";
 export { BrandMark } from "./components/brand-mark";
 export { CompactTerminalNotice } from "./components/compact-terminal-notice";
 export { GuidedConfirm } from "./components/guided-confirm";
+export { GuidedMultiSelect } from "./components/guided-multi-select";
 export { GuidedSelect } from "./components/guided-select";
 export { PromptReason } from "./components/prompt-reason";
 export { ShellFrame } from "./components/shell-frame";

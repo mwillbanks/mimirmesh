@@ -43,6 +43,9 @@ const commandModules: Record<string, () => Promise<CommandModule>> = {
 	"report/generate": asCommandModule(() => import("./commands/report/generate")),
 	"report/show": asCommandModule(() => import("./commands/report/show")),
 	"install/ide": asCommandModule(() => import("./commands/install/ide")),
+	"skills/install": asCommandModule(() => import("./commands/skills/install")),
+	"skills/update": asCommandModule(() => import("./commands/skills/update")),
+	"skills/remove": asCommandModule(() => import("./commands/skills/remove")),
 	"speckit/init": asCommandModule(() => import("./commands/speckit/init")),
 	"speckit/status": asCommandModule(() => import("./commands/speckit/status")),
 	"speckit/doctor": asCommandModule(() => import("./commands/speckit/doctor")),
@@ -72,6 +75,7 @@ const printUsage = (): void => {
 	print("  mimirmesh mcp list-tools [--json]");
 	print("  mimirmesh mcp tool <tool> [json] [--non-interactive] [--json]");
 	print("  mimirmesh install ide [--target <target>] [--non-interactive] [--json]");
+	print("  mimirmesh skills install|update|remove [skill-name] [--non-interactive] [--json]");
 	print("");
 	print("Command-first workflows:");
 	print("  mimirmesh config get|set|enable|disable|validate");

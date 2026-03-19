@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
-
-import { loadCliContext, runtimeUpgradeRepair } from "apps/cli/src/lib/context";
 import { createRuntimeUpgradeFixture } from "@mimirmesh/testing";
+import { loadCliContext, runtimeUpgradeRepair } from "apps/cli/src/lib/context";
 
 describe("integration runtime upgrade repair", () => {
 	test("repairs resumable runtime state", async () => {

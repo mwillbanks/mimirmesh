@@ -384,6 +384,7 @@ export const WorkflowLaunchers = ({
 				<Text>- `mimirmesh report generate|show`</Text>
 				<Text>- `mimirmesh note add|list|search`</Text>
 				<Text>- `mimirmesh document add`</Text>
+				<Text>- `mimirmesh skills install|update|remove`</Text>
 				<Text>- `mimirmesh speckit init|status|doctor`</Text>
 			</Box>
 		);

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import type { PresentationProfile } from "@mimirmesh/ui";
-import { renderInkStatic } from "../../../src/testing/render-ink";
 import ConfigEnableCommand from "../../../src/commands/config/enable";
+import { renderInkStatic } from "../../../src/testing/render-ink";
 
 const interactivePresentation: PresentationProfile = {
 	mode: "direct-human",

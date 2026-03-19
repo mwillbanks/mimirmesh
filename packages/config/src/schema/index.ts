@@ -241,6 +241,15 @@ export const configSchema = z.object({
 	}),
 });
 
+export const globalConfigSchema = z.object({
+	version: z.literal(1).default(1),
+	skills: z.object({
+		install: z.object({
+			symbolic: z.boolean().default(true),
+		}),
+	}),
+});
+
 export const projectRuntimeVersionRecordSchema = z.object({
 	runtimeVersion: z.string().min(1),
 	schemaVersion: z.number().int().nonnegative(),
@@ -339,6 +348,7 @@ export type EngineId = z.infer<typeof engineIdSchema>;
 export type GpuMode = z.infer<typeof gpuModeSchema>;
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
 export type MimirmeshConfig = z.infer<typeof configSchema>;
+export type MimirmeshGlobalConfig = z.infer<typeof globalConfigSchema>;
 export type RuntimeUpgradeState = z.infer<typeof runtimeUpgradeStateSchema>;
 export type RuntimeUpgradeResult = z.infer<typeof runtimeUpgradeResultSchema>;
 export type RuntimeUpgradeRequiredAction = z.infer<typeof runtimeUpgradeRequiredActionSchema>;
@@ -369,11 +379,29 @@ export type ConfigValidationResult = {
 	config?: MimirmeshConfig;
 };
 
+export type GlobalConfigValidationResult = {
+	ok: boolean;
+	errors: string[];
+	config?: MimirmeshGlobalConfig;
+};
+
 export const validateConfigValue = (value: unknown): ConfigValidationResult => {
 	const parsed = configSchema.safeParse(value);
 	if (parsed.success) {
 		return { ok: true, errors: [], config: parsed.data };
 	}
+	return {
+		ok: false,
+		errors: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
+	};
+};
+
+export const validateGlobalConfigValue = (value: unknown): GlobalConfigValidationResult => {
+	const parsed = globalConfigSchema.safeParse(value);
+	if (parsed.success) {
+		return { ok: true, errors: [], config: parsed.data };
+	}
+
 	return {
 		ok: false,
 		errors: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),

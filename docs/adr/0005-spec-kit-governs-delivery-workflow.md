@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-03-12
-- Sources: `INITIAL_SPEC.md`, `AGENTS.md`
+- Sources: `AGENTS.md`, `docs/specifications/README.md`, `README.md`
 
 ## Context
 

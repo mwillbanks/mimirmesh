@@ -113,6 +113,45 @@ describe("adr-analysis unified routing", () => {
 		]);
 		expect(results?.[0]?.route.engineTool).toBe("suggest_adrs");
 	});
+
+	test("uses decision text as the routed human request when query is omitted", async () => {
+		const config = createDefaultConfig("/tmp/adr-generate-decision");
+		const calls: Array<{ tool: string; args: Record<string, unknown> }> = [];
+
+		await executeAdrUnifiedTool({
+			unifiedTool: "generate_adr",
+			routes: [
+				{
+					unifiedTool: "generate_adr",
+					engine: "mcp-adr-analysis-server",
+					engineTool: "suggest_adrs",
+					priority: 100,
+				},
+			],
+			input: { decision: "split runtime health and routing diagnostics" },
+			projectRoot: "/tmp/adr-generate-decision",
+			config,
+			bridgePorts: {},
+			invoke: async (tool, args) => {
+				calls.push({ tool, args });
+				return { ok: true, result: { content: [{ text: "ADR suggestions" }] } };
+			},
+		});
+
+		expect(calls).toEqual([
+			{
+				tool: "suggest_adrs",
+				args: {
+					projectPath: "/workspace",
+					analysisType: "comprehensive",
+					conversationContext: {
+						humanRequest: "split runtime health and routing diagnostics",
+						focusAreas: ["architecture"],
+					},
+				},
+			},
+		]);
+	});
 });
 
 describe("adr-analysis passthrough input preparation", () => {

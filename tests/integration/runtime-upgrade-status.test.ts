@@ -1,12 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
-
-import {
-	loadCliContext,
-	runtimeDoctor,
-	runtimeUpgradeStatus,
-} from "apps/cli/src/lib/context";
 import { createRuntimeUpgradeFixture } from "@mimirmesh/testing";
+import { loadCliContext, runtimeDoctor, runtimeUpgradeStatus } from "apps/cli/src/lib/context";
 
 describe("integration runtime upgrade status", () => {
 	test.each([

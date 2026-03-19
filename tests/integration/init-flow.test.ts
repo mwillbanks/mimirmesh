@@ -2,9 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { access, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { runtimeStop } from "@mimirmesh/runtime";
-import { initializeProject, loadCliContext } from "apps/cli/src/lib/context";
-
 import { createFixtureCopy, createSpecifyStub } from "@mimirmesh/testing";
+import { initializeProject, loadCliContext } from "apps/cli/src/lib/context";
 
 const exists = async (path: string): Promise<boolean> => {
 	try {

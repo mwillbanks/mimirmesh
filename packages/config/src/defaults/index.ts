@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { resolveRepositoryAdrDirectory } from "../adr";
 import { getMimirmeshDir, projectSlug, runtimeDir } from "../paths";
-import type { EngineConfig, MimirmeshConfig } from "../schema";
+import type { EngineConfig, MimirmeshConfig, MimirmeshGlobalConfig } from "../schema";
 
 const DEFAULT_REDACT_PATTERNS = [
 	"(?i)apikey",
@@ -190,3 +190,12 @@ export const createDefaultConfig = (projectRoot: string): MimirmeshConfig => {
 		},
 	};
 };
+
+export const createDefaultGlobalConfig = (): MimirmeshGlobalConfig => ({
+	version: 1,
+	skills: {
+		install: {
+			symbolic: true,
+		},
+	},
+});

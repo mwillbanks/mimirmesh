@@ -8,6 +8,7 @@
 - a unified MCP server (`mimirmesh-server`)
 - an MCP client/orchestration binary (`mimirmesh-client`)
 - project-scoped runtime orchestration in `.mimirmesh/`
+- repository-local bundled skill management in `.agents/skills/`
 - adapter-driven multi-engine MCP routing
 - Spec Kit-aware status, init, and diagnostics
 
@@ -39,6 +40,7 @@ packages/
   templates/
   installer/
   testing/
+  skills/
 
 docs/
   architecture/
@@ -46,6 +48,7 @@ docs/
   runbooks/
   features/
   adr/
+  roadmap.md
   specifications/
 ```
 
@@ -70,6 +73,7 @@ Artifacts are generated in `dist/`:
 - `dist/mimirmesh-server`
 - `dist/mimirmesh-client`
 - `dist/manifest.json`
+- `dist/mimirmesh-assets/skills/catalog.json`
 
 ### 3. Install locally
 
@@ -177,6 +181,9 @@ mimirmesh report generate
 mimirmesh report show <name>
 
 mimirmesh install ide
+mimirmesh skills install [skill-name]
+mimirmesh skills update [skill-name]
+mimirmesh skills remove [skill-name]
 mimirmesh update
 mimirmesh update --check
 
@@ -191,6 +198,39 @@ mimirmesh speckit doctor
 - Cursor/Claude/Codex: `mcpServers`
 
 and defaults server invocation to `mimirmesh server` when no dedicated server binary path is resolved.
+
+## Bundled Skills
+
+MímirMesh ships a first-party skill bundle under `packages/skills/` and exposes repository-local management commands:
+
+- `mimirmesh skills install [skill-name]`
+- `mimirmesh skills update [skill-name]`
+- `mimirmesh skills remove [skill-name]`
+
+Installed skills are attached at `.agents/skills/<skill-name>`.
+
+Interactive behavior:
+
+- `install` shows all bundled skills and preselects all of them
+- `update` shows only installed bundled skills that are currently out of date and preselects all of them
+- `remove` shows installed bundled skills and preselects none of them
+
+Non-interactive behavior stays explicit:
+
+- `mimirmesh skills install --non-interactive` installs all bundled skills
+- `mimirmesh skills update --non-interactive` refreshes all outdated installed bundled skills
+- `mimirmesh skills remove <skill-name> --non-interactive` removes one explicit installed skill
+
+Install mode is controlled by the optional global config file `~/.mimirmesh/config.yml`:
+
+```yaml
+version: 1
+skills:
+  install:
+    symbolic: true
+```
+
+When `skills.install.symbolic` is `true`, installs use symbolic links by default. When it is `false`, installs copy the bundled skill directory instead. If the global config file does not exist, MímirMesh behaves as if `symbolic: true` were configured.
 
 ## CLI UX Model
 
@@ -258,6 +298,25 @@ Unified tools include:
 - `investigate_issue`
 - `evaluate_codebase`
 - `generate_adr`
+
+The routed surface is the intended agent-facing contract. Skills and agents should prefer these unified tools before engine-specific passthrough tools, then escalate only when routed evidence is insufficient.
+
+## Skills Bundle
+
+MímirMesh now ships a production skill bundle in `packages/skills/` and copies it into build artifacts under `dist/mimirmesh-assets/skills/`.
+
+Primary skills:
+
+- `mimirmesh-agent-router`
+- `mimirmesh-code-navigation`
+- `mimirmesh-code-investigation`
+- `mimirmesh-speckit-delivery`
+- `mimirmesh-architecture-delivery`
+- `mimirmesh-integration-analysis`
+
+Supporting shared policy skill:
+
+- `mimirmesh-operational-policies`
 - `document_feature`
 - `document_architecture`
 - `document_runbook`
@@ -284,6 +343,10 @@ Generated under `.mimirmesh/reports/`:
 - `deployment.md`
 - `runtime-health.md`
 - `speckit-status.md`
+
+## Roadmap
+
+Planning and prioritization for token efficiency, MCP expansion, dynamic merged routes, and UX/runtime improvements are tracked in [docs/roadmap.md](docs/roadmap.md).
 
 ## Validation Commands
 

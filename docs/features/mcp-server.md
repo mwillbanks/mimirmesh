@@ -43,6 +43,8 @@ The public unified aliases are also first-class MCP tools, not discovery-only co
 - `evaluate_codebase`
 - `generate_adr`
 
+The routed surface is the deliberate agent-facing contract. Use the unified tools first for navigation, investigation, architecture, and integration work, then escalate to passthrough tools only when the routed result leaves a concrete gap such as history evidence or engine-specific deployment detail.
+
 ## Runtime Preconditions
 
 The server is useful only after the project runtime has been rendered and discovery has executed.

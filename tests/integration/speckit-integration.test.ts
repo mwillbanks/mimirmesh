@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-
+import { createFixtureCopy, createSpecifyStub } from "@mimirmesh/testing";
 import {
 	loadCliContext,
 	speckitDoctor,
 	speckitInit,
 	speckitStatus,
 } from "apps/cli/src/lib/context";
-
-import { createFixtureCopy, createSpecifyStub } from "@mimirmesh/testing";
 
 describe("integration speckit", () => {
 	afterEach(() => {

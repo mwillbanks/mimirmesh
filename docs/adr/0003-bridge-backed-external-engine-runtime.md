@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-03-12
-- Sources: `REMEDIATION_SPEC.md`, `docs/features/mcp-server.md`, `docs/features/mcp-client.md`
+- Sources: `AGENTS.md`, `docs/features/mcp-server.md`, `docs/features/mcp-client.md`, `docs/features/runtime-upgrade.md`
 
 ## Context
 

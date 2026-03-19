@@ -11,10 +11,13 @@ describe("unified tool schemas", () => {
 		expect(unifiedToolInputSchemas.list_workspace_projects).toBeDefined();
 		expect(unifiedToolInputSchemas.refresh_index.path).toBeDefined();
 		expect(unifiedToolInputSchemas.search_code.query).toBeDefined();
+		expect(unifiedToolInputSchemas.search_code.kind).toBeDefined();
 		expect(unifiedToolInputSchemas.search_docs.query).toBeDefined();
 		expect(unifiedToolInputSchemas.trace_integration.query).toBeDefined();
 		expect(unifiedToolInputSchemas.trace_dependency.direction).toBeDefined();
 		expect(unifiedToolInputSchemas.investigate_issue.context).toBeDefined();
+		expect(unifiedToolInputSchemas.document_architecture.limit).toBeDefined();
+		expect(unifiedToolInputSchemas.generate_adr.decision).toBeDefined();
 		expect(unifiedToolInputSchemas.generate_adr.prdPath).toBeDefined();
 	});
 

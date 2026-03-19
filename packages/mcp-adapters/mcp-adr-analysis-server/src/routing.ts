@@ -103,11 +103,13 @@ const asConversationContext = (
 	}
 
 	const humanRequest =
-		typeof input.query === "string"
-			? input.query.trim()
-			: typeof input.prompt === "string"
-				? input.prompt.trim()
-				: "";
+		typeof input.decision === "string"
+			? input.decision.trim()
+			: typeof input.query === "string"
+				? input.query.trim()
+				: typeof input.prompt === "string"
+					? input.prompt.trim()
+					: "";
 	if (!humanRequest) {
 		return undefined;
 	}

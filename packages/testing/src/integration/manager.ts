@@ -75,7 +75,9 @@ export const parseIntegrationCliOptions = (
 	const envValue = (env.MIMIRMESH_RUN_INTEGRATION_TESTS ?? "true").trim().toLowerCase();
 	const skipFromEnv = ["false", "0", "no"].includes(envValue);
 
-	const shouldRunIntegration = !(skipFromEnv || SKIP_INTEGRATION_FLAGS.some((flag) => args.has(flag)));
+	const shouldRunIntegration = !(
+		skipFromEnv || SKIP_INTEGRATION_FLAGS.some((flag) => args.has(flag))
+	);
 	const shouldPrebuild = !SKIP_PREBUILD_FLAGS.some((flag) => args.has(flag));
 	const shouldWarmContainers = !WARM_CONTAINER_FLAGS.some((flag) => args.has(flag));
 	const keepWarmContainers = KEEP_WARM_CONTAINER_FLAGS.some((flag) => args.has(flag));
@@ -143,9 +145,7 @@ export const warmIntegrationContainers = async (
 	return created;
 };
 
-export const cleanupIntegrationContainers = async (
-	projectRoot: string,
-): Promise<void> => {
+export const cleanupIntegrationContainers = async (projectRoot: string): Promise<void> => {
 	const cacheFile = join(integrationCacheDir(projectRoot), WARM_CONTAINER_STATE);
 	try {
 		const state = await readWarmState(cacheFile);
@@ -163,7 +163,14 @@ export const cleanupIntegrationContainers = async (
 
 export const pruneDockerBuilderCache = async (): Promise<void> => {
 	try {
-		await runCommand(["docker", "builder", "prune", "--filter", "label=com.mimirmesh.integration=true", "--force"]);
+		await runCommand([
+			"docker",
+			"builder",
+			"prune",
+			"--filter",
+			"label=com.mimirmesh.integration=true",
+			"--force",
+		]);
 	} catch {
 		// best effort cleanup only
 	}

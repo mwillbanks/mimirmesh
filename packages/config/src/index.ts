@@ -4,6 +4,7 @@ export {
 } from "./adr";
 export {
 	createDefaultConfig,
+	createDefaultGlobalConfig,
 	defaultEngines,
 } from "./defaults";
 export {
@@ -16,14 +17,19 @@ export {
 } from "./mutations";
 export {
 	getConfigPath,
+	getGlobalConfigPath,
+	getGlobalMimirmeshDir,
 	getMimirmeshDir,
 	projectSlug,
 	runtimeDir,
 } from "./paths";
 export {
 	ensureConfigParent,
+	ensureGlobalConfigParent,
 	readConfig,
+	readGlobalConfig,
 	validateConfigFile,
+	validateGlobalConfigFile,
 } from "./readers";
 export {
 	type BackupArtifact,
@@ -40,10 +46,12 @@ export {
 	engineIdSchema,
 	engineUpgradeDecisionSchema,
 	engineUpgradeRuntimeActionSchema,
+	type GlobalConfigValidationResult,
 	type GpuMode,
 	gpuModeSchema,
 	MIMIRMESH_DIR,
 	type MimirmeshConfig,
+	type MimirmeshGlobalConfig,
 	type PreservedAssetCompatibility,
 	type PreservedAssetRecord,
 	type PreservedAssetType,
@@ -79,5 +87,6 @@ export {
 	upgradeOutcomeSchema,
 	upgradeStatusReportSchema,
 	validateConfigValue,
+	validateGlobalConfigValue,
 } from "./schema";
-export { writeConfig } from "./writers";
+export { writeConfig, writeGlobalConfig } from "./writers";

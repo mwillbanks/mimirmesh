@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-03-12
-- Sources: `INITIAL_SPEC.md`, `README.md`, `docs/architecture/overview.md`
+- Sources: `AGENTS.md`, `README.md`, `docs/architecture/overview.md`
 
 ## Context
 

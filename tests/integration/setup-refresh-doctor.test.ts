@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-
+import { createFixtureCopy } from "@mimirmesh/testing";
 import {
 	doctorProject,
 	loadCliContext,
@@ -9,8 +9,6 @@ import {
 	runtimeAction,
 	setupProject,
 } from "apps/cli/src/lib/context";
-
-import { createFixtureCopy } from "@mimirmesh/testing";
 
 describe("integration setup/refresh/doctor", () => {
 	test("setup is non-destructive and refresh regenerates reports", async () => {

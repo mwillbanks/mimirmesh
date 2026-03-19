@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { PresentationProfile, WorkflowDefinition } from "@mimirmesh/ui";
 import { Box, Text } from "ink";
 import { useState } from "react";
-import { renderInkFrame, renderInkUntilExit } from "../../src/testing/render-ink";
 import { CommandRunner } from "../../src/lib/command-runner";
+import { renderInkFrame, renderInkUntilExit } from "../../src/testing/render-ink";
 
 const ESC = String.fromCharCode(0x1b);
 const ansiPattern = new RegExp(`${ESC}(?:[@-Z\\-_]|\\[[0-?]*[ -/]*[@-~])`, "g");

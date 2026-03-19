@@ -1,6 +1,6 @@
 # CLI Command Surface
 
-The CLI supports init/setup/refresh/doctor, config operations, runtime lifecycle, runtime upgrade/repair flows, MCP tools, notes, documents, reports, IDE install, update checks, and Spec Kit flows.
+The CLI supports init/setup/refresh/doctor, config operations, runtime lifecycle, runtime upgrade/repair flows, MCP tools, notes, documents, reports, IDE install, bundled skill management, update checks, and Spec Kit flows.
 
 The CLI is a primary product interface. Operator-facing commands are expected
 to present a polished interactive terminal experience with structured output,
@@ -44,6 +44,7 @@ Examples include:
 
 - `init`
 - `install ide`
+- `skills install|update|remove`
 - `runtime start|stop|restart|refresh`
 - `runtime upgrade migrate|repair`
 - `config set|enable|disable`
@@ -79,6 +80,22 @@ Spec Kit behavior is upstream-backed, not synthetic:
 - `mimirmesh init` runs the same Spec Kit initialization flow automatically when `metadata.specKitExpected` is true and the repo is not Spec Kit-ready
 
 Use `mimirmesh --help` for top-level usage and `mimirmesh <command> --help` for command-level detail.
+
+Bundled skill commands:
+
+- `mimirmesh skills install [skill-name]`
+- `mimirmesh skills update [skill-name]`
+- `mimirmesh skills remove [skill-name]`
+
+Bundled skill workflows install into `.agents/skills/` and use the same prompt discipline as other mutating flows:
+
+- interactive `install` shows all bundled skills and defaults all to selected
+- interactive `update` shows only installed outdated skills and defaults all to selected
+- interactive `remove` shows installed skills and defaults none to selected
+- `--non-interactive` install and update use the documented all-target safe path
+- `--non-interactive` remove requires an explicit `skill-name`
+
+Install mode defaults to symbolic links and can be overridden through the optional global config file `~/.mimirmesh/config.yml` with `skills.install.symbolic: false`.
 
 Runtime upgrade commands:
 

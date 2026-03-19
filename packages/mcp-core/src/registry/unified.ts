@@ -22,7 +22,8 @@ const humanQuerySchema = {
 
 export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefinition> = {
 	explain_project: {
-		description: "Summarize repository architecture, key boundaries, and operating model.",
+		description:
+			"Summarize repository architecture, key boundaries, and operating model. Start here for broad repository orientation before deeper subsystem or architecture work.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional repository path or module path to focus the summary."),
@@ -38,7 +39,8 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	find_symbol: {
-		description: "Find symbols and declarations across source files.",
+		description:
+			"Locate named symbols, declarations, and signatures across source files. Use when you already know the API, type, function, command, or identifier name.",
 		inputSchema: {
 			query: optionalText("Symbol name, identifier, or code reference to locate."),
 			path: optionalText("Optional file or directory path to narrow the search."),
@@ -46,7 +48,8 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	find_tests: {
-		description: "Find test functions that cover a given symbol.",
+		description:
+			"Find tests related to a symbol or behavior after you have localized the implementation target.",
 		inputSchema: {
 			query: optionalText("Symbol name to find tests for."),
 			path: optionalText("Optional file or directory path to narrow the search."),
@@ -77,15 +80,20 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	search_code: {
-		description: "Search code content with ranked relevance.",
+		description:
+			"Search for exact or pattern-based implementations in source code. Use for code snippets, imports, error strings, or when the stable symbol name is unknown.",
 		inputSchema: {
 			query: optionalText("Text, identifier, or phrase to search for."),
 			path: optionalText("Optional file path or glob-like scope hint."),
+			kind: optionalText(
+				"Optional symbol kind hint such as function, class, method, interface, or command.",
+			),
 			limit: optionalLimit("Maximum number of matches to return."),
 		},
 	},
 	search_docs: {
-		description: "Search documentation and operational guidance.",
+		description:
+			"Search repository documentation, ADRs, specifications, and runbooks before generating new docs or architectural artifacts.",
 		inputSchema: {
 			query: optionalText("Documentation topic, phrase, or question."),
 			scope: optionalText("Optional scope such as documents or chunks."),
@@ -93,7 +101,8 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	trace_dependency: {
-		description: "Trace package/module dependency relationships.",
+		description:
+			"Trace callers, callees, or dependents for a symbol or module to understand impact and ownership.",
 		inputSchema: {
 			query: optionalText("Symbol, function, or module to trace."),
 			path: optionalText("Optional file or module path to scope the trace."),
@@ -105,7 +114,8 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	trace_integration: {
-		description: "Trace integrations, CI/CD, and external system touch points.",
+		description:
+			"Trace integrations, deployment topology, CI/CD flows, and external system touch points.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional file or directory path to scope the analysis."),
@@ -113,7 +123,8 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	investigate_issue: {
-		description: "Investigate a reported issue using multi-engine evidence.",
+		description:
+			"Start bug, regression, or failure analysis with routed evidence before escalating to history or systemic architecture analysis.",
 		inputSchema: {
 			query: optionalText("Issue description, symptom, or failure message."),
 			path: optionalText("Optional file or directory path to scope the investigation."),
@@ -121,16 +132,21 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	evaluate_codebase: {
-		description: "Evaluate maintainability, risks, and architecture quality.",
+		description:
+			"Assess maintainability, architectural quality, and systemic risk after retrieval or issue localization shows broader analysis is justified.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional file or directory path to focus the evaluation."),
 		},
 	},
 	generate_adr: {
-		description: "Generate ADR-oriented decision analysis.",
+		description:
+			"Generate ADR-oriented decision analysis for a concrete architecture choice or PRD after retrieving existing architectural context.",
 		inputSchema: {
 			...humanQuerySchema,
+			decision: optionalText(
+				"Concrete architecture decision or proposed change to capture when you are not supplying a PRD.",
+			),
 			prdPath: optionalText("Optional PRD path when generating ADRs from a PRD."),
 			path: optionalText("Optional file or directory path for supporting context."),
 		},
@@ -143,10 +159,12 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	document_architecture: {
-		description: "Generate architecture documentation from project context.",
+		description:
+			"Retrieve or synthesize architecture documentation from project context. Prefer after repository or subsystem context has been retrieved.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional architecture file or directory path."),
+			limit: optionalLimit("Maximum number of supporting documentation matches to include."),
 		},
 	},
 	document_runbook: {
