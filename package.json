@@ -15,7 +15,7 @@
 		"typecheck": "bunx tsc --noEmit",
 		"build": "bun run scripts/build.ts",
 		"release:assets": "bun run scripts/release-assets.ts",
-		"release": "bunx release-it",
+		"release": "GITHUB_TOKEN=$(gh auth token) bunx release-it",
 		"test": "bun run test:packages && bun run test:apps && bun run test:workflow",
 		"test:packages": "bun test packages",
 		"test:apps": "bun test apps",
