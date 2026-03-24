@@ -27,6 +27,3 @@ apps/cli/src/.pastel-runtime-*
 *.tfstate*
 *.tfvars
 .terraform.lock.hcl
-
-# Ignore bun.lock files in fixtures
-packages/**/fixtures/**/bun.lock

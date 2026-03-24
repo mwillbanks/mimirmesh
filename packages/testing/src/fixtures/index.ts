@@ -45,6 +45,7 @@ export const createFixtureRepository = async (
 				{
 					name: "fixture-bun-monorepo",
 					private: true,
+					packageManager: "bun@1.3.10",
 					workspaces: ["apps/*", "packages/*"],
 				},
 				null,

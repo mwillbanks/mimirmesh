@@ -169,6 +169,9 @@ const detectPackageManagers = async (rootPath: string): Promise<string[]> => {
 	if (await pathExists(join(rootPath, "bun.lock"))) {
 		managers.add("bun");
 	}
+	if (await pathExists(join(rootPath, "bun.lockb"))) {
+		managers.add("bun");
+	}
 	if (await pathExists(join(rootPath, "pnpm-lock.yaml"))) {
 		managers.add("pnpm");
 	}
@@ -184,6 +187,29 @@ const detectPackageManagers = async (rootPath: string): Promise<string[]> => {
 	if (await pathExists(join(rootPath, "go.sum"))) {
 		managers.add("go");
 	}
+
+	const packageJsonPath = join(rootPath, "package.json");
+	if (await pathExists(packageJsonPath)) {
+		const raw = await readTextSafe(packageJsonPath);
+		if (raw) {
+			try {
+				const packageJson = JSON.parse(raw) as { packageManager?: string };
+				const packageManager = packageJson.packageManager?.split("@")[0]?.trim();
+				if (packageManager === "bun") {
+					managers.add("bun");
+				} else if (packageManager === "pnpm") {
+					managers.add("pnpm");
+				} else if (packageManager === "npm") {
+					managers.add("npm");
+				} else if (packageManager === "yarn") {
+					managers.add("yarn");
+				}
+			} catch {
+				// Ignore malformed package.json while preserving file-based detection.
+			}
+		}
+	}
+
 	return [...managers];
 };
 
