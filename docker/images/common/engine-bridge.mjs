@@ -292,6 +292,16 @@ const jsonResponse = (res, statusCode, payload) => {
 	res.end(JSON.stringify(payload));
 };
 
+const sanitizeErrorMessage = (error) => {
+	const raw = error instanceof Error ? error.message : String(error);
+	// Return single-line error messages without stack traces or absolute paths.
+	return raw
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0 && !line.startsWith("at "))
+		.join(" ");
+};
+
 const parseBody = async (req) => {
 	const chunks = [];
 	for await (const chunk of req) {
@@ -372,7 +382,7 @@ const handleCall = async (req, res) => {
 		});
 	} catch (error) {
 		ready = false;
-		lastError = error instanceof Error ? error.message : String(error);
+		lastError = sanitizeErrorMessage(error);
 		jsonResponse(res, 502, {
 			ok: false,
 			error: lastError,
@@ -413,7 +423,7 @@ const server = http.createServer(async (req, res) => {
 	} catch (error) {
 		jsonResponse(res, 500, {
 			ok: false,
-			error: error instanceof Error ? error.message : String(error),
+			error: sanitizeErrorMessage(error),
 		});
 	}
 });
@@ -434,7 +444,7 @@ process.on("SIGTERM", async () => {
 	try {
 		await ensureConnected();
 	} catch (error) {
-		lastError = error instanceof Error ? error.message : String(error);
+		lastError = sanitizeErrorMessage(error);
 	}
 
 	server.listen(bridgePort, "0.0.0.0", () => {

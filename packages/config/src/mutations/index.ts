@@ -6,14 +6,29 @@ const splitPath = (path: string): string[] =>
 		.map((part) => part.trim())
 		.filter(Boolean);
 
+const forbiddenSegments = new Set(["__proto__", "prototype", "constructor"]);
+
+const assertSafeConfigPath = (segments: string[]): void => {
+	for (const segment of segments) {
+		if (forbiddenSegments.has(segment)) {
+			throw new Error(`Config path segment '${segment}' is not allowed.`);
+		}
+	}
+};
+
 export const getConfigValue = (config: MimirmeshConfig, path: string): unknown => {
 	if (!path) {
 		return config;
 	}
 	const segments = splitPath(path);
+	assertSafeConfigPath(segments);
 	let cursor: unknown = config;
 	for (const segment of segments) {
-		if (typeof cursor !== "object" || cursor === null || !(segment in cursor)) {
+		if (
+			typeof cursor !== "object" ||
+			cursor === null ||
+			!Object.hasOwn(cursor as Record<string, unknown>, segment)
+		) {
 			return undefined;
 		}
 		cursor = (cursor as Record<string, unknown>)[segment];
@@ -30,6 +45,7 @@ export const setConfigValue = (
 	if (segments.length === 0) {
 		throw new Error("Config path must not be empty.");
 	}
+	assertSafeConfigPath(segments);
 
 	const clone = structuredClone(config) as Record<string, unknown>;
 	let cursor = clone;

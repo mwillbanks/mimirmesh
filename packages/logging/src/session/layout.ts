@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 import { getMimirmeshDir } from "@mimirmesh/config";
@@ -13,7 +14,7 @@ export const sessionLogFilenames: Record<LogChannel, string> = {
 };
 
 export const createSessionId = (): string =>
-	`${new Date().toISOString().replace(/[:.]/g, "-")}-${Math.random().toString(16).slice(2, 8)}`;
+	`${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`;
 
 export const nowIso = (): string => new Date().toISOString();
 
