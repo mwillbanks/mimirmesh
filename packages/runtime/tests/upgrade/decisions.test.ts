@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { rm } from "node:fs/promises";
 
-import { createDefaultConfig } from "@mimirmesh/config";
+import { createDefaultConfig, type EngineUpgradeDecision } from "@mimirmesh/config";
 import { createFixtureCopy } from "@mimirmesh/testing";
 import { hashValue, persistBootstrapState, persistEngineState } from "../../src/state/io";
 
@@ -68,7 +68,9 @@ describe("collectEngineUpgradeDecisions", () => {
 			});
 
 			const decisions = await collectEngineUpgradeDecisions(repo, config);
-			const srclightDecision = decisions.find((entry) => entry.engine === "srclight");
+			const srclightDecision = decisions.find(
+				(entry: EngineUpgradeDecision) => entry.engine === "srclight",
+			);
 
 			expect(srclightDecision?.runtimeAction).toBe("rebootstrap");
 		} finally {
