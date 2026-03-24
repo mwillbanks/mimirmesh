@@ -34,7 +34,7 @@ Where:
 ## Roadmap Backlog (Weighted + Dependency Aware)
 
 | ID | Feature | Implementation Status | Intent | Complexity | Token Impact | Perf Impact | Quality Impact | Priority Score | Dependencies | Research |
-|---|---|---|---|---:|---:|---:|---:|---|---|
+|---|---|---|---|---|---:|---:|---:|---:|---|---|
 | R1 | MCP Lazy Tool Registration | Planned | Expose minimal routed surface first and lazily attach passthrough groups only when needed. | M | 5 | 4 | 4 | 4.20 | None | [atlassian-labs/mcp-compressor](https://github.com/atlassian-labs/mcp-compressor) |
 | R2 | Tool Schema Compression Layer | Planned | Reduce tool description verbosity and compress schema payloads for clients with constrained context. | M | 5 | 3 | 3 | 3.95 | R1 preferred | [atlassian-labs/mcp-compressor](https://github.com/atlassian-labs/mcp-compressor), [kdpa-llc/mcp-compression-proxy](https://github.com/kdpa-llc/mcp-compression-proxy) |
 | R3 | On-Demand Skills Loading | Planned | Load only relevant skills by task intent and active tool groups; avoid eager skill expansion. | M | 5 | 3 | 4 | 4.10 | None | [kdpa-llc/local-skills-mcp](https://github.com/kdpa-llc/local-skills-mcp) |
