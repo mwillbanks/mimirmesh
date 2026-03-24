@@ -26,25 +26,30 @@ Where:
 - Quality Impact: 1 (minimal) to 5 (very high)
 - Complexity: S, M, L, XL
 
+## Implementation Status
+- Planned: not yet implemented
+- In Progress: implementation underway
+- Implemented: delivered in the repository
+
 ## Roadmap Backlog (Weighted + Dependency Aware)
 
-| ID | Feature | Intent | Complexity | Token Impact | Perf Impact | Quality Impact | Priority Score | Dependencies | Research |
+| ID | Feature | Implementation Status | Intent | Complexity | Token Impact | Perf Impact | Quality Impact | Priority Score | Dependencies | Research |
 |---|---|---|---|---:|---:|---:|---:|---|---|
-| R1 | MCP Lazy Tool Registration | Expose minimal routed surface first and lazily attach passthrough groups only when needed. | M | 5 | 4 | 4 | 4.20 | None | [atlassian-labs/mcp-compressor](https://github.com/atlassian-labs/mcp-compressor) |
-| R2 | Tool Schema Compression Layer | Reduce tool description verbosity and compress schema payloads for clients with constrained context. | M | 5 | 3 | 3 | 3.95 | R1 preferred | [atlassian-labs/mcp-compressor](https://github.com/atlassian-labs/mcp-compressor), [kdpa-llc/mcp-compression-proxy](https://github.com/kdpa-llc/mcp-compression-proxy) |
-| R3 | On-Demand Skills Loading | Load only relevant skills by task intent and active tool groups; avoid eager skill expansion. | M | 5 | 3 | 4 | 4.10 | None | [kdpa-llc/local-skills-mcp](https://github.com/kdpa-llc/local-skills-mcp) |
-| R4 | Engine-Native Passthrough Namespacing | Publish passthrough tools under upstream engine namespace (for example srclight_*) instead of mimirmesh-prefixed pass-through aliases. | S | 3 | 2 | 4 | 3.40 | None | Internal MCP server naming patterns |
-| R5 | Route-Level Cost Hints | Add route metadata for expected token and latency cost so router can prefer cheapest viable path. | M | 4 | 4 | 4 | 4.00 | R1 | mcp-compressor strategy parallels |
-| R6 | User-Registered External MCP Servers | Allow users to register any MCP server to MimirMesh and manage lifecycle/config from CLI + config + MCP APIs. | L | 4 | 4 | 5 | 3.85 | R1, R4 | Catalog/proxy patterns from compressor projects |
-| R7 | Dynamic Merged Route DSL | Let users define merged unified routes across built-in and user-registered MCP servers with deterministic parameter mapping and merge behavior. | XL | 5 | 4 | 5 | 3.90 | R6, R5 | Existing unified routing + compression proxy concepts |
-| R8 | MCP Catalog (Install/Update/Remove) | Introduce installable MCP catalog and package-management style lifecycle for MCP servers. | XL | 4 | 4 | 5 | 3.65 | R6 | Registry/catalog design from package managers |
-| R9 | Runtime One-Command Self-Heal Update | Single command to detect mismatch and run update, migrations, repairs, container refresh, and MCP restart flow. | M | 3 | 5 | 5 | 3.95 | None | Current runtime-upgrade workflows |
-| R10 | Installer Wizard v2 | Guided, prompt-based installation and setup policy selection (instead of mostly implicit defaults). | M | 2 | 3 | 5 | 3.10 | None | Current CLI UX model |
-| R11 | TUI Experience Redesign | Improve navigation, state transitions, action discoverability, and feedback quality in shell/TUI. | XL | 2 | 3 | 5 | 2.80 | None | Internal UX diagnostics |
-| R12 | Optional Prompt Optimizer Service | Optional token compression service for prompts/evidence summaries, with explicit user opt-in. | M | 4 | 3 | 3 | 3.70 | R2 preferred | mcp-compressor + token optimizer design space |
-| R13 | Global Runtime Mode (Optional) | Run shared MimirMesh runtime across multiple repos with project isolation boundaries instead of N project runtimes. | XL | 2 | 5 | 4 | 2.95 | R9 preferred | Multi-tenant local runtime patterns |
-| R14 | Speckit-to-ADR Sync Guardrails | Detect architecture-sensitive spec/plan/impl changes and require ADR create/update workflow. | M | 2 | 2 | 5 | 2.95 | None | Spec Kit + ADR policy integration |
-| R15 | Documentation Search-First Policy Enforcement | Default doc retrieval through document-mcp and architecture context before broad searches. | S | 3 | 2 | 4 | 3.40 | None | document-mcp operational patterns |
+| R1 | MCP Lazy Tool Registration | Planned | Expose minimal routed surface first and lazily attach passthrough groups only when needed. | M | 5 | 4 | 4 | 4.20 | None | [atlassian-labs/mcp-compressor](https://github.com/atlassian-labs/mcp-compressor) |
+| R2 | Tool Schema Compression Layer | Planned | Reduce tool description verbosity and compress schema payloads for clients with constrained context. | M | 5 | 3 | 3 | 3.95 | R1 preferred | [atlassian-labs/mcp-compressor](https://github.com/atlassian-labs/mcp-compressor), [kdpa-llc/mcp-compression-proxy](https://github.com/kdpa-llc/mcp-compression-proxy) |
+| R3 | On-Demand Skills Loading | Planned | Load only relevant skills by task intent and active tool groups; avoid eager skill expansion. | M | 5 | 3 | 4 | 4.10 | None | [kdpa-llc/local-skills-mcp](https://github.com/kdpa-llc/local-skills-mcp) |
+| R4 | Engine-Native Passthrough Namespacing | Implemented | Publish passthrough tools under upstream engine namespace (for example srclight_*) instead of mimirmesh-prefixed pass-through aliases. | S | 3 | 2 | 4 | 3.40 | None | Internal MCP server naming patterns |
+| R5 | Route-Level Cost Hints | Planned | Add route metadata for expected token and latency cost so router can prefer cheapest viable path. | M | 4 | 4 | 4 | 4.00 | R1 | mcp-compressor strategy parallels |
+| R6 | User-Registered External MCP Servers | Planned | Allow users to register any MCP server to MimirMesh and manage lifecycle/config from CLI + config + MCP APIs. | L | 4 | 4 | 5 | 3.85 | R1, R4 | Catalog/proxy patterns from compressor projects |
+| R7 | Dynamic Merged Route DSL | Planned | Let users define merged unified routes across built-in and user-registered MCP servers with deterministic parameter mapping and merge behavior. | XL | 5 | 4 | 5 | 3.90 | R6, R5 | Existing unified routing + compression proxy concepts |
+| R8 | MCP Catalog (Install/Update/Remove) | Planned | Introduce installable MCP catalog and package-management style lifecycle for MCP servers. | XL | 4 | 4 | 5 | 3.65 | R6 | Registry/catalog design from package managers |
+| R9 | Runtime One-Command Self-Heal Update | Planned | Single command to detect mismatch and run update, migrations, repairs, container refresh, and MCP restart flow. | M | 3 | 5 | 5 | 3.95 | None | Current runtime-upgrade workflows |
+| R10 | Installer Wizard v2 | Planned | Guided, prompt-based installation and setup policy selection (instead of mostly implicit defaults). | M | 2 | 3 | 5 | 3.10 | None | Current CLI UX model |
+| R11 | TUI Experience Redesign | Planned | Improve navigation, state transitions, action discoverability, and feedback quality in shell/TUI. | XL | 2 | 3 | 5 | 2.80 | None | Internal UX diagnostics |
+| R12 | Optional Prompt Optimizer Service | Planned | Optional token compression service for prompts/evidence summaries, with explicit user opt-in. | M | 4 | 3 | 3 | 3.70 | R2 preferred | mcp-compressor + token optimizer design space |
+| R13 | Global Runtime Mode (Optional) | Planned | Run shared MimirMesh runtime across multiple repos with project isolation boundaries instead of N project runtimes. | XL | 2 | 5 | 4 | 2.95 | R9 preferred | Multi-tenant local runtime patterns |
+| R14 | Speckit-to-ADR Sync Guardrails | Planned | Detect architecture-sensitive spec/plan/impl changes and require ADR create/update workflow. | M | 2 | 2 | 5 | 2.95 | None | Spec Kit + ADR policy integration |
+| R15 | Documentation Search-First Policy Enforcement | Planned | Default doc retrieval through document-mcp and architecture context before broad searches. | S | 3 | 2 | 4 | 3.40 | None | document-mcp operational patterns |
 
 ## Recommended Execution Sequence
 Ordering below combines weighted scoring with dependency constraints.
