@@ -6,6 +6,8 @@ import { join } from "node:path";
 
 import { createDefaultConfig } from "@mimirmesh/config";
 
+import type { EngineRuntimeState } from "../../src/types";
+
 let bridgeServer: ReturnType<typeof Bun.serve> | null = null;
 
 const reservePort = async (): Promise<number> =>
@@ -103,7 +105,9 @@ describe("discoverEngineCapability", () => {
 				attempts: 1,
 			});
 
-			const documentState = result.states.find((state) => state.engine === "document-mcp");
+			const documentState = result.states.find(
+				(state: EngineRuntimeState) => state.engine === "document-mcp",
+			);
 			expect(documentState?.health.state).toBe("healthy");
 			expect(documentState?.bridge.transport).toBe("stdio");
 			expect(result.routingTable.passthrough).toEqual([
@@ -173,7 +177,9 @@ describe("discoverEngineCapability", () => {
 				attempts: 1,
 			});
 
-			const srclightState = result.states.find((state) => state.engine === "srclight");
+			const srclightState = result.states.find(
+				(state: EngineRuntimeState) => state.engine === "srclight",
+			);
 			expect(srclightState?.bridge.transport).toBe("sse");
 			expect(srclightState?.runtimeEvidence?.bootstrapMode).toBe("command");
 			expect(result.routingTable.passthrough).toEqual(
