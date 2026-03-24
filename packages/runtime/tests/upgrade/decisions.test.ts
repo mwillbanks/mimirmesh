@@ -1,26 +1,95 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { rm } from "node:fs/promises";
 
 import { createDefaultConfig, type EngineUpgradeDecision } from "@mimirmesh/config";
 import { createFixtureCopy } from "@mimirmesh/testing";
 import { hashValue, persistBootstrapState, persistEngineState } from "../../src/state/io";
 
+const installUpgradeDecisionTestDoubles = () => {
+	mock.module("@mimirmesh/mcp-adapters", () => {
+		const makeAdapter = (
+			engine: "srclight" | "document-mcp" | "mcp-adr-analysis-server",
+			bootstrapMode: "command" | "none",
+		) => ({
+			id: engine,
+			namespace:
+				engine === "srclight"
+					? "mimirmesh.srclight"
+					: engine === "document-mcp"
+						? "mimirmesh.docs"
+						: "mimirmesh.adr",
+			bootstrap:
+				bootstrapMode === "command"
+					? {
+							required: true,
+							mode: "command" as const,
+							command: "fixture",
+							args: () => [],
+						}
+					: null,
+			routingRules: [],
+			resolveUnifiedRoutes: () => [],
+			translateConfig: (_projectRoot: string, config: ReturnType<typeof createDefaultConfig>) => {
+				const engineConfig = config.engines[engine];
+				return {
+					contract: {
+						id: engine,
+						namespace: engineConfig.namespace,
+						serviceName: engineConfig.serviceName,
+						required: engineConfig.required,
+						dockerfile: engineConfig.image.dockerfile,
+						context: engineConfig.image.context,
+						imageTag: engineConfig.image.tag,
+						bridgePort: engineConfig.bridge.containerPort,
+						bridgeTransport: engine === "srclight" ? "sse" : "stdio",
+						env: {
+							ENGINE: engine,
+							SERVICE: engineConfig.serviceName,
+						},
+						mounts: engineConfig.mounts,
+					},
+					errors: [],
+					degraded: false,
+				};
+			},
+		});
+
+		const adapters = [
+			makeAdapter("srclight", "command"),
+			makeAdapter("document-mcp", "none"),
+			makeAdapter("mcp-adr-analysis-server", "none"),
+		];
+
+		return {
+			allEngineAdapters: adapters,
+			getAdapter: (engine: string) => {
+				const adapter = adapters.find((entry) => entry.id === engine);
+				if (!adapter) {
+					throw new Error(`Unknown engine adapter: ${engine}`);
+				}
+				return adapter;
+			},
+		};
+	});
+};
+
 const loadUpgradeDecisionModules = async () => {
 	mock.restore();
-	const [{ getAdapter }, { collectEngineUpgradeDecisions }] = await Promise.all([
-		import(`@mimirmesh/mcp-adapters?restore=${Date.now()}`),
-		import(`../../src/upgrade/decisions?restore=${Date.now()}`),
-	]);
-	return { getAdapter, collectEngineUpgradeDecisions };
+	installUpgradeDecisionTestDoubles();
+	const module = await import(`../../src/upgrade/decisions?restore=${Date.now()}`);
+	return { collectEngineUpgradeDecisions: module.collectEngineUpgradeDecisions };
 };
 
 describe("collectEngineUpgradeDecisions", () => {
+	afterEach(() => {
+		mock.restore();
+	});
+
 	test("marks incomplete required bootstrap for rebootstrap", async () => {
 		const repo = await createFixtureCopy("single-ts");
 		try {
-			const { getAdapter, collectEngineUpgradeDecisions } = await loadUpgradeDecisionModules();
+			const { collectEngineUpgradeDecisions } = await loadUpgradeDecisionModules();
 			const config = createDefaultConfig(repo);
-			const translated = getAdapter("srclight").translateConfig(repo, config);
 			await persistEngineState(repo, {
 				engine: "srclight",
 				enabled: true,
@@ -28,7 +97,7 @@ describe("collectEngineUpgradeDecisions", () => {
 				namespace: config.engines.srclight.namespace,
 				serviceName: config.engines.srclight.serviceName,
 				imageTag: config.engines.srclight.image.tag,
-				configHash: hashValue(translated.contract.env),
+				configHash: hashValue({ ENGINE: "srclight", SERVICE: config.engines.srclight.serviceName }),
 				discoveredTools: [],
 				health: {
 					state: "healthy",
