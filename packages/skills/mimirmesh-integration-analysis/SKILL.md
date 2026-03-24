@@ -26,8 +26,9 @@ Use this skill when the question is about how systems connect and what an operat
 
 ## Passthrough escalation
 
-- Use `mimirmesh.srclight.get_build_targets` when build graph detail is required and `trace_integration` is too coarse.
+- Use `srclight_get_build_targets` when build graph detail is required and `trace_integration` is too coarse.
 - Use ADR deployment passthrough tools only when the routed result leaves a concrete gap in deployment guidance or rollout evidence.
+- Replace any retired `mimirmesh.*` passthrough examples with the published `<engine>_<tool>` form before invoking them.
 - Escalate to `mimirmesh-architecture-delivery` when the integration change crosses ADR or architecture-doc thresholds.
 
 ## Guardrails

@@ -24,3 +24,7 @@ tmp
 .srclight/
 .vscode/mcp.json
 apps/cli/src/.pastel-runtime-*
+.terraform/
+*.tfstate*
+*.tfvars
+.terraform.lock.hcl

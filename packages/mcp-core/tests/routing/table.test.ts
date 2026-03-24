@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { RoutingTable } from "@mimirmesh/runtime";
 
+import { publishedPassthroughToolName, retiredPassthroughAliasFor } from "../../src/passthrough";
 import { passthroughRouteFor, unifiedRoutesFor } from "../../src/routing/table";
 
 const table: RoutingTable = {
@@ -11,6 +12,11 @@ const table: RoutingTable = {
 			publicTool: "mimirmesh.srclight.hybrid_search",
 			engine: "srclight",
 			engineTool: "hybrid_search",
+			publication: {
+				canonicalEngineId: "srclight",
+				publishedTool: "srclight_hybrid_search",
+				retiredAliases: ["mimirmesh.srclight.hybrid_search"],
+			},
 		},
 	],
 	unified: [
@@ -37,7 +43,21 @@ describe("mcp routing table", () => {
 	});
 
 	test("returns passthrough route by public tool", () => {
-		const route = passthroughRouteFor(table, "mimirmesh.srclight.hybrid_search");
+		const route = passthroughRouteFor(table, "srclight_hybrid_search");
 		expect(route?.engineTool).toBe("hybrid_search");
+	});
+
+	test("returns the published passthrough name from publication metadata", () => {
+		const route = table.passthrough[0];
+		expect(route).toBeDefined();
+		if (!route) {
+			throw new Error("expected a passthrough route");
+		}
+		expect(publishedPassthroughToolName(route)).toBe("srclight_hybrid_search");
+	});
+
+	test("matches retired passthrough aliases separately from published names", () => {
+		const retired = retiredPassthroughAliasFor(table, "mimirmesh.srclight.hybrid_search");
+		expect(retired?.replacementName).toBe("srclight_hybrid_search");
 	});
 });

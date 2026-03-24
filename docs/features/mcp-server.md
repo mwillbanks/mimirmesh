@@ -9,7 +9,7 @@ Srclight is the only active code-intelligence engine; `codebase-memory-mcp` is r
 
 - registers the unified MímirMesh tools
 - adds passthrough tools from live engine discovery only
-- serves transport-safe MCP tool names while preserving canonical internal names
+- publishes engine-native passthrough tool names while preserving the internal routing table truth
 - executes unified and passthrough calls through the same routing table used by the CLI
 
 The server does not embed engine logic. It reads `.mimirmesh/config.yml`, loads `.mimirmesh/runtime/routing-table.json`, and exposes whatever the live runtime has actually discovered.
@@ -21,9 +21,9 @@ available only when a caller explicitly wants the serialized workflow envelope.
 
 ## Tool Naming
 
-Internal tool names remain canonical, for example `mimirmesh.srclight.search_symbols`.
+Internal routing entries can remain dotted legacy identifiers such as `mimirmesh.srclight.search_symbols`, but the public MCP surface now publishes engine-native passthrough names such as `srclight_search_symbols`.
 
-The stdio MCP surface publishes transport-safe aliases such as `mimirmesh_srclight_search_symbols` because some clients reject dotted names. `mimirmesh-client` and the CLI map between the two forms automatically.
+Retired `mimirmesh`-prefixed passthrough aliases are hidden from `tools/list`. When a caller invokes one directly, the server returns an explicit replacement message naming the published `<engine>_<tool>` form.
 
 The public unified aliases are also first-class MCP tools, not discovery-only conveniences. The server manifest registers direct schemas for the friendly tools that callers are expected to use for multi-engine routing, including:
 
@@ -68,7 +68,7 @@ Observed runtime contract:
 
 - service name: `mm-srclight`
 - bridge transport: `sse`
-- engine namespace: `mimirmesh.srclight.*`
+- published passthrough prefix: `srclight_`
 - repo mounted at `/workspace`
 - runtime variant selected from a global `runtime.gpuMode` policy (`auto|on|off`)
 - Git-backed repository history requires the container image to include `git` and the mounted repository metadata to be visible at `/workspace/.git`
@@ -125,20 +125,20 @@ Srclight passthrough tools are never registered from a static catalog. They appe
 
 Representative passthrough tools validated in tests and routing rules:
 
-- `mimirmesh.srclight.codebase_map`
-- `mimirmesh.srclight.search_symbols`
-- `mimirmesh.srclight.get_symbol`
-- `mimirmesh.srclight.get_callers`
-- `mimirmesh.srclight.get_tests_for`
-- `mimirmesh.srclight.get_type_hierarchy`
-- `mimirmesh.srclight.get_platform_variants`
-- `mimirmesh.srclight.platform_conditionals`
-- `mimirmesh.srclight.hybrid_search`
-- `mimirmesh.srclight.index_status`
-- `mimirmesh.srclight.list_projects`
-- `mimirmesh.srclight.reindex`
-- `mimirmesh.srclight.changes_to`
-- `mimirmesh.srclight.embedding_status`
+- `srclight_codebase_map`
+- `srclight_search_symbols`
+- `srclight_get_symbol`
+- `srclight_get_callers`
+- `srclight_get_tests_for`
+- `srclight_get_type_hierarchy`
+- `srclight_get_platform_variants`
+- `srclight_platform_conditionals`
+- `srclight_hybrid_search`
+- `srclight_index_status`
+- `srclight_list_projects`
+- `srclight_reindex`
+- `srclight_changes_to`
+- `srclight_embedding_status`
 
 ## Failure Classification
 

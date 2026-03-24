@@ -21,6 +21,11 @@ import { loadRepositoryIgnoreMatcher } from "@mimirmesh/workspace";
 
 import { loadRuntimeRoutingContext } from "../discovery/runtime";
 import { deduplicateAndRank } from "../merge/results";
+import {
+	buildRetiredPassthroughAliasResult,
+	publishedPassthroughToolName,
+	retiredPassthroughAliasFor,
+} from "../passthrough";
 import { normalizeEnginePayloadPaths, translateEngineToolInput } from "../paths/translation";
 import { passthroughRouteFor, unifiedRoutesFor } from "../routing/table";
 import { invokeEngineTool } from "../transport/bridge";
@@ -427,7 +432,7 @@ export class ToolRouter {
 
 		const runtime = await loadRuntimeRoutingContext(this.projectRoot);
 		const passthrough = (runtime.routing?.passthrough ?? []).map((route) => ({
-			name: route.publicTool as ToolName,
+			name: publishedPassthroughToolName(route) as ToolName,
 			description: route.description ?? `${route.engine}.${route.engineTool}`,
 			type: "passthrough" as const,
 		}));
@@ -731,7 +736,7 @@ export class ToolRouter {
 	}
 
 	private async executePassthroughTool(
-		toolName: `${string}.${string}`,
+		toolName: string,
 		input: ToolInput,
 	): Promise<NormalizedToolResult> {
 		const runtime = await loadRuntimeRoutingContext(this.projectRoot);
@@ -746,6 +751,18 @@ export class ToolRouter {
 				warnings: ["Missing runtime routing table"],
 				warningCodes: [],
 			};
+		}
+
+		const retiredAlias = retiredPassthroughAliasFor(runtime.routing, toolName);
+		if (retiredAlias) {
+			return this.augmentResultWarnings(
+				buildRetiredPassthroughAliasResult({
+					requestedAlias: toolName,
+					route: retiredAlias.route,
+					replacementName: retiredAlias.replacementName,
+				}),
+				{ engine: retiredAlias.route.engine },
+			);
 		}
 
 		const route = passthroughRouteFor(runtime.routing, toolName);
@@ -876,7 +893,7 @@ export class ToolRouter {
 	}
 
 	private async tryAdrValidateAllFallback(options: {
-		toolName: `${string}.${string}`;
+		toolName: string;
 		input: ToolInput;
 		route: {
 			publicTool: string;

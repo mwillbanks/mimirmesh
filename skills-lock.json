@@ -1,85 +1,85 @@
 {
-  "version": 1,
-  "skills": {
-    "Bun Bundler": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "c5cc9aef8069e07db1c9dca3b0f99add19c187e254205d0b475a9b89caaf1a9c"
-    },
-    "Bun Docker": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "2bdd3e3a5602fe0320ea0204e73fbcc964f690670cc685acf4ca6e1f8c9779b7"
-    },
-    "Bun Hot Reloading": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "e56b7fb1d77f0ef2a0d2a7772213e20e0c79a7a0a9305a8de8a18ca9aff153a2"
-    },
-    "Bun Macros": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "77c6b15c2eddea4a1505d37c3a4ad4ceb5aa637857400e192ec0ea5816f8e110"
-    },
-    "Bun Package Manager": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "8db05a1eb2333f82c2082738489712329ebd5b060a9acddabe0a133cabdb987c"
-    },
-    "Bun Runtime": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "79c1b53f57ecd41e18c4a2e2f459054685d02c3e6b7a538a8c547652f9dcd05b"
-    },
-    "Bun Test Basics": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "26b7687d88fe72547fad405b8c5ab637b989a0396fb3dfb90831d2221a40e050"
-    },
-    "Bun Test Coverage": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "fcf383c5eb2c9539817a9ede474baadeaeb89753a8426b43b805b85c1009a7c9"
-    },
-    "Bun Test Mocking": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "9e475e4d4ffe3d3fe137e045208eaced6c4160ca62e8e61a7881d5237f8fe7af"
-    },
-    "Bun WebSocket Server": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "b79ba31a832d25467d0634ff498ba5c802b654e9f90962803d4d6a29b0205bf4"
-    },
-    "Bun Workers": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "2743e68c1994ade6b027f4cb6a1354753a16fc642627b7755f785c19f7164139"
-    },
-    "agent-execution-mode": {
-      "source": "mwillbanks/agent-skills",
-      "sourceType": "github",
-      "computedHash": "4638bd47fe0216f757ee20d68fd4672fa652cd0bee510b6d7854bd6f85ceb82c"
-    },
-    "biome-enforcement": {
-      "source": "mwillbanks/agent-skills",
-      "sourceType": "github",
-      "computedHash": "08b703472ee5908d249efce967e7ae88dd3a7d48f90817fe90320ddb51ff2e43"
-    },
-    "code-discipline": {
-      "source": "mwillbanks/agent-skills",
-      "sourceType": "github",
-      "computedHash": "60c460e898c3315de3bd2609dc9ffe956a2f7677b35dec32ce6b50a5e2102a85"
-    },
-    "repo-standards-enforcement": {
-      "source": "mwillbanks/agent-skills",
-      "sourceType": "github",
-      "computedHash": "ef8fb33c19d174a348d30e6c00db9beb4bafdd58186302330d54ef799474c26d"
-    },
-    "zod": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "computedHash": "df8b575c28f7f93fbd7d7971d785d47b84055063654a05ddbebf8ebd3536b2c4"
-    }
-  }
+	"version": 1,
+	"skills": {
+		"Bun Bundler": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "c5cc9aef8069e07db1c9dca3b0f99add19c187e254205d0b475a9b89caaf1a9c"
+		},
+		"Bun Docker": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "2bdd3e3a5602fe0320ea0204e73fbcc964f690670cc685acf4ca6e1f8c9779b7"
+		},
+		"Bun Hot Reloading": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "e56b7fb1d77f0ef2a0d2a7772213e20e0c79a7a0a9305a8de8a18ca9aff153a2"
+		},
+		"Bun Macros": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "77c6b15c2eddea4a1505d37c3a4ad4ceb5aa637857400e192ec0ea5816f8e110"
+		},
+		"Bun Package Manager": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "8db05a1eb2333f82c2082738489712329ebd5b060a9acddabe0a133cabdb987c"
+		},
+		"Bun Runtime": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "79c1b53f57ecd41e18c4a2e2f459054685d02c3e6b7a538a8c547652f9dcd05b"
+		},
+		"Bun Test Basics": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "26b7687d88fe72547fad405b8c5ab637b989a0396fb3dfb90831d2221a40e050"
+		},
+		"Bun Test Coverage": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "fcf383c5eb2c9539817a9ede474baadeaeb89753a8426b43b805b85c1009a7c9"
+		},
+		"Bun Test Mocking": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "9e475e4d4ffe3d3fe137e045208eaced6c4160ca62e8e61a7881d5237f8fe7af"
+		},
+		"Bun WebSocket Server": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "b79ba31a832d25467d0634ff498ba5c802b654e9f90962803d4d6a29b0205bf4"
+		},
+		"Bun Workers": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "2743e68c1994ade6b027f4cb6a1354753a16fc642627b7755f785c19f7164139"
+		},
+		"agent-execution-mode": {
+			"source": "mwillbanks/agent-skills",
+			"sourceType": "github",
+			"computedHash": "4638bd47fe0216f757ee20d68fd4672fa652cd0bee510b6d7854bd6f85ceb82c"
+		},
+		"biome-enforcement": {
+			"source": "mwillbanks/agent-skills",
+			"sourceType": "github",
+			"computedHash": "08b703472ee5908d249efce967e7ae88dd3a7d48f90817fe90320ddb51ff2e43"
+		},
+		"code-discipline": {
+			"source": "mwillbanks/agent-skills",
+			"sourceType": "github",
+			"computedHash": "60c460e898c3315de3bd2609dc9ffe956a2f7677b35dec32ce6b50a5e2102a85"
+		},
+		"repo-standards-enforcement": {
+			"source": "mwillbanks/agent-skills",
+			"sourceType": "github",
+			"computedHash": "ef8fb33c19d174a348d30e6c00db9beb4bafdd58186302330d54ef799474c26d"
+		},
+		"zod": {
+			"source": "secondsky/claude-skills",
+			"sourceType": "github",
+			"computedHash": "df8b575c28f7f93fbd7d7971d785d47b84055063654a05ddbebf8ebd3536b2c4"
+		}
+	}
 }

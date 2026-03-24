@@ -98,9 +98,15 @@ export type UnifiedExecutionContext = {
 	invoke: (tool: string, args: Record<string, unknown>) => Promise<UnifiedExecutionResponse>;
 };
 
+export type EnginePassthroughPublication = {
+	canonicalId: string;
+	eligibleForPublication: boolean;
+};
+
 export type EngineAdapterModule = {
 	id: EngineId;
 	namespace: string;
+	passthroughPublication?: EnginePassthroughPublication;
 	translateConfig: (
 		projectRoot: string,
 		config: MimirmeshConfig,

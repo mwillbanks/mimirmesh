@@ -1,7 +1,5 @@
+import { buildTransportToolName as toTransportToolName } from "@mimirmesh/mcp-core";
 import { withClient } from "../transport/mcp-client";
-
-const toTransportToolName = (toolName: string): string =>
-	toolName.replaceAll(".", "_").replaceAll("/", "_");
 
 const LIST_TOOLS_TIMEOUT_MS = 180_000;
 const CALL_TOOL_TIMEOUT_MS = 300_000;

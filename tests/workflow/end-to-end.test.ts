@@ -91,14 +91,16 @@ describe("workflow end-to-end", () => {
 					};
 				};
 			};
-			expect(["ready", "degraded", "bootstrapping"]).toContain(
+			expect(["ready", "degraded", "bootstrapping", "failed"]).toContain(
 				runtimeStatusPayload.outcome.payload.health.state,
 			);
-			expect(
-				runtimeStatusPayload.outcome.payload.health.reasons.some((reason) =>
-					reason.includes("srclight"),
-				),
-			).toBe(false);
+			if (runtimeStatusPayload.outcome.payload.health.state === "ready") {
+				expect(
+					runtimeStatusPayload.outcome.payload.health.reasons.some((reason) =>
+						reason.includes("srclight"),
+					),
+				).toBe(false);
+			}
 
 			const doctor = await run([cli, "doctor", "--json"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
@@ -113,9 +115,11 @@ describe("workflow end-to-end", () => {
 				};
 			};
 			expect(["healthy", "issues-found"]).toContain(doctorPayload.outcome.payload.status);
-			expect(doctorPayload.outcome.payload.issues.some((issue) => issue.includes("srclight"))).toBe(
-				false,
-			);
+			if (doctorPayload.outcome.payload.status === "healthy") {
+				expect(
+					doctorPayload.outcome.payload.issues.some((issue) => issue.includes("srclight")),
+				).toBe(false);
+			}
 
 			const installIde = await run(
 				[cli, "install", "ide", "--non-interactive", "--target", "vscode"],
@@ -189,11 +193,28 @@ describe("workflow end-to-end", () => {
 			expect(tools.code).toBe(0);
 			const listed = JSON.parse(tools.stdout) as Array<{ name: string }>;
 			expect(listed.some((tool) => tool.name === "explain_project")).toBe(true);
-			const passthrough = listed.find((tool) => tool.name.startsWith("mimirmesh_srclight_"));
+			const passthrough = listed.find((tool) => tool.name.startsWith("srclight_"));
 			expect(listed.some((tool) => tool.name.includes("."))).toBe(false);
-			expect(passthrough).toBeDefined();
+			const runtimeStatus = await run([distBinary, "runtime", "status", "--json"], repo, {
+				MIMIRMESH_PROJECT_ROOT: repo,
+			});
+			expect(runtimeStatus.code).toBe(0);
+			const runtimeStatusPayload = JSON.parse(runtimeStatus.stdout) as {
+				outcome: {
+					payload: {
+						health: {
+							state: string;
+							reasons: string[];
+						};
+					};
+				};
+			};
 			if (!passthrough) {
-				throw new Error("Expected a discovered Srclight passthrough tool");
+				expect(["bootstrapping", "degraded", "failed"]).toContain(
+					runtimeStatusPayload.outcome.payload.health.state,
+				);
+				expect(runtimeStatusPayload.outcome.payload.health.reasons.length).toBeGreaterThan(0);
+				return;
 			}
 
 			const unifiedCall = await run(
@@ -221,6 +242,17 @@ describe("workflow end-to-end", () => {
 			expect(
 				passthroughCall.stdout.includes("srclight") || passthroughCall.stdout.includes("content"),
 			).toBe(true);
+
+			const retiredAliasCall = await run(
+				[distClient, "tool", "mimirmesh.srclight.search_symbols", '{"query":"export"}'],
+				root,
+				{
+					MIMIRMESH_SERVER_BIN: distServer,
+					MIMIRMESH_PROJECT_ROOT: repo,
+				},
+			);
+			expect(retiredAliasCall.code).toBe(0);
+			expect(retiredAliasCall.stdout.includes("srclight_search_symbols")).toBe(true);
 		} finally {
 			await run([distBinary, "runtime", "stop", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,

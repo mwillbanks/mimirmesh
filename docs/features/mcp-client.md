@@ -32,10 +32,12 @@ This lets the client work against either the built workspace artifacts or an ins
 The client accepts canonical names such as:
 
 - `search_code`
-- `mimirmesh.srclight.search_symbols`
-- `mimirmesh.adr.discover_existing_adrs`
+- `srclight_search_symbols`
+- `adr_discover_existing_adrs`
 
-Before transport, it converts `.` and `/` to `_`, so canonical and transport-safe forms both work.
+Before transport, it converts `.` and `/` to `_`, so unified names and published passthrough names flow through the same stdio MCP surface.
+
+If a caller uses a retired `mimirmesh`-prefixed passthrough alias such as `mimirmesh.srclight.search_symbols`, the client receives an explicit replacement error naming the published engine-native tool.
 
 ## Unified Tool Behavior
 
@@ -71,20 +73,20 @@ Srclight passthrough routes appear only when the runtime has discovered them fro
 
 Representative names:
 
-- `mimirmesh.srclight.codebase_map`
-- `mimirmesh.srclight.search_symbols`
-- `mimirmesh.srclight.get_symbol`
-- `mimirmesh.srclight.get_callers`
-- `mimirmesh.srclight.get_tests_for`
-- `mimirmesh.srclight.get_type_hierarchy`
-- `mimirmesh.srclight.get_platform_variants`
-- `mimirmesh.srclight.platform_conditionals`
-- `mimirmesh.srclight.hybrid_search`
-- `mimirmesh.srclight.index_status`
-- `mimirmesh.srclight.list_projects`
-- `mimirmesh.srclight.reindex`
-- `mimirmesh.srclight.changes_to`
-- `mimirmesh.srclight.embedding_status`
+- `srclight_codebase_map`
+- `srclight_search_symbols`
+- `srclight_get_symbol`
+- `srclight_get_callers`
+- `srclight_get_tests_for`
+- `srclight_get_type_hierarchy`
+- `srclight_get_platform_variants`
+- `srclight_platform_conditionals`
+- `srclight_hybrid_search`
+- `srclight_index_status`
+- `srclight_list_projects`
+- `srclight_reindex`
+- `srclight_changes_to`
+- `srclight_embedding_status`
 
 The router also normalizes arguments for these tools. For example, search-like tools accept `query` or `max_results`, and symbol tools collapse caller input into the `symbol` field expected by Srclight.
 
@@ -115,6 +117,7 @@ Bridge-backed requests reconnect once and retry once on timeout, abort, `502`, a
 
 - `mimirmesh-client list-tools`
 - `mimirmesh-client tool search_code '{"query":"export"}'`
+- `mimirmesh-client tool srclight_search_symbols '{"query":"ToolRouter"}'`
 - `mimirmesh-client tool mimirmesh.srclight.search_symbols '{"query":"ToolRouter"}'`
 - `mimirmesh runtime status`
 - `mimirmesh mcp list-tools`

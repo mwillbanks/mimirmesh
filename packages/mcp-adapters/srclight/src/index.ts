@@ -12,6 +12,10 @@ import {
 export const srclightAdapter: EngineAdapterModule = {
 	id: "srclight",
 	namespace: "mimirmesh.srclight",
+	passthroughPublication: {
+		canonicalId: "srclight",
+		eligibleForPublication: true,
+	},
 	translateConfig: translateSrclightConfig,
 	bootstrap: srclightBootstrap,
 	routingRules: srclightRoutingRules,

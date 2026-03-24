@@ -4,11 +4,17 @@ import { adrAdapter } from "../mcp-adr-analysis-server/src";
 import { srclightAdapter } from "../srclight/src";
 import type { EngineAdapterModule, EngineConfigTranslationResult } from "./types";
 
+export {
+	buildLegacyPassthroughToolName,
+	buildPublishedPassthroughToolName,
+	buildTransportToolName,
+} from "./passthrough-publication";
 export type {
 	AdapterRoutingRule,
 	EngineAdapterModule,
 	EngineBootstrapDefinition,
 	EngineGpuResolution,
+	EnginePassthroughPublication,
 	EngineRuntimeContract,
 	RuntimeAdapterContext,
 	RuntimeVariant,

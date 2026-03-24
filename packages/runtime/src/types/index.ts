@@ -126,6 +126,11 @@ export type PassthroughRoute = {
 	engineTool: string;
 	description?: string;
 	inputSchema?: Record<string, unknown>;
+	publication?: {
+		canonicalEngineId: string;
+		publishedTool: string;
+		retiredAliases: string[];
+	};
 };
 
 export type UnifiedRoute = {

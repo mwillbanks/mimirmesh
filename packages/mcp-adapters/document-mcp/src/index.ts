@@ -11,6 +11,10 @@ import {
 export const documentMcpAdapter: EngineAdapterModule = {
 	id: "document-mcp",
 	namespace: "mimirmesh.docs",
+	passthroughPublication: {
+		canonicalId: "docs",
+		eligibleForPublication: true,
+	},
 	translateConfig: translateDocumentMcpConfig,
 	bootstrap: documentMcpBootstrap,
 	routingRules: [],

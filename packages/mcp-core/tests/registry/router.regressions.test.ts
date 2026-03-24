@@ -13,9 +13,36 @@ const invokeEngineToolMock = mock(
 	}),
 );
 
+const translateConfigStub = (engine: string) => ({
+	contract: {
+		id: engine,
+		namespace:
+			engine === "srclight"
+				? "mimirmesh.srclight"
+				: engine === "document-mcp"
+					? "mimirmesh.docs"
+					: "mimirmesh.adr",
+		serviceName: `mm-${engine}`,
+		required: false,
+		dockerfile: "Dockerfile",
+		context: ".",
+		imageTag: `mimirmesh/${engine}:test`,
+		bridgePort: 0,
+		bridgeTransport: engine === "srclight" ? ("sse" as const) : ("stdio" as const),
+		env: {},
+		mounts: {
+			repo: "/workspace",
+			mimirmesh: "/mimirmesh",
+		},
+	},
+	errors: [],
+	degraded: false,
+});
+
 const getAdapterMock = mock((engine: string) => {
 	if (engine === "srclight") {
 		return {
+			translateConfig: () => translateConfigStub(engine),
 			prepareToolInput: (toolName: string, input: Record<string, unknown>) => {
 				if (toolName === "search_symbols" && typeof input.symbol === "string") {
 					return { query: input.symbol };
@@ -28,6 +55,7 @@ const getAdapterMock = mock((engine: string) => {
 
 	if (engine === "mcp-adr-analysis-server") {
 		return {
+			translateConfig: () => translateConfigStub(engine),
 			prepareToolInput: (
 				_toolName: string,
 				input: Record<string, unknown>,
@@ -51,18 +79,23 @@ const getAdapterMock = mock((engine: string) => {
 		};
 	}
 
-	return {};
+	return {
+		translateConfig: () => translateConfigStub(engine),
+	};
 });
 
-mock.module("@mimirmesh/mcp-adapters", () => ({
-	getAdapter: getAdapterMock,
-}));
+const loadCreateToolRouter = async () => {
+	mock.restore();
+	mock.module("@mimirmesh/mcp-adapters", () => ({
+		getAdapter: getAdapterMock,
+	}));
+	mock.module("../../src/transport/bridge", () => ({
+		invokeEngineTool: invokeEngineToolMock,
+	}));
 
-mock.module("../../src/transport/bridge", () => ({
-	invokeEngineTool: invokeEngineToolMock,
-}));
-
-const { createToolRouter } = await import("../../src/registry/router");
+	const module = await import("../../src/registry/router");
+	return module.createToolRouter;
+};
 
 describe("mcp tool router regressions", () => {
 	beforeEach(() => {
@@ -75,6 +108,7 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("prepares fallback unified inputs through the adapter before invoking engine tools", async () => {
+		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 
@@ -134,6 +168,7 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("falls back to discovered ADR validation when upstream reports zero ADRs", async () => {
+		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 
@@ -253,6 +288,7 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("translates host and repository paths for ADR passthrough tools", async () => {
+		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 		await mkdir(join(repo, "docs", "adr"), { recursive: true });
@@ -341,7 +377,65 @@ describe("mcp tool router regressions", () => {
 		expect(validateRules.items[0]?.content).toContain(repo);
 	});
 
+	test("keeps passthrough routes without publication metadata outside the naming contract", async () => {
+		const createToolRouter = await loadCreateToolRouter();
+		const repo = await createFixtureCopy("single-ts");
+		const config = createDefaultConfig(repo);
+
+		await persistConnection(repo, {
+			projectName: config.runtime.projectName,
+			composeFile: config.runtime.composeFile,
+			updatedAt: new Date().toISOString(),
+			startedAt: new Date().toISOString(),
+			mounts: {
+				repository: repo,
+				mimirmesh: `${repo}/.mimirmesh`,
+			},
+			services: ["mm-docs"],
+			bridgePorts: {
+				"document-mcp": 65532,
+			},
+		});
+		await persistRoutingTable(repo, {
+			generatedAt: new Date().toISOString(),
+			passthrough: [
+				{
+					publicTool: "external.docs.lookup",
+					engine: "document-mcp",
+					engineTool: "search_documents",
+					description: "External passthrough tool",
+				},
+			],
+			unified: [],
+		});
+
+		invokeEngineToolMock.mockResolvedValueOnce({
+			ok: true,
+			result: {
+				match: "README.md",
+			},
+		});
+
+		const router = createToolRouter({
+			projectRoot: repo,
+			config,
+		});
+
+		const tools = await router.listTools();
+		const result = await router.callTool("external.docs.lookup", {});
+
+		expect(tools.some((tool) => tool.name === "external.docs.lookup")).toBe(true);
+		expect(result.success).toBe(true);
+		expect(invokeEngineToolMock).toHaveBeenCalledWith({
+			bridgePorts: { "document-mcp": 65532 },
+			engine: "document-mcp",
+			tool: "search_documents",
+			args: {},
+		});
+	});
+
 	test("fails fast with a validation error when passthrough input misses required fields", async () => {
+		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 

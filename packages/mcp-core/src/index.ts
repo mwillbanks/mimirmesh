@@ -1,5 +1,12 @@
+export { buildTransportToolName } from "@mimirmesh/mcp-adapters";
 export { loadRuntimeRoutingContext } from "./discovery/runtime";
 export { deduplicateAndRank } from "./merge/results";
+export {
+	buildRetiredPassthroughAliasResult,
+	passthroughRouteFor as resolvePublishedPassthroughRoute,
+	publishedPassthroughToolName,
+	retiredPassthroughAliasFor,
+} from "./passthrough";
 export {
 	applyMiddleware,
 	errorNormalizationMiddleware,

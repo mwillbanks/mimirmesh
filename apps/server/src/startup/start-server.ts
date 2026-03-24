@@ -5,8 +5,10 @@ import { readConfig } from "@mimirmesh/config";
 import { createProjectLogger } from "@mimirmesh/logging";
 import { createAdapters } from "@mimirmesh/mcp-adapters";
 import {
+	buildRetiredPassthroughAliasResult,
 	createToolRouter,
 	isUnifiedTool,
+	loadRuntimeRoutingContext,
 	type ToolInput,
 	type ToolName,
 	unifiedToolInputSchemas,
@@ -22,6 +24,7 @@ import type {
 	AnySchema as McpAnySchema,
 	ZodRawShapeCompat,
 } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+import { CallToolRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { toTransportToolName } from "../middleware/tool-name";
@@ -45,6 +48,32 @@ const resolveVersion = async (): Promise<string> => {
 		}
 	}
 	return process.env.MIMIRMESH_VERSION ?? "1.0.0";
+};
+
+type RegisteredToolHandle = {
+	enabled: boolean;
+	inputSchema?: {
+		safeParseAsync: (value: unknown) => Promise<{
+			success: boolean;
+			data?: Record<string, unknown>;
+			error?: {
+				message: string;
+			};
+		}>;
+	};
+	handler: (input: Record<string, unknown>, extra?: unknown) => Promise<TransportToolResult>;
+	disable: () => void;
+};
+
+type TransportToolResult = {
+	content: Array<{
+		type: "text";
+		text: string;
+	}>;
+	structuredContent?: {
+		result: unknown;
+	};
+	isError?: boolean;
 };
 
 export const startMcpServer = async (projectRootInput?: string): Promise<void> => {
@@ -83,9 +112,76 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 		name: "mimirmesh",
 		version,
 	});
+	const registeredTools = new Map<
+		string,
+		{
+			allowDisabledCall: boolean;
+			tool: RegisteredToolHandle;
+		}
+	>();
+	const registerTransportTool = (
+		name: string,
+		options: {
+			title: string;
+			description?: string;
+			inputSchema: McpAnySchema | ZodRawShapeCompat;
+		},
+		handler: (input: ToolInput, extra?: unknown) => Promise<TransportToolResult>,
+		settings: {
+			allowDisabledCall?: boolean;
+			disable?: boolean;
+		} = {},
+	) => {
+		const tool = server.registerTool(
+			name,
+			options,
+			handler as never,
+		) as unknown as RegisteredToolHandle;
+		if (settings.disable) {
+			tool.disable();
+		}
+		registeredTools.set(name, {
+			allowDisabledCall: settings.allowDisabledCall ?? false,
+			tool,
+		});
+		return tool;
+	};
+	const invokeRegisteredTool = async (
+		name: string,
+		argumentsInput: Record<string, unknown>,
+	): Promise<TransportToolResult> => {
+		const entry = registeredTools.get(name);
+		if (!entry) {
+			throw new McpError(ErrorCode.InvalidParams, `Tool ${name} not found`);
+		}
+		if (!entry.tool.enabled && !entry.allowDisabledCall) {
+			throw new McpError(ErrorCode.InvalidParams, `Tool ${name} disabled`);
+		}
+		if (entry.tool.inputSchema) {
+			const parsed = await entry.tool.inputSchema.safeParseAsync(argumentsInput);
+			if (!parsed.success) {
+				throw new McpError(
+					ErrorCode.InvalidParams,
+					`Invalid arguments for tool ${name}: ${parsed.error?.message ?? "unknown error"}`,
+				);
+			}
+			return entry.tool.handler(parsed.data ?? {});
+		}
+		return entry.tool.handler(argumentsInput);
+	};
 
 	const passthroughSchema = z.object({}).passthrough();
 	const toolDefinitions = await router.listTools();
+	const runtime = await loadRuntimeRoutingContext(projectRoot);
+	const retiredAliases = (runtime.routing?.passthrough ?? []).flatMap((route) => {
+		const aliases = route.publication?.retiredAliases ?? [];
+		const replacementName = route.publication?.publishedTool ?? route.publicTool;
+		return aliases.map((alias) => ({
+			alias,
+			replacementName,
+			route,
+		}));
+	});
 	await logger.log(
 		"mcp",
 		"info",
@@ -102,7 +198,7 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 			? (unifiedToolInputSchemas[tool.name] as unknown as ZodRawShapeCompat)
 			: (passthroughSchema as unknown as McpAnySchema);
 
-		server.registerTool(
+		registerTransportTool(
 			transportToolName,
 			{
 				title: transportToolName,
@@ -134,6 +230,46 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 			},
 		);
 	}
+
+	for (const alias of retiredAliases) {
+		const transportToolName = toTransportToolName(alias.alias);
+		registerTransportTool(
+			transportToolName,
+			{
+				title: transportToolName,
+				description: `Retired passthrough alias for ${alias.replacementName}`,
+				inputSchema: passthroughSchema as unknown as McpAnySchema,
+			},
+			async () => {
+				const result = buildRetiredPassthroughAliasResult({
+					requestedAlias: alias.alias,
+					route: alias.route,
+					replacementName: alias.replacementName,
+				});
+				await logger.log("mcp", "warn", result.message);
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: result.message,
+						},
+					],
+					structuredContent: {
+						result,
+					},
+					isError: true,
+				};
+			},
+			{ allowDisabledCall: true, disable: true },
+		);
+	}
+
+	server.server.setRequestHandler(CallToolRequestSchema, async (request) =>
+		invokeRegisteredTool(
+			request.params.name,
+			(request.params.arguments ?? {}) as Record<string, unknown>,
+		),
+	);
 
 	const transport = new StdioServerTransport();
 	await server.connect(transport);

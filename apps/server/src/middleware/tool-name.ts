@@ -1,2 +1,1 @@
-export const toTransportToolName = (toolName: string): string =>
-	toolName.replaceAll(".", "_").replaceAll("/", "_");
+export { buildTransportToolName as toTransportToolName } from "@mimirmesh/mcp-core";

@@ -1,20 +1,14 @@
 import type { EngineId, MimirmeshConfig } from "@mimirmesh/config";
-import { allEngineAdapters, getAdapter, type RuntimeAdapterContext } from "@mimirmesh/mcp-adapters";
+import {
+	allEngineAdapters,
+	buildLegacyPassthroughToolName,
+	buildPublishedPassthroughToolName,
+	getAdapter,
+	type RuntimeAdapterContext,
+} from "@mimirmesh/mcp-adapters";
 import { checkBridgeHealth, discoverBridgeTools } from "../services/bridge";
 import { collectSrclightRepoLocalEvidence, hashValue, persistEngineState } from "../state/io";
 import type { EngineRuntimeState, PassthroughRoute, RoutingTable, UnifiedRoute } from "../types";
-
-const normalizeForNamespace = (tool: string): string =>
-	tool
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9_-]+/g, "_")
-		.replace(/^_+|_+$/g, "") || "tool";
-
-const passthroughName = (namespace: string, tool: string): string => {
-	const suffix = normalizeForNamespace(tool);
-	return `${namespace}.${suffix}`;
-};
 
 const routePriority = (engine: UnifiedRoute["engine"]): number => {
 	switch (engine) {
@@ -162,12 +156,24 @@ export const discoverEngineCapability = async (options: {
 		}
 
 		for (const tool of discoveredTools) {
+			const publicTool = buildLegacyPassthroughToolName(adapter.namespace, tool.name);
+
 			passthrough.push({
-				publicTool: passthroughName(adapter.namespace, tool.name),
+				publicTool,
 				engine: adapter.id,
 				engineTool: tool.name,
 				description: tool.description,
 				inputSchema: tool.inputSchema,
+				publication: adapter.passthroughPublication?.eligibleForPublication
+					? {
+							canonicalEngineId: adapter.passthroughPublication.canonicalId,
+							publishedTool: buildPublishedPassthroughToolName(
+								adapter.passthroughPublication.canonicalId,
+								tool.name,
+							),
+							retiredAliases: [publicTool],
+						}
+					: undefined,
 			});
 		}
 

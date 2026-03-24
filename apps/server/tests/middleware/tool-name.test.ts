@@ -8,5 +8,6 @@ describe("server tool name middleware", () => {
 			"mimirmesh_codebase_search_code",
 		);
 		expect(toTransportToolName("engine/tool")).toBe("engine_tool");
+		expect(toTransportToolName("srclight_search_symbols")).toBe("srclight_search_symbols");
 	});
 });

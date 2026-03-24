@@ -33,6 +33,11 @@ describe("mcp tool router", () => {
 					engine: "srclight",
 					engineTool: "hybrid_search",
 					description: "search code",
+					publication: {
+						canonicalEngineId: "srclight",
+						publishedTool: "srclight_hybrid_search",
+						retiredAliases: ["mimirmesh.srclight.hybrid_search"],
+					},
 				},
 			],
 			unified: [
@@ -62,7 +67,7 @@ describe("mcp tool router", () => {
 		expect(tools.some((tool) => tool.name === "inspect_platform_code")).toBe(true);
 		expect(tools.some((tool) => tool.name === "list_workspace_projects")).toBe(true);
 		expect(tools.some((tool) => tool.name === "refresh_index")).toBe(true);
-		expect(tools.some((tool) => tool.name === "mimirmesh.srclight.hybrid_search")).toBe(true);
+		expect(tools.some((tool) => tool.name === "srclight_hybrid_search")).toBe(true);
 	});
 
 	test("returns provenance for passthrough failures", async () => {
@@ -91,6 +96,11 @@ describe("mcp tool router", () => {
 					engine: "srclight",
 					engineTool: "hybrid_search",
 					description: "search code",
+					publication: {
+						canonicalEngineId: "srclight",
+						publishedTool: "srclight_hybrid_search",
+						retiredAliases: ["mimirmesh.srclight.hybrid_search"],
+					},
 				},
 			],
 			unified: [],
@@ -103,6 +113,8 @@ describe("mcp tool router", () => {
 
 		const result = await router.callTool("mimirmesh.srclight.hybrid_search", { query: "export" });
 		expect(result.provenance.length).toBeGreaterThan(0);
-		expect(typeof result.success).toBe("boolean");
+		expect(result.success).toBe(false);
+		expect(result.message).toContain("Use srclight_hybrid_search instead");
+		expect(result.nextAction).toContain("srclight_hybrid_search");
 	});
 });

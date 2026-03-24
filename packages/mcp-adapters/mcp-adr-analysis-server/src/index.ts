@@ -7,6 +7,10 @@ import { executeAdrUnifiedTool, prepareAdrToolInput, resolveAdrRoutes } from "./
 export const adrAdapter: EngineAdapterModule = {
 	id: "mcp-adr-analysis-server",
 	namespace: "mimirmesh.adr",
+	passthroughPublication: {
+		canonicalId: "adr",
+		eligibleForPublication: true,
+	},
 	translateConfig: translateAdrConfig,
 	bootstrap: adrBootstrap,
 	routingRules: [],

@@ -24,7 +24,7 @@ export type UnifiedToolName =
 	| "config_get"
 	| "config_set";
 
-export type ToolName = UnifiedToolName | `${string}.${string}`;
+export type ToolName = UnifiedToolName | string;
 
 export type ToolInput = Record<string, unknown>;
 
@@ -111,4 +111,9 @@ export type PassthroughMapping = {
 	engine: EngineId;
 	engineTool: string;
 	description?: string;
+	publication?: {
+		canonicalEngineId: string;
+		publishedTool: string;
+		retiredAliases: string[];
+	};
 };

@@ -1,12 +1,10 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createDefaultConfig } from "@mimirmesh/config";
-
-import { discoverEngineCapability } from "../../src/discovery/discover";
 
 let bridgeServer: ReturnType<typeof Bun.serve> | null = null;
 
@@ -38,11 +36,18 @@ afterEach(async () => {
 	}
 });
 
+const loadDiscoverEngineCapability = async () => {
+	mock.restore();
+	const module = await import(`../../src/discovery/discover?restore=${Date.now()}`);
+	return module.discoverEngineCapability;
+};
+
 describe("discoverEngineCapability", () => {
 	test("publishes passthrough routes when discovery succeeds after a stale health failure", async () => {
 		const projectRoot = await mkdtemp(join(tmpdir(), "mimirmesh-discovery-"));
 
 		try {
+			const discoverEngineCapability = await loadDiscoverEngineCapability();
 			const config = createDefaultConfig(projectRoot);
 			config.engines.srclight.enabled = false;
 			config.engines["mcp-adr-analysis-server"].enabled = false;
@@ -106,6 +111,11 @@ describe("discoverEngineCapability", () => {
 					publicTool: "mimirmesh.docs.search_documents",
 					engine: "document-mcp",
 					engineTool: "search_documents",
+					publication: {
+						canonicalEngineId: "docs",
+						publishedTool: "docs_search_documents",
+						retiredAliases: ["mimirmesh.docs.search_documents"],
+					},
 				}),
 			]);
 		} finally {
@@ -121,6 +131,7 @@ describe("discoverEngineCapability", () => {
 		const projectRoot = await mkdtemp(join(tmpdir(), "mimirmesh-srclight-discovery-"));
 
 		try {
+			const discoverEngineCapability = await loadDiscoverEngineCapability();
 			const config = createDefaultConfig(projectRoot);
 			config.engines["document-mcp"].enabled = false;
 			config.engines["mcp-adr-analysis-server"].enabled = false;
@@ -167,7 +178,14 @@ describe("discoverEngineCapability", () => {
 			expect(srclightState?.runtimeEvidence?.bootstrapMode).toBe("command");
 			expect(result.routingTable.passthrough).toEqual(
 				expect.arrayContaining([
-					expect.objectContaining({ publicTool: "mimirmesh.srclight.search_symbols" }),
+					expect.objectContaining({
+						publicTool: "mimirmesh.srclight.search_symbols",
+						publication: {
+							canonicalEngineId: "srclight",
+							publishedTool: "srclight_search_symbols",
+							retiredAliases: ["mimirmesh.srclight.search_symbols"],
+						},
+					}),
 				]),
 			);
 		} finally {

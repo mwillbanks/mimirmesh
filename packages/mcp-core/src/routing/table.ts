@@ -1,4 +1,5 @@
 import type { RoutingTable } from "@mimirmesh/runtime";
+import { passthroughRouteFor as resolvePassthroughRoute } from "../passthrough";
 import type { RoutingEngineRoute, UnifiedToolName } from "../types";
 
 export const unifiedRoutesFor = (table: RoutingTable, tool: string): RoutingEngineRoute[] => {
@@ -14,4 +15,4 @@ export const unifiedRoutesFor = (table: RoutingTable, tool: string): RoutingEngi
 };
 
 export const passthroughRouteFor = (table: RoutingTable, tool: string) =>
-	table.passthrough.find((entry) => entry.publicTool === tool) ?? null;
+	resolvePassthroughRoute(table, tool);
