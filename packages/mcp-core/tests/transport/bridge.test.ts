@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const actualRuntime = await import("@mimirmesh/runtime");
 
@@ -18,6 +18,10 @@ describe("invokeEngineTool", () => {
 	beforeEach(() => {
 		runtimeMock.callBridgeTool.mockReset();
 		runtimeMock.reconnectBridge.mockReset();
+	});
+
+	afterEach(() => {
+		mock.restore();
 	});
 
 	test("reconnects and retries once when the bridge call aborts", async () => {

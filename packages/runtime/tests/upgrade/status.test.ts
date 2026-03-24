@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { rm } from "node:fs/promises";
 
 type AdapterFixtureConfig = {
@@ -27,6 +27,13 @@ type AdapterFixtureConfig = {
 
 const installAdapterTestDoubles = () => {
 	mock.module("@mimirmesh/mcp-adapters", () => {
+		const normalizePassthroughToolSegment = (tool: string): string =>
+			tool
+				.trim()
+				.toLowerCase()
+				.replace(/[^a-z0-9_-]+/g, "_")
+				.replace(/^_+|_+$/g, "") || "tool";
+
 		const makeAdapter = (
 			engine: "srclight" | "document-mcp" | "mcp-adr-analysis-server",
 			bootstrapMode: "tool" | "command" | "none",
@@ -38,6 +45,11 @@ const installAdapterTestDoubles = () => {
 					: engine === "document-mcp"
 						? "mimirmesh.docs"
 						: "mimirmesh.adr",
+			passthroughPublication: {
+				canonicalId:
+					engine === "srclight" ? "srclight" : engine === "document-mcp" ? "docs" : "adr",
+				eligibleForPublication: true,
+			},
 			bootstrap:
 				bootstrapMode === "command"
 					? {
@@ -92,6 +104,10 @@ const installAdapterTestDoubles = () => {
 
 		return {
 			allEngineAdapters: adapters,
+			buildLegacyPassthroughToolName: (namespace: string, tool: string) =>
+				`${namespace}.${normalizePassthroughToolSegment(tool)}`,
+			buildPublishedPassthroughToolName: (canonicalId: string, tool: string) =>
+				`${canonicalId}_${normalizePassthroughToolSegment(tool)}`,
 			getAdapter: (engine: string) => {
 				const adapter = adapters.find((entry) => entry.id === engine);
 				if (!adapter) {
@@ -116,6 +132,10 @@ const loadUpgradeTestModules = async () => {
 };
 
 describe("runtime upgrade status", () => {
+	afterEach(() => {
+		mock.restore();
+	});
+
 	test("classifies current runtime", async () => {
 		const { createRuntimeUpgradeFixture, classifyUpgradeStatus } = await loadUpgradeTestModules();
 		const fixture = await createRuntimeUpgradeFixture("current");

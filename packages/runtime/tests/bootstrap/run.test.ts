@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const bridgeMock = {
 	callBridgeTool: mock(
@@ -15,6 +15,10 @@ describe("callBootstrapToolWithRetry", () => {
 	beforeEach(() => {
 		bridgeMock.callBridgeTool.mockReset();
 		bridgeMock.reconnectBridge.mockReset();
+	});
+
+	afterEach(() => {
+		mock.restore();
 	});
 
 	test("retries tool bootstrap calls after a transient socket close", async () => {

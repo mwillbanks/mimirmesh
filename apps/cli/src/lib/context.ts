@@ -119,6 +119,7 @@ export const initializeProject = async (
 	specKit: Awaited<ReturnType<typeof detectSpecKit>>;
 }> => {
 	await ensureProjectLayout(context.projectRoot);
+	await setupProject(context);
 	const files = await generateRuntimeFiles(context.projectRoot, context.config);
 	await context.logger.log("runtime", "info", `Runtime files generated at ${files.composeFile}`);
 
@@ -592,7 +593,7 @@ export const setupProject = async (context: CliContext): Promise<string[]> => {
 		join(context.projectRoot, "docs", "operations"),
 		join(context.projectRoot, "docs", "runbooks"),
 		join(context.projectRoot, "docs", "features"),
-		join(context.projectRoot, "docs", "decisions"),
+		join(context.projectRoot, "docs", "adr"),
 		join(context.projectRoot, "docs", "specifications"),
 	];
 	for (const directory of directories) {

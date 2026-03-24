@@ -51,6 +51,8 @@ describe("init workflow", () => {
 				"completed",
 			);
 			expect(await exists(join(repo, ".mimirmesh", "config.yml"))).toBe(true);
+			expect(await exists(join(repo, "docs", "adr"))).toBe(true);
+			expect(await exists(join(repo, "docs", "decisions"))).toBe(false);
 			expect(await exists(join(repo, ".mimirmesh", "reports", "project-summary.md"))).toBe(true);
 			expect(finalState.outcome?.evidence?.some((row) => row.label === "Repo shape")).toBe(true);
 		} finally {

@@ -111,11 +111,12 @@ export const createInitWorkflow = (options: InitWorkflowOptions = {}): WorkflowD
 
 		controller.startStep(
 			"initialize-project",
-			"Generating runtime files, reports, and repository analysis.",
+			"Scaffolding repository docs, generating runtime files, reports, and repository analysis.",
 		);
 		const result = await initializeProject(context);
 		controller.completeStep("initialize-project", {
-			summary: "Runtime files, reports, and repository analysis completed.",
+			summary:
+				"Documentation scaffolding, runtime files, reports, and repository analysis completed.",
 			evidence: [
 				{ label: "Repo shape", value: result.analysis.shape },
 				{ label: "Reports generated", value: String(result.reports.length) },
@@ -191,7 +192,7 @@ export const createInitWorkflow = (options: InitWorkflowOptions = {}): WorkflowD
 						: "The project has partial initialization state, but the runtime is not ready for normal use.",
 			completedWork: [
 				"Loaded the project-local config and logger",
-				"Generated runtime files and reports",
+				"Scaffolded documentation directories and generated runtime files and reports",
 				...(ideInstall ? [`Installed ${options.ideTarget} IDE integration`] : []),
 			],
 			blockedCapabilities:

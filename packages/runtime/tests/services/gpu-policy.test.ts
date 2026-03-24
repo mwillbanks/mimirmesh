@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const commandMock = {
 	runCommand: mock(async () => ({
@@ -21,6 +21,10 @@ describe("gpu policy resolution", () => {
 			stdout: '{"nvidia":{"path":"nvidia-container-runtime"}}',
 			stderr: "",
 		});
+	});
+
+	afterEach(() => {
+		mock.restore();
 	});
 
 	test("detects NVIDIA runtime from docker info metadata", async () => {
