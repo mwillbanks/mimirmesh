@@ -18,6 +18,8 @@ The largest recurring failure mode is writing a test that silently uses local de
 - a locally running runtime or service started outside the test
 - filesystem state from the developer machine
 - interactive terminal assumptions that differ when `CI=true`
+- long-running CLI workflow smoke tests that boot real install/runtime flows and leave cleanup to `rm` on hosted runners
+- PTY dashboard smoke tests that rely on `script`/pseudo-terminal timing and do not materially add coverage beyond the workflow or integration suites
 
 These assumptions frequently pass on a developer machine and fail in CI because the CI job is intentionally missing that local state.
 
@@ -111,6 +113,8 @@ Typical examples:
 
 - Keep runtime-heavy tests in the integration suite, not the regular package test path.
 - Keep parser, gating, and option-selection behavior in regular unit tests.
+- If a workflow test launches real install/runtime orchestration and already has integration coverage elsewhere, prefer a CI skip or move it to the integration suite instead of forcing it through `bun test apps`.
+- If a pseudo-terminal smoke test is only validating shell launch behavior and is flaky or slow on hosted runners, gate it on `CI=true` or move the assertion into a lighter deterministic test.
 - When a file mixes both concerns, split the tests rather than letting ordinary test runs trigger runtime dependencies.
 
 ## Review checklist

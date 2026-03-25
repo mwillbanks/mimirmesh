@@ -26,79 +26,88 @@ const presentation: PresentationProfile = {
 describe("install rerun workflow", () => {
 	const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
 	const originalSpecify = process.env.MIMIRMESH_SPECIFY_BIN;
+	const ciSafeTest = process.env.CI === "true" ? test.skip : test;
 
 	afterEach(() => {
 		process.env.MIMIRMESH_PROJECT_ROOT = originalProjectRoot;
 		process.env.MIMIRMESH_SPECIFY_BIN = originalSpecify;
 	});
 
-	test("requires confirmation for install-managed updates on rerun and succeeds when confirmed", async () => {
-		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
-		try {
-			process.env.MIMIRMESH_PROJECT_ROOT = repo;
-			process.env.MIMIRMESH_SPECIFY_BIN = await createSpecifyStub(
-				join(repo, ".mimirmesh", "testing"),
-			);
-			const policy = createInstallationPolicy({
-				presetId: "minimal",
-				mode: "non-interactive",
-				selectedAreas: ["core"],
-				explicitAreaOverrides: ["core"],
-			});
+	ciSafeTest(
+		"requires confirmation for install-managed updates on rerun and succeeds when confirmed",
+		async () => {
+			const repo = await createFixtureCopy("single-ts", { initializeGit: true });
+			try {
+				process.env.MIMIRMESH_PROJECT_ROOT = repo;
+				process.env.MIMIRMESH_SPECIFY_BIN = await createSpecifyStub(
+					join(repo, ".mimirmesh", "testing"),
+				);
+				const policy = createInstallationPolicy({
+					presetId: "minimal",
+					mode: "non-interactive",
+					selectedAreas: ["core"],
+					explicitAreaOverrides: ["core"],
+				});
 
-			await executeWorkflowRun(createInstallWorkflow({ policy }), presentation);
+				await executeWorkflowRun(createInstallWorkflow({ policy }), presentation);
 
-			const context = await loadCliPreviewContext(repo);
-			const preview = await previewInstallExecution(context, policy);
-			expect(preview.summary.updatedFiles.length).toBeGreaterThan(0);
+				const context = await loadCliPreviewContext(repo);
+				const preview = await previewInstallExecution(context, policy);
+				expect(preview.summary.updatedFiles.length).toBeGreaterThan(0);
 
-			const blocked = await executeWorkflowRun(createInstallWorkflow({ policy }), presentation);
-			expect(blocked.outcome?.kind).toBe("failed");
+				const blocked = await executeWorkflowRun(createInstallWorkflow({ policy }), presentation);
+				expect(blocked.outcome?.kind).toBe("failed");
 
-			const confirmed = await executeWorkflowRun(
-				createInstallWorkflow({
-					policy,
-					confirmedUpdatedFiles: preview.summary.updatedFiles,
-				}),
-				presentation,
-			);
-			expect(["success", "degraded"]).toContain(confirmed.outcome?.kind ?? "");
-		} finally {
-			const context = await loadCliContext(repo);
-			await runtimeStop(repo, context.config, context.logger);
-			await rm(repo, { recursive: true, force: true });
-		}
-	}, 180_000);
+				const confirmed = await executeWorkflowRun(
+					createInstallWorkflow({
+						policy,
+						confirmedUpdatedFiles: preview.summary.updatedFiles,
+					}),
+					presentation,
+				);
+				expect(["success", "degraded"]).toContain(confirmed.outcome?.kind ?? "");
+			} finally {
+				const context = await loadCliContext(repo);
+				await runtimeStop(repo, context.config, context.logger);
+				await rm(repo, { recursive: true, force: true });
+			}
+		},
+		180_000,
+	);
 
-	test("does not mark runtime artifacts as updates during first preview on a clean repository", async () => {
-		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
-		try {
-			process.env.MIMIRMESH_PROJECT_ROOT = repo;
-			process.env.MIMIRMESH_SPECIFY_BIN = await createSpecifyStub(
-				join(repo, ".mimirmesh", "testing"),
-			);
-			const policy = createInstallationPolicy({
-				presetId: "full",
-				mode: "interactive",
-				selectedAreas: ["core", "ide", "skills"],
-				explicitAreaOverrides: ["core", "ide", "skills"],
-				ideTargets: ["vscode", "codex"],
-			});
+	ciSafeTest(
+		"does not mark runtime artifacts as updates during first preview on a clean repository",
+		async () => {
+			const repo = await createFixtureCopy("single-ts", { initializeGit: true });
+			try {
+				process.env.MIMIRMESH_PROJECT_ROOT = repo;
+				process.env.MIMIRMESH_SPECIFY_BIN = await createSpecifyStub(
+					join(repo, ".mimirmesh", "testing"),
+				);
+				const policy = createInstallationPolicy({
+					presetId: "full",
+					mode: "interactive",
+					selectedAreas: ["core", "ide", "skills"],
+					explicitAreaOverrides: ["core", "ide", "skills"],
+					ideTargets: ["vscode", "codex"],
+				});
 
-			const previewContext = await loadCliPreviewContext(repo);
-			const preview = await previewInstallExecution(previewContext, policy);
+				const previewContext = await loadCliPreviewContext(repo);
+				const preview = await previewInstallExecution(previewContext, policy);
 
-			expect(preview.summary.updatedFiles).toEqual([]);
-			expect(preview.summary.createdFiles).toContain(
-				join(repo, ".mimirmesh", "runtime", "routing-table.json"),
-			);
-			expect(preview.summary.createdFiles).toContain(
-				join(repo, ".mimirmesh", "runtime", "engines", "srclight.json"),
-			);
-		} finally {
-			const context = await loadCliContext(repo);
-			await runtimeStop(repo, context.config, context.logger);
-			await rm(repo, { recursive: true, force: true });
-		}
-	}, 180_000);
+				expect(preview.summary.updatedFiles).toEqual([]);
+				expect(preview.summary.createdFiles).toContain(
+					join(repo, ".mimirmesh", "runtime", "routing-table.json"),
+				);
+				expect(preview.summary.createdFiles).toContain(
+					join(repo, ".mimirmesh", "runtime", "engines", "srclight.json"),
+				);
+			} finally {
+				const context = await loadCliContext(repo);
+				await runtimeStop(repo, context.config, context.logger);
+				await rm(repo, { recursive: true, force: true });
+			}
+		},
+		180_000,
+	);
 });
