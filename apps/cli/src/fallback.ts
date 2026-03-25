@@ -2,9 +2,12 @@ import { render } from "ink";
 import React from "react";
 import type { ZodType } from "zod/v4";
 
+import { type CommandHelpDefinition, formatCommandHelpLines } from "./lib/command-help";
+
 type CommandModule = {
 	default: React.ComponentType<never>;
 	args?: ZodType<unknown>;
+	help?: CommandHelpDefinition;
 	options?: ZodType<unknown>;
 };
 
@@ -13,8 +16,7 @@ const asCommandModule = (loader: () => Promise<unknown>): (() => Promise<Command
 
 const commandModules: Record<string, () => Promise<CommandModule>> = {
 	"": asCommandModule(() => import("./commands/index")),
-	init: asCommandModule(() => import("./commands/init")),
-	setup: asCommandModule(() => import("./commands/setup")),
+	install: asCommandModule(() => import("./commands/install/index")),
 	refresh: asCommandModule(() => import("./commands/refresh")),
 	doctor: asCommandModule(() => import("./commands/doctor")),
 	upgrade: asCommandModule(() => import("./commands/upgrade")),
@@ -64,8 +66,9 @@ const printUsage = (): void => {
 	print("  Launch the interactive shell.");
 	print("");
 	print("Core commands:");
-	print("  mimirmesh init [--ide <target>] [--non-interactive] [--json]");
-	print("  mimirmesh setup [--json]");
+	print(
+		"  mimirmesh install [--preset <preset>] [--areas core,ide,skills] [--ide <target>] [--skills all|name[,name]] [--non-interactive] [--json]",
+	);
 	print("  mimirmesh refresh [--non-interactive] [--json]");
 	print("  mimirmesh doctor [--json]");
 	print(
@@ -87,11 +90,18 @@ const printUsage = (): void => {
 	print("  mimirmesh server");
 };
 
+const printCommandHelp = (help: CommandHelpDefinition): void => {
+	for (const line of formatCommandHelpLines(help)) {
+		print(line);
+	}
+};
+
 const kebabToCamel = (value: string): string =>
 	value.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 
-const booleanFlags = new Set(["json", "nonInteractive", "check"]);
+const booleanFlags = new Set(["help", "json", "nonInteractive", "check"]);
 const optionAliases: Record<string, string> = {
+	h: "help",
 	j: "json",
 };
 
@@ -219,6 +229,10 @@ export const runFallbackCli = async (argv: string[]): Promise<number> => {
 			throw new Error(`No compiled command module is registered for ${key || "index"}.`);
 		}
 		const module = await loadModule();
+		if (remaining.some((token) => token === "--help" || token === "-h") && module.help) {
+			printCommandHelp(module.help);
+			return 0;
+		}
 		const props = validateProps(module, remaining);
 		await renderCommand(module, props);
 		return 0;

@@ -33,8 +33,8 @@ Mutating workflows must require explicit non-interactive invocation to suppress 
 
 The machine-readable contract applies to eligible direct commands under:
 
-- setup and init
+- install
 - runtime lifecycle and upgrade
 - MCP inspection and tool invocation
 - repair and doctor flows
-- install-ide and similar guided setup operations when non-interactive mode is requested
+- install-ide and similar guided install operations when non-interactive mode is requested

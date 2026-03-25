@@ -50,10 +50,14 @@ export const GuidedMultiSelect = ({
 				}}
 			/>
 			<Text>
+				<Text bold>Controls:</Text> Use arrow keys to move, press space to toggle items, and press
+				enter to continue.
+			</Text>
+			<Text>
 				<Text bold>Selected:</Text>{" "}
 				{selectedChoices.length > 0
 					? selectedChoices.map((choice) => choice.label).join(", ")
-					: "No skills selected."}
+					: "No items selected."}
 			</Text>
 		</Box>
 	);

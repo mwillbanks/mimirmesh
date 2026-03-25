@@ -15,6 +15,7 @@ tmp
 # Auto-generated MCP server context (added automatically)
 .agents/reports/
 .agents/skills/mimirmesh-*
+.agents/tasks/
 .agents/task-state.md
 .codex/config.toml
 .mcp-server-context.md

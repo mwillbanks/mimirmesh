@@ -22,6 +22,8 @@ const createStreams = (options: RenderInkOptions = {}) => {
 	const stdin = new PassThrough() as PassThrough & {
 		isTTY?: boolean;
 		setRawMode?: (value: boolean) => void;
+		ref?: () => void;
+		unref?: () => void;
 	};
 
 	stdout.isTTY = true;
@@ -29,6 +31,8 @@ const createStreams = (options: RenderInkOptions = {}) => {
 	stdout.rows = options.rows ?? 40;
 	stdin.isTTY = true;
 	stdin.setRawMode = () => {};
+	stdin.ref = () => {};
+	stdin.unref = () => {};
 
 	return { stdout, stdin };
 };
@@ -80,6 +84,43 @@ export const renderInkFrame = async (
 
 	app.unmount();
 	await app.waitUntilExit();
+
+	return stripAnsi(output);
+};
+
+export const renderInkInteraction = async (
+	node: React.ReactNode,
+	interact: (context: {
+		stdin: PassThrough;
+		wait: (ms?: number) => Promise<void>;
+	}) => Promise<void> | void,
+	options: RenderInkOptions = {},
+): Promise<string> => {
+	const { stdout, stdin } = createStreams(options);
+	let output = "";
+	stdout.on("data", (chunk) => {
+		output += chunk.toString();
+	});
+
+	const app = render(node, {
+		stdout: stdout as unknown as NodeJS.WriteStream,
+		stdin: stdin as unknown as NodeJS.ReadStream,
+		stderr: stdout as unknown as NodeJS.WriteStream,
+		exitOnCtrlC: false,
+		patchConsole: false,
+	});
+
+	const wait = async (ms = 40): Promise<void> => {
+		await new Promise((resolve) => {
+			setTimeout(resolve, ms);
+		});
+	};
+
+	await interact({ stdin, wait });
+	await wait(options.waitMs ?? 80);
+
+	app.unmount();
+	await wait(20);
 
 	return stripAnsi(output);
 };

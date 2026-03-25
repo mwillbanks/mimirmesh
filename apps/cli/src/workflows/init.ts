@@ -39,7 +39,7 @@ export const createSetupWorkflow = (): WorkflowDefinition => ({
 	interactivePolicy: "default-interactive",
 	machineReadableSupported: true,
 	requiresProjectContext: true,
-	recommendedNextActions: ["init", "runtime-status"],
+	recommendedNextActions: ["install", "runtime-status"],
 	steps: [
 		{ id: "load-context", label: "Load project context", kind: "validation" },
 		{ id: "scaffold-docs", label: "Scaffold documentation structure", kind: "generation" },
@@ -73,7 +73,8 @@ export const createSetupWorkflow = (): WorkflowDefinition => ({
 				"Created the required documentation directories and guidance file",
 			],
 			blockedCapabilities: [],
-			nextAction: "Run `mimirmesh init` to initialize runtime files, reports, and health checks.",
+			nextAction:
+				"Run `mimirmesh install` to initialize runtime files, reports, skills, and health checks.",
 			machineReadablePayload: {
 				directories,
 			},
@@ -483,7 +484,7 @@ export const createInstallIdeWorkflow = ({
 	interactivePolicy: "default-interactive",
 	machineReadableSupported: true,
 	requiresProjectContext: true,
-	recommendedNextActions: ["init", "mcp-list-tools"],
+	recommendedNextActions: ["install", "mcp-list-tools"],
 	steps: [
 		{ id: "load-context", label: "Load project context", kind: "validation" },
 		{ id: "install-config", label: "Write IDE MCP configuration", kind: "generation" },
@@ -531,7 +532,7 @@ export const createDashboardWorkflow = (): WorkflowDefinition => ({
 	interactivePolicy: "default-non-interactive",
 	machineReadableSupported: false,
 	requiresProjectContext: true,
-	recommendedNextActions: ["init", "runtime-status"],
+	recommendedNextActions: ["install", "runtime-status"],
 	steps: [{ id: "collect-state", label: "Collect dashboard state", kind: "discovery" }],
 	execute: async ({ controller }) => {
 		controller.startStep(

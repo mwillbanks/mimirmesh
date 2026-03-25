@@ -49,7 +49,7 @@ describe("index command", () => {
 		expect(
 			sanitized.includes("Loading dashboard state") ||
 				sanitized.includes(
-					"Use the dashboard to launch the core setup, runtime, upgrade, and MCP workflows.",
+					"Use the dashboard to launch the core install, runtime, upgrade, and MCP workflows.",
 				),
 		).toBe(true);
 	});

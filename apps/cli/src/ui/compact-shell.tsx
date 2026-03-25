@@ -12,7 +12,7 @@ export const CompactShell = ({ columns, rows, presentation }: CompactShellProps)
 		reason={`The current terminal${columns && rows ? ` (${columns}x${rows})` : ""} is too small for the interactive dashboard. Use direct commands for the same workflows or resize the terminal and rerun \`mimirmesh\`.`}
 		colorSupport={presentation.colorSupport}
 		recommendedCommands={[
-			"mimirmesh init",
+			"mimirmesh install",
 			"mimirmesh runtime status",
 			"mimirmesh runtime upgrade status",
 			"mimirmesh mcp list-tools",

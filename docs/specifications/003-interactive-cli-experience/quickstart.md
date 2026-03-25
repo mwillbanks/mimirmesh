@@ -11,7 +11,7 @@ Validate that the bare command opens a branded full-screen shell and does not fa
 Confirm the first-release navigation includes:
 
 - dashboard or home
-- setup or init
+- install
 - runtime control
 - upgrade or repair
 - MCP inspection
@@ -22,7 +22,7 @@ Confirm the dashboard also exposes discoverable launch paths for configuration, 
 
 Run a representative mutating command such as:
 
-- `mimirmesh init`
+- `mimirmesh install`
 - `mimirmesh runtime upgrade migrate`
 
 Confirm the command shows:

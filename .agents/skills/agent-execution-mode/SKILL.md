@@ -1,6 +1,6 @@
 ---
 name: agent-execution-mode
-description: Use this skill to enforce disciplined execution, completeness, and correctness in implementation, review, and architecture tasks. This skill prevents lazy, partial, visually approximate, or obviously incomplete work by enforcing mode-specific behavior, implementation tracking, documentation hygiene, and final reporting.
+description: Enforces disciplined execution, implementation tracking, design validation, code review rigor, and final reporting for production work, architecture, and review tasks. Use when work must be complete, verified, and documented instead of approximate or partial.
 license: Apache-2.0
 metadata:
   author: Mike Willbanks
@@ -11,448 +11,200 @@ metadata:
 
 # Agent Execution Mode
 
-Use this skill whenever the user asks for implementation, bug fixing, architecture work, hardening, design alignment, documentation updates, technical review, or production-grade delivery and expects the work to be completed thoroughly rather than approximated.
+Use this skill whenever the user expects real completion: implementation, hardening, architecture, design alignment, review, documentation repair, or production-grade delivery.
 
-This skill exists to prevent lazy, partial, superficial, visually approximate, or obviously incomplete work. It enforces execution discipline, mode-specific behavior, implementation tracking, documentation hygiene, and final reporting.
-
-Default assumption:
-
-- The user wants a production-grade result.
-- The user expects one-pass completion unless explicitly asking for prototype or design-only work.
-- The user does not want scaffolding, placeholders, TODOs, fake completion, or deferred required work.
-
----
+This skill exists to stop the failure modes that make agent work untrustworthy: partial completion, fake confidence, visual-only validation, stale docs, missing tests, missing review artifacts, and missing execution state.
 
 ## When to use
 
-Invoke this skill when the request involves any of the following:
+Activate this skill when the request involves any of the following:
 
-- implementing a feature
-- fixing a bug
-- completing or correcting a previous implementation
-- hardening an existing implementation
-- refactoring that affects behavior, architecture, maintainability, or DX
-- aligning code to a specification, design system, product behavior, or technical document
-- performing code review, self-review, or recommendation review
-- architecture design for reusable systems, pipelines, event systems, workers, APIs, or full stack systems
-- updating related documentation as part of implementation correctness
+- implementing or fixing behavior that should be complete when returned
+- hardening an existing implementation after regressions, repeated failures, or correctness gaps
+- architecture or system design work that needs explicit decisions and durable documentation
+- code review, PR review, or self-review that must produce a reliable artifact
+- design-driven work where implementation must be checked against a specification or screenshot
+- final reporting for substantial work
 
-Use this skill by default for engineering tasks unless the user explicitly requests a prototype, sketch, rough draft, or design-only deliverable.
-
----
+Default to `production` unless the user clearly requests another mode.
 
 ## Modes
 
-This skill supports the following execution modes.
+Supported modes:
 
-If the user does not specify a mode, default to `production`.
+- `production`
+- `hardening`
+- `agentic-self-review`
+- `general-review`
+- `pr-review`
+- `prototype`
+- `design`
+- `architecture`
 
-### 1. `production`
+Mode intent:
 
-Use for normal implementation tasks where the result is expected to be complete, repo-native, maintainable, tested, and plausibly shippable.
+- `production`: complete implementation, repo-native patterns, tests and docs updated where needed. After completion is stated, run `agentic-self-review` before concluding.
+- `hardening`: everything in `production`, plus stronger regression scrutiny, edge-case repair, and validation. After completion is stated, run `agentic-self-review` before concluding.
+- `agentic-self-review`: apply the review standard in [references/REVIEW_INSTRUCTIONS.md](references/REVIEW_INSTRUCTIONS.md), fix obvious safe issues directly, and do not create a review artifact unless explicitly requested.
+- `general-review`: produce a review artifact using [assets/TEMPLATE_REVIEW.md](assets/TEMPLATE_REVIEW.md) and the standard in [references/REVIEW_INSTRUCTIONS.md](references/REVIEW_INSTRUCTIONS.md).
+- `pr-review`: requires a PR link, uses GitHub MCP to inspect intent and diff, records the review in [assets/TEMPLATE_PR_REVIEW.md](assets/TEMPLATE_PR_REVIEW.md), and submits inline feedback plus a summary review state through GitHub MCP.
+- `prototype`: reduced polish is allowed only when explicitly requested; fake production claims are forbidden. After completion is stated, run `agentic-self-review` before concluding.
+- `design`: design-focused work only. Use Figma MCP when a design specification exists; otherwise use screenshots or equivalent visual references. Do not claim runtime completeness unless it was actually implemented. After completion is stated, run `agentic-self-review` before concluding.
+- `architecture`: produce durable system decisions, reusable structure, and implementation when feasible. After completion is stated, run `agentic-self-review` before concluding.
 
-Requirements:
+`recommendation-review` is removed. Use `general-review` or `pr-review` instead.
 
-- full implementation end to end
-- repository-native patterns must be followed
-- tests must be updated or added where appropriate
-- documentation must be updated when required
-- no known required work may be deferred
-- no placeholders, stubs, TODOs, fake handlers, or obviously incomplete behavior in production paths
+## Non-negotiable behavior
 
-### 2. `hardening`
+- Do not return a partial implementation as complete work.
+- Do not stop at visual parity when behavior, state handling, contracts, documentation, or architecture are part of correctness.
+- Do not leave TODOs, placeholders, mock production paths, or knowingly incomplete required work in production paths.
+- Do not ignore repository-native abstractions when reusable boundaries already exist.
+- Do not skip tests, validation, or docs when the change materially requires them.
+- Do not claim completion if obvious QA failures, accessibility failures, or contract gaps remain in scope.
+- Do not use review language that hides severity or uncertainty.
 
-Use when the task is about production hardening, repeated failed attempts, correctness repair, regression prevention, or final stabilization.
+## Execution workflow
 
-Requirements:
+Follow this sequence unless the request explicitly narrows scope:
 
-- everything in `production`
-- adjacent fixes are required when clearly coupled to correctness, unless they would cause scope explosion
-- stronger regression scrutiny
-- stronger UX, state, payload, error, and accessibility validation
-- stronger verification before claiming completion
+1. Identify the mode and create or update the task state when the work is implementation-oriented or substantial.
+2. Gather the minimum context needed to stop guessing.
+3. Implement or review with repository-native patterns.
+4. Validate behavior, design, and affected workflows.
+5. Update review and report artifacts when the mode requires them.
+6. Update documentation when behavior, contracts, architecture, or operational usage changed.
+7. State completion only when the implementation or design work is actually complete.
+8. For `production`, `hardening`, `prototype`, `design`, and `architecture`, immediately run `agentic-self-review` after that completion statement and fix safe issues before concluding.
+9. Finish only after the post-completion self-review is complete.
 
-### 3. `agentic-self-review`
-
-Use when the prompt implies that the agent should review its own work and directly fix obvious issues safely.
-
-Examples:
-
-- “review your work”
-- “double check this implementation”
-- “self-review and correct issues”
-
-Requirements:
-
-- perform ruthless review of the implementation
-- apply direct fixes where obviously safe
-- do not create a review markdown file
-- do not treat a superficial pass as review
-- verify that prior work actually satisfies implementation goals
-
-### 4. `recommendation-review`
-
-Default review mode when the user asks for a review with recommendations.
-
-Requirements:
-
-- perform ruthless review
-- produce concrete recommendations and patch guidance
-- write review findings to `.reviews/REVIEW_NAME.md`
-- review files are not intended to be committed
-- focus on actionable, specific, technically grounded findings
-- do not silently claim work is acceptable when meaningful issues remain
-
-### 5. `general-review`
-
-Use when the user asks for a general review and expects review output stored as a markdown review artifact.
-
-Requirements:
-
-- perform ruthless review
-- write review findings to `.reviews/REVIEW_NAME.md`
-- apply direct fixes only when explicitly appropriate or clearly safe within review scope
-- findings must be concrete, evidence-based, and prioritized
-
-### 6. `prototype`
-
-Use only when the user explicitly asks for a prototype, quick concept, spike, sketch, or rough implementation.
-
-Still non-negotiable:
-
-- no fake production claims
-- no broken type safety
-- no silently skipped known blockers
-- minimal documentation note indicating prototype status
-
-Allowed differences from production:
-
-- reduced polish
-- reduced test depth when explicitly appropriate
-- narrower edge-case coverage
-- limited state handling only when clearly documented
-
-### 7. `design-only`
-
-Use only when the user explicitly wants visual or structural design work without claiming runtime completion.
-
-Requirements:
-
-- explicitly forbid claiming runtime completeness
-- do not claim production readiness
-- do not imply behavior is fully implemented unless it actually is
-- document any intentionally unimplemented runtime behavior
-
-### 8. `architecture`
-
-Use for reusable systems, cross-cutting decisions, platform architecture, event systems, API architecture, data pipelines, and component/system design.
-
-Requirements:
-
-- produce architecture-level decisions and reusable structure
-- include scaffolding, specifications, and ADR/spec updates as appropriate
-- also implement concrete code when feasible
-- prioritize maintainability, extensibility, and long-term correctness over quick hacks
-- document important decisions and tradeoffs
-
----
-
-## Core execution policy
-
-These rules apply across modes unless the mode explicitly narrows scope.
-
-### Non-negotiable behavior
-
-- Do not provide a partial implementation when the task is asking for completion.
-- Do not stop at visual parity when behavior, states, payloads, architecture, or documentation are part of correctness.
-- Do not leave TODOs, placeholders, stubs, fake handlers, mock production logic, or knowingly incomplete required work in production paths.
-- Do not preserve broken structure just because it already exists.
-- Do not use one-off shortcuts where reusable repository patterns clearly apply.
-- Do not ignore nested components, composed boundaries, slots, states, variants, or shared abstractions when they are relevant.
-- Do not assume the user wants follow-up prompts to finish required work.
-- Do not skip test updates because the implementation “looks obvious.”
-- Do not skip documentation updates when existing documentation would no longer match the implementation or when behavior, architecture, public contracts, operational workflows, testing strategy, or module/component structure materially changed.
-- Do not claim completion if obvious QA failures, missing states, broken payload handling, broken type safety, or correctness gaps remain in scope.
-
-### Required posture
-
-- prefer completeness over speed
-- prefer correctness over minimal diff size
-- prefer repo-native architecture over shortcuts
-- prefer maintainability over one-off patches
-- prefer QA passability over visual approximation
-- prefer reusable component and module boundaries over screen-local hacks
-- treat provided designs and specifications as behavioral and architectural inputs, not screenshots
-- if adjacent issues must be fixed for the requested task to actually be correct, include those fixes in the same pass unless that would create unreasonable scope explosion
-
----
+Detailed workflow rules live in [references/WORKFLOWS.md](references/WORKFLOWS.md).
 
 ## Tracking requirements
 
-For implementation-oriented work, maintain a task tracker at:
+For implementation-oriented work, keep task tracking under `.agents/tasks/`.
 
-- `.agents/task-state.md`
+Required files:
 
-Tracking should be created and updated when it materially helps track execution state, decisions, or implementation gaps, but it should not be updated so frequently that it creates excessive token churn.
-
-The tracker should be concise and useful.
-
-Recommended structure:
-
-```markdown
-# Task State
-
-## Task
-- <task name>
-
-## Mode
-- <production | hardening | agentic-self-review | recommendation-review | general-review | prototype | design-only | architecture>
-
-## Objective
-- <what is being implemented or reviewed>
-
-## Current Phase
-- <discovery | implementation | validation | docs | review | complete>
-
-## Active Work Items
-- [ ] item
-- [x] item
-
-## Decisions Made
-- decision
-
-## Assumptions
-- assumption
-
-## Risks / Gaps
-- risk or gap
-
-## Validation
-- command or validation result
-
-## Documentation Impact
-- docs updated or no update required with reason
-```
+- `.agents/tasks/TASK_INDEX.md`
+- `.agents/tasks/TASK_ID.md`
 
 Rules:
 
-- keep it concise
-- use it to preserve state across a larger implementation
-- record meaningful decisions that may need to be revisited later
-- record meaningful gaps or blockers
-- do not use it as a verbose diary
+- `TASK_INDEX.md` is a prepended markdown table. Newest rows go directly under the header.
+- Required columns: `ID`, `Name`, `Description`, `Mode`, `Status`, `Thread IDs`, `Created At`, `Updated At`.
+- `ID` is auto-generated, semantic, unique, lowercase, and hyphen-separated.
+- Both `ID` and `Name` must link to `.agents/tasks/TASK_ID.md`.
+- Each task file uses [assets/TEMPLATE_TASK_STATE.md](assets/TEMPLATE_TASK_STATE.md).
+- Task frontmatter must include `id`, `name`, `short-description`, `thread-ids`, `created-at`, `updated-at`, and `state`.
+- The markdown body title must be `# TASK_ID - TASK_NAME`.
+- All timestamps must be UTC.
 
----
+Use [assets/TEMPLATE_TASK_INDEX.md](assets/TEMPLATE_TASK_INDEX.md) for the index shape.
+
+## Review requirements
+
+For review work, keep review artifacts under `.agents/reviews/`.
+
+Required files:
+
+- `.agents/reviews/REVIEW_INDEX.md`
+- `.agents/reviews/REVIEW_ID.md`
+
+Rules:
+
+- `REVIEW_INDEX.md` is a prepended markdown table. Newest rows go directly under the header.
+- Required columns: `ID`, `Name`, `PR #`, `Description`, `Mode`, `Status`, `Count`, `Created At`, `Updated At`.
+- `ID` is auto-generated, semantic, unique, lowercase, and hyphen-separated.
+- Both `ID` and `Name` must link to `.agents/reviews/REVIEW_ID.md`.
+- `PR #` links to the GitHub PR when the review is PR-backed; otherwise use `N/A`.
+- Each review file uses [assets/TEMPLATE_REVIEW.md](assets/TEMPLATE_REVIEW.md) or [assets/TEMPLATE_PR_REVIEW.md](assets/TEMPLATE_PR_REVIEW.md).
+- Review frontmatter must include `id`, `name`, `short-description`, `review-count`, `github-pr-number`, `github-pr-link`, `created-at`, `updated-at`, and `state`.
+- The markdown body title must be `# REVIEW_ID - REVIEW_NAME`.
+- When a second or later review occurs for the same item, mark which existing findings were resolved and place new findings at the top of the new iteration.
+- `general-review`, `pr-review`, and `agentic-self-review` use the standard in [references/REVIEW_INSTRUCTIONS.md](references/REVIEW_INSTRUCTIONS.md).
+- Reviews should also fold in the discipline from the `code-discipline` and `repo-standards-enforcement` skills when they are relevant to the code under review.
+
+`pr-review` requirements:
+
+- requires a PR link
+- pull the PR diff and stated intent through GitHub MCP
+- review the code against the PR intent, not just the diff mechanics
+- record inline comment candidates, suggestions, and summary outcome in the markdown artifact
+- use GitHub MCP to submit inline comments and the overall review state: `approved`, `changes-requested`, `comment`, or `rejected`
+- on later review iterations, resolve or mark previously addressed findings before adding new ones
+
+## Design and validation requirements
+
+- `design` mode replaces the old `design-only` mode.
+- When a Figma specification is available, use Figma MCP first.
+- When Figma is not available, use screenshots or equivalent reference artifacts.
+- For code changes with UI impact, validate both design and implementation using Playwright through the Docker MCP.
+- Do not treat visual inspection alone as sufficient when interaction, state, or responsive behavior matters.
+
+## Final report requirements
+
+For substantial implementation, architecture, or multi-step review work, keep reports under `.agents/reports/`.
+
+Required files:
+
+- `.agents/reports/REPORT_INDEX.md`
+- `.agents/reports/REPORT_ID.md`
+
+Rules:
+
+- `REPORT_INDEX.md` is a prepended markdown table. Newest rows go directly under the header.
+- Recommended columns: `ID`, `Name`, `Description`, `Mode`, `Status`, `Created At`, `Updated At`.
+- `ID` is auto-generated, semantic, unique, lowercase, and hyphen-separated.
+- Both `ID` and `Name` link to `.agents/reports/REPORT_ID.md`.
+- Each report file uses [assets/TEMPLATE_REPORT.md](assets/TEMPLATE_REPORT.md).
+- Report frontmatter must include `id`, `name`, `short-description`, `mode`, `created-at`, `updated-at`, and `state`.
+- Keep the latest run at the top of the report file.
+- Do not delete prior run entries.
+
+Use [assets/TEMPLATE_REPORT_INDEX.md](assets/TEMPLATE_REPORT_INDEX.md) for the index shape.
 
 ## Documentation policy
 
 Documentation is mandatory when:
 
-- existing documentation would no longer match the implementation
-- behavior changed
-- architecture changed
-- a new component or module was added
-- a public API or contract changed
-- an operational workflow changed
-- a testing strategy materially changed
+- existing documentation no longer matches behavior
+- architecture or module boundaries changed
+- a new component, workflow, or public contract was introduced
+- operational usage or testing strategy materially changed
 
-Documentation targets must be checked in this order:
-
-1. nearby README
-2. package README
-3. `docs/`
-4. architecture decision record
-5. `AGENTS.md`
-6. inline code comments for tricky logic
-7. API docs / OpenAPI
-8. storybook or component usage docs
-
-Documentation rules:
-
-- do not over-document trivial changes
-- do not leave stale docs in place when behavior changed
-- prefer precise developer-facing explanations over fluff
-- document important decisions and non-obvious behavior
-- document prototype status explicitly when in `prototype` mode
-
----
-
-## Definition of done
-
-A task is only complete when all applicable items below are satisfied for the selected mode:
-
-- requested scope is implemented or reviewed correctly
-- repository-native patterns are followed
-- relevant reusable boundaries were handled correctly
-- relevant states and flows are addressed
-- payloads, contracts, and data handling are correct
-- accessibility was addressed where applicable
-- tests were updated or added where appropriate
-- required validation was performed
-- required documentation was updated
-- no obvious regressions remain in adjacent affected flows
-- no placeholders, TODOs, or knowingly incomplete required paths remain
-- the result is plausibly shippable for `production` and `hardening`, or accurately labeled for non-production modes
-
----
+Update the smallest correct documentation surface. Do not leave stale docs behind.
 
 ## Mandatory self-review gate
 
-Before concluding any task, perform a strict self-review.
+Before concluding any task, verify all applicable items:
 
-Confirm all applicable items:
+- completion claims match reality
+- required states and edge cases were handled
+- tests and validation were not skipped without cause
+- docs were updated when needed
+- review and report artifacts were updated when required by mode
+- design and implementation were both validated when UI work was involved
 
-- this is not a partial implementation
-- this is not a visual-only patch disguised as completion
-- this is not copied design output masquerading as repo-native implementation
-- reusable boundaries were not collapsed into one-off markup or one-off modules
-- required states and edge cases were not skipped
-- required payload and contract issues were not left behind
-- tests were not skipped
-- documentation was not left stale
-- accessibility was not ignored
-- obvious QA failures were not left behind
-- completion claims match the actual implementation state
+For `production`, `hardening`, `prototype`, `design`, and `architecture`, this self-review gate is mandatory after completion has been stated. Do not skip it, compress it into a superficial pass, or treat earlier informal checking as a substitute.
 
-If the answer is no for any applicable item, continue working or report the exact blocker.
+If any answer is no, continue working or report the exact blocker.
 
----
+## Templates and references
 
-## Review artifact rules
+Templates:
 
-### Review output location
+- [assets/TEMPLATE_TASK_INDEX.md](assets/TEMPLATE_TASK_INDEX.md)
+- [assets/TEMPLATE_TASK_STATE.md](assets/TEMPLATE_TASK_STATE.md)
+- [assets/TEMPLATE_REVIEW_INDEX.md](assets/TEMPLATE_REVIEW_INDEX.md)
+- [assets/TEMPLATE_REVIEW.md](assets/TEMPLATE_REVIEW.md)
+- [assets/TEMPLATE_PR_REVIEW.md](assets/TEMPLATE_PR_REVIEW.md)
+- [assets/TEMPLATE_REPORT_INDEX.md](assets/TEMPLATE_REPORT_INDEX.md)
+- [assets/TEMPLATE_REPORT.md](assets/TEMPLATE_REPORT.md)
 
-For `recommendation-review` and `general-review`, create review artifacts at:
+References:
 
-- `.reviews/REVIEW_NAME.md`
+- [references/WORKFLOWS.md](references/WORKFLOWS.md)
+- [references/REVIEW_INSTRUCTIONS.md](references/REVIEW_INSTRUCTIONS.md)
 
-These files are not intended to be committed.
-
-### Review artifact structure
-
-```markdown
-# Review: <name>
-
-## Scope
-- <what was reviewed>
-
-## Summary
-- <high level summary>
-
-## Findings
-### High
-- finding
-- impact
-- recommendation
-
-### Medium
-- finding
-- impact
-- recommendation
-
-### Low
-- finding
-- impact
-- recommendation
-
-## Safe Direct Fixes Applied
-- item
-
-## Suggested Next Actions
-- item
-```
-
-Rules:
-
-- findings must be concrete and actionable
-- findings must identify why the issue matters
-- recommendations must be specific enough to implement
-- do not pad reviews with low-value noise
-- be ruthless, technical, and precise
-
----
-
-## Final report requirements
-
-For implementation or architecture work, maintain a report file at:
-
-- `.agents/reports/`
-
-Requirements:
-
-- markdown format
-- one file per topic or chat instance
-- latest run on top
-- do not delete old entries
-- append a new dated run entry at the top of the file
-
-Recommended report structure:
-
-```markdown
-# Report: <topic>
-
-## Run: <timestamp>
-
-### Mode Used
-- <mode>
-
-### Scope Completed
-- item
-
-### Decisions Made
-- item
-
-### Docs Updated
-- item
-- or `None required` with reason
-
-### Validation Run
-- command and result
-
-### Risks / Blockers
-- item
-- or `None`
-
-### Optional Follow-ups
-- item
-- only include if truly optional
-```
-
-Rules:
-
-- do not claim completion without validation summary
-- do not omit documentation status
-- do not include fake blockers
-- follow-up items must be truly optional, not disguised required work
-
----
-
-## Output behavior
-
-When responding to the user after using this skill:
-
-- state the mode used
-- summarize the completed scope
-- summarize key decisions
-- summarize documentation changes
-- summarize validation performed
-- summarize risks or blockers honestly
-- only list follow-up items if they are actually optional
-
-Do not hide incompleteness behind vague language. Do not imply production readiness when the selected mode does not warrant it.
-
----
-
-## Refusal of lazy behavior
-
-This skill exists specifically to prevent the following failure patterns:
-
-- partial implementation returned as completion
-- visually approximate work returned as production-ready
-- TODOs or placeholders left in required paths
-- skipped states, payload handling, validation, tests, or docs
-- one-off hacks used instead of maintainable architecture
-- obvious adjacent breakage ignored
-- fake certainty or fake completion claims
-
-If the task cannot be fully completed, explicitly identify the blocker and complete everything else that can be completed correctly in the same pass. Do not leave the user with an incomplete or misleading result; be transparent about what was achieved and what remains blocked.
+Keep `SKILL.md` as the activation layer. Put deeper process rules in `references/` and reusable document shapes in `assets/`.

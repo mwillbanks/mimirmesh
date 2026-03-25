@@ -4,8 +4,10 @@ import { Box, Text } from "ink";
 import { useState } from "react";
 import zod from "zod/v4";
 
+import { CommandHelpView } from "../../lib/command-help";
 import { CommandRunner } from "../../lib/command-runner";
 import { createGuardedWorkflow } from "../../lib/guarded-workflow";
+import { installIdeCommandHelp } from "../../lib/install-help";
 import { getPromptGuardError } from "../../lib/non-interactive";
 import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
 import { createInstallIdeWorkflow } from "../../workflows/init";
@@ -39,6 +41,8 @@ type Props = {
 	onComplete?: (state: WorkflowRunState) => void;
 };
 
+export const help = installIdeCommandHelp;
+
 export default function InstallIdeCommand({
 	options,
 	presentation,
@@ -57,6 +61,10 @@ export default function InstallIdeCommand({
 		interactivePolicy: "default-interactive",
 		explicitNonInteractive: options.nonInteractive,
 	});
+
+	if (options.help) {
+		return <CommandHelpView definition={help} />;
+	}
 
 	if (promptError) {
 		return (

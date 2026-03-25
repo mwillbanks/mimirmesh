@@ -1,6 +1,6 @@
 # CLI Command Surface
 
-The CLI supports init/setup/refresh/doctor, config operations, runtime lifecycle, runtime upgrade/repair flows, MCP tools, notes, documents, reports, IDE install, bundled skill management, update checks, and Spec Kit flows.
+The CLI supports install/refresh/doctor, config operations, runtime lifecycle, runtime upgrade/repair flows, MCP tools, notes, documents, reports, IDE install, bundled skill management, update checks, and Spec Kit flows.
 
 The CLI is a primary product interface. Operator-facing commands are expected
 to present a polished interactive terminal experience with structured output,
@@ -17,7 +17,7 @@ interactive dashboard shell and uses the shared shell frame, navigation model,
 and workflow launchers to expose:
 
 - home/dashboard summary
-- setup and initialization
+- guided install
 - runtime lifecycle control
 - runtime upgrade and repair
 - MCP inspection
@@ -42,7 +42,7 @@ The default human UX is intentionally not raw JSON.
 Interactive prompts are the default for consequential mutating workflows.
 Examples include:
 
-- `init`
+- `install`
 - `install ide`
 - `skills install|update|remove`
 - `runtime start|stop|restart|refresh`
@@ -77,7 +77,19 @@ Spec Kit behavior is upstream-backed, not synthetic:
 - `mimirmesh speckit init` creates `.specify/` and agent prompts, then translates generated `specs/` references to `docs/specifications/`
 - `mimirmesh speckit status` reports readiness from actual `.specify/` state
 - `mimirmesh speckit doctor` flags partial states such as prompt files without `.specify/`
-- `mimirmesh init` runs the same Spec Kit initialization flow automatically when `metadata.specKitExpected` is true and the repo is not Spec Kit-ready
+- `mimirmesh install` runs the same Spec Kit initialization flow automatically when `metadata.specKitExpected` is true and the repo is not Spec Kit-ready
+
+The umbrella install workflow is now the canonical onboarding surface:
+
+- `mimirmesh install` starts with an installation preset, shows a short explanation for the focused preset, and lets the operator press space to mark a preset or enter to continue with the highlighted preset
+- interactive preset review keeps the explanation visible next to the preset list so the operator can tell what each preset includes before continuing
+- the core install area covers docs scaffolding, runtime files, report generation, repository analysis, Spec Kit bootstrap, and readiness validation
+- optional install areas currently include IDE integration and bundled skills
+- interactive IDE review allows multiple targets in one run, and non-interactive IDE review accepts comma-separated `--ide` targets such as `vscode,cursor`
+- reruns detect current install state and surface install-managed updates for confirmation before applying them
+- non-interactive reruns can pass `--yes` to auto-confirm install-managed updates in CI or other unattended flows
+- `--non-interactive` requires an explicit preset or explicit install-area selections and fails safely when they are missing
+- human-readable output remains the default, while `--json` preserves the same outcome semantics under `outcome.payload`
 
 Use `mimirmesh --help` for top-level usage and `mimirmesh <command> --help` for command-level detail.
 

@@ -30,7 +30,7 @@ export default function SpeckitInitCommand({
 					"Install or verify the Spec Kit assets used for spec-driven development workflows.",
 				category: "setup",
 				interactivePolicy: "default-interactive",
-				recommendedNextActions: ["speckit-status", "init"],
+				recommendedNextActions: ["speckit-status", "install"],
 				stepLabel: "Initialize Spec Kit",
 				stepKind: "generation",
 				run: async (context) => {

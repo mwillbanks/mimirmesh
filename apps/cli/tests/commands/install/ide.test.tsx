@@ -47,4 +47,16 @@ describe("install ide command", () => {
 			"mimirmesh install ide --non-interactive --target vscode|cursor|claude|codex",
 		);
 	});
+
+	test("renders install-ide-specific help", () => {
+		const output = renderInkStatic(
+			<InstallIdeCommand options={{ help: true }} presentation={interactivePresentation} />,
+		);
+
+		expect(output).toContain("Usage: mimirmesh install ide [flags]");
+		expect(output).toContain("--target <vscode|cursor|claude|codex>");
+		expect(output).toContain("--server-command <command>");
+		expect(output).toContain("--non-interactive");
+		expect(output).toContain("--json");
+	});
 });

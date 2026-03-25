@@ -15,6 +15,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-13
 - Project-local config and runtime state files in `.mimirmesh/runtime/*`; no new storage system (007-engine-native-passthrough)
 - TypeScript in a Bun workspace monorepo, with Python-based upstream engines running in containers + `@modelcontextprotocol/sdk`, Bun test, Docker Compose runtime orchestration, existing MímirMesh runtime/router/adapter packages (007-engine-native-passthrough)
 - Project-local runtime artifacts under `.mimirmesh/runtime/*` plus discovery/routing state files derived from live runtime endpoints (007-engine-native-passthrough)
+- TypeScript 6.0.2 on Bun 1.3.x + Pastel 4, Ink 6, `@inkjs/ui` 2, React 19, Zod 4, workspace packages `@mimirmesh/ui`, `@mimirmesh/installer`, `@mimirmesh/skills`, `@mimirmesh/runtime`, `@mimirmesh/workspace`, `@mimirmesh/reports`, `@mimirmesh/config` (008-installer-wizard-v2)
+- Repository-local files under `.mimirmesh/`, documentation files under `docs/`, IDE MCP config files, and repository-local skill installs under `.agents/skills/` (008-installer-wizard-v2)
 
 - TypeScript on Bun for MímirMesh packages and Python 3.12 for the Srclight container workload + `@modelcontextprotocol/sdk`, Bun workspace packages, Docker Compose runtime, Srclight `0.12.x`, SQLite FTS5, tree-sitter, optional Ollama embeddings (001-local-code-intelligence)
 
@@ -34,9 +36,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 TypeScript on Bun for MímirMesh packages and Python 3.12 for the Srclight container workload: Follow standard conventions
 
 ## Recent Changes
+- 008-installer-wizard-v2: Added TypeScript 6.0.2 on Bun 1.3.x + Pastel 4, Ink 6, `@inkjs/ui` 2, React 19, Zod 4, workspace packages `@mimirmesh/ui`, `@mimirmesh/installer`, `@mimirmesh/skills`, `@mimirmesh/runtime`, `@mimirmesh/workspace`, `@mimirmesh/reports`, `@mimirmesh/config`
 - 007-engine-native-passthrough: Added TypeScript in a Bun workspace monorepo, with Python-based upstream engines running in containers + `@modelcontextprotocol/sdk`, Bun test, Docker Compose runtime orchestration, existing MímirMesh runtime/router/adapter packages
 - 007-engine-native-passthrough: Added TypeScript in a Bun workspace monorepo + `@modelcontextprotocol/sdk`, Bun test runner, Zod, Docker Compose-backed runtime packages
-- 005-remove-codebase-memory: Added TypeScript 5.9 on Bun workspace + Bun, Zod (`@mimirmesh/config`), MCP SDK (`@modelcontextprotocol/sdk`), Ink/Pastel for CLI surfaces
 
 
 <!-- MANUAL ADDITIONS START -->

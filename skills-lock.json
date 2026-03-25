@@ -59,7 +59,7 @@
 		"agent-execution-mode": {
 			"source": "mwillbanks/agent-skills",
 			"sourceType": "github",
-			"computedHash": "4638bd47fe0216f757ee20d68fd4672fa652cd0bee510b6d7854bd6f85ceb82c"
+			"computedHash": "edd5018f15b8d28b479e45042c8ed009f10597e4fddaf3893fdcbb0286778924"
 		},
 		"biome-enforcement": {
 			"source": "mwillbanks/agent-skills",

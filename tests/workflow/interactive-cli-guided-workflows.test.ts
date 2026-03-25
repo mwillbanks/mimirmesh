@@ -44,6 +44,19 @@ describe("workflow guided cli workflows", () => {
 			expect(repairPayload.outcome).not.toBeNull();
 			expect(["success", "degraded", "failed"]).toContain(repairPayload.outcome?.kind ?? "");
 
+			const missingInstallChoices = await run(
+				[distBinary, "install", "--non-interactive"],
+				fixture.repo,
+				{
+					MIMIRMESH_PROJECT_ROOT: fixture.repo,
+					MIMIRMESH_REDUCED_MOTION: "1",
+				},
+			);
+			expect(missingInstallChoices.code).toBe(0);
+			expect(missingInstallChoices.stdout).toContain(
+				"Install requires a preset or explicit install-area selections.",
+			);
+
 			const missingTarget = await run(
 				[distBinary, "install", "ide", "--non-interactive"],
 				fixture.repo,

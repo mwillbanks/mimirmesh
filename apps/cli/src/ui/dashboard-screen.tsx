@@ -10,7 +10,7 @@ import { WorkflowLaunchers } from "./workflow-launchers";
 
 const sections = [
 	{ id: "home", title: "Home" },
-	{ id: "setup", title: "Setup" },
+	{ id: "setup", title: "Install" },
 	{ id: "runtime", title: "Runtime" },
 	{ id: "upgrade", title: "Upgrade" },
 	{ id: "mcp", title: "MCP" },
@@ -65,7 +65,7 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 		if (_input === "h") {
 			setSectionIndex(0);
 		}
-		if (_input === "s") {
+		if (_input === "s" || _input === "i") {
 			setSectionIndex(1);
 		}
 		if (_input === "r") {
@@ -103,9 +103,11 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 						return {
 							id: section.id,
 							title: section.title,
-							statusSummary: snapshot.context.config.metadata.lastInitAt
-								? "initialized before"
-								: "init recommended",
+							statusSummary: snapshot.installState.completedAreas.includes("core")
+								? "installed before"
+								: snapshot.installState.degradedAreas.includes("core")
+									? "repair recommended"
+									: "install recommended",
 						};
 					case "runtime":
 						return {
@@ -188,8 +190,8 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 			title="Interactive CLI Experience"
 			subtitle={
 				compactLayout
-					? "Use the compact dashboard to launch the core setup, runtime, upgrade, and MCP workflows."
-					: "Use the dashboard to launch the core setup, runtime, upgrade, and MCP workflows."
+					? "Use the compact dashboard to launch the core install, runtime, upgrade, and MCP workflows."
+					: "Use the dashboard to launch the core install, runtime, upgrade, and MCP workflows."
 			}
 			presentation={presentation}
 			sidebar={
@@ -222,7 +224,7 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 				) : (
 					<Text>
 						Keyboard: Left/Right changes section, Up/Down selects actions, Enter launches, Escape
-						returns, H/S/R/U/M jump to core sections, Q exits.
+						returns, H/I/R/U/M jump to core sections, Q exits.
 					</Text>
 				)
 			}

@@ -3,7 +3,7 @@ import type { PresentationProfile, WorkflowRunState } from "@mimirmesh/ui";
 import { Box, Text, useInput } from "ink";
 import { useCallback, useMemo, useState } from "react";
 
-import InitCommand from "../commands/init";
+import InstallCommand from "../commands/install";
 import InstallIdeCommand from "../commands/install/ide";
 import McpListToolsCommand from "../commands/mcp/list-tools";
 import McpToolCommand from "../commands/mcp/tool";
@@ -17,7 +17,6 @@ import RuntimeStopCommand from "../commands/runtime/stop";
 import RuntimeUpgradeMigrateCommand from "../commands/runtime/upgrade/migrate";
 import RuntimeUpgradeRepairCommand from "../commands/runtime/upgrade/repair";
 import RuntimeUpgradeStatusCommand from "../commands/runtime/upgrade/status";
-import SetupCommand from "../commands/setup";
 import type { collectDashboardSnapshot } from "../lib/context";
 import { WorkflowCard } from "./workflow-card";
 
@@ -40,14 +39,9 @@ type ActionOption = {
 const sectionActions: Record<string, ActionOption[]> = {
 	setup: [
 		{
-			id: "init",
-			label: "Initialize project",
-			description: "Create runtime files, reports, and readiness state.",
-		},
-		{
-			id: "setup",
-			label: "Scaffold docs",
-			description: "Create the docs directories and guidance file.",
+			id: "install",
+			label: "Install repository",
+			description: "Run the guided umbrella install flow for core setup and optional integrations.",
 		},
 		{
 			id: "install-ide",
@@ -122,19 +116,9 @@ const renderAction = (
 	onComplete: (state: WorkflowRunState) => void,
 ) => {
 	if (sectionId === "setup") {
-		if (actionId === "init") {
+		if (actionId === "install") {
 			return (
-				<InitCommand
-					options={{}}
-					presentation={presentation}
-					exitOnComplete={false}
-					onComplete={onComplete}
-				/>
-			);
-		}
-		if (actionId === "setup") {
-			return (
-				<SetupCommand
+				<InstallCommand
 					options={{}}
 					presentation={presentation}
 					exitOnComplete={false}
@@ -340,12 +324,16 @@ export const WorkflowLaunchers = ({
 					tools: {snapshot.tools.length}.
 				</Text>
 				<WorkflowCard
-					title="Setup and init"
+					title="Install"
 					status={
-						snapshot.context.config.metadata.lastInitAt ? "initialized before" : "init recommended"
+						snapshot.installState.completedAreas.includes("core")
+							? "installed before"
+							: snapshot.installState.degradedAreas.includes("core")
+								? "repair recommended"
+								: "install recommended"
 					}
-					description="Initialize the project, scaffold docs, and install IDE integration from one place."
-					nextAction="Use the Setup section for `init`, `setup`, or `install ide`."
+					description="Run the umbrella install flow to scaffold the repository, verify readiness, and attach optional integrations."
+					nextAction="Use the Install section for `install` or `install ide`."
 				/>
 				<WorkflowCard
 					title="Runtime control"

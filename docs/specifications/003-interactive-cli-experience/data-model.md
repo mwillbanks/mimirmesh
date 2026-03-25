@@ -5,7 +5,7 @@
 **Purpose**: Describes one operator-facing CLI workflow and where it is available.
 
 **Fields**:
-- `id`: stable workflow identifier such as `init`, `runtime-status`, or `runtime-upgrade`
+- `id`: stable workflow identifier such as `install`, `runtime-status`, or `runtime-upgrade`
 - `title`: human-facing workflow title
 - `category`: `dashboard`, `setup`, `runtime`, `mcp`, `configuration`, `reporting`, `notes`, `repair`, `upgrade`, or `integration`
 - `entryModes`: ordered list of `tui-embedded`, `tui-launcher`, `direct-command`
@@ -122,5 +122,5 @@
 - `statusSummary`: short current-state signal shown in navigation
 
 **Validation Rules**:
-- First-release embedded nodes must cover dashboard, setup/init, runtime control, upgrade/repair, and MCP inspection.
+- First-release embedded nodes must cover dashboard, install, runtime control, upgrade/repair, and MCP inspection.
 - Lower-frequency nodes may be `launcher` types when the workflow remains direct-command-first.

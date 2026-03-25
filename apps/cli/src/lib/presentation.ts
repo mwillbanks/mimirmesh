@@ -7,6 +7,10 @@ type PresentationOptionConfig = {
 	allowNonInteractive?: boolean;
 };
 
+type HelpShape = {
+	help: typeof helpOption;
+};
+
 type JsonShape = {
 	json: typeof jsonOption;
 };
@@ -18,8 +22,19 @@ type NonInteractiveShape = {
 type EmptyShape = Record<never, never>;
 
 type WithPresentationShape<T extends zod.ZodRawShape, C extends PresentationOptionConfig> = T &
+	HelpShape &
 	(C["allowJson"] extends false ? EmptyShape : JsonShape) &
 	(C["allowNonInteractive"] extends true ? NonInteractiveShape : EmptyShape);
+
+const helpOption = zod
+	.boolean()
+	.optional()
+	.describe(
+		option({
+			description: "Show command-specific help, flags, and non-interactive usage guidance",
+			alias: "h",
+		}),
+	);
 
 const jsonOption = zod
 	.boolean()
@@ -49,6 +64,7 @@ export const withPresentationOptions = <
 ): zod.ZodObject<WithPresentationShape<T, C>> => {
 	const nextShape = {
 		...shape,
+		help: helpOption,
 		...(config.allowJson === false ? {} : { json: jsonOption }),
 		...(config.allowNonInteractive ? { nonInteractive: nonInteractiveOption } : {}),
 	} as WithPresentationShape<T, C>;
@@ -57,6 +73,7 @@ export const withPresentationOptions = <
 };
 
 export type PresentationOptions = {
+	help?: boolean;
 	json?: boolean;
 	nonInteractive?: boolean;
 };

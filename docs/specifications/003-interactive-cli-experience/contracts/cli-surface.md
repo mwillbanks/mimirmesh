@@ -7,7 +7,7 @@ Running `mimirmesh` with no subcommand must launch the full-screen shell instead
 The first-release shell must provide navigable access to:
 
 - dashboard or home
-- setup or init
+- install
 - runtime control
 - upgrade or repair
 - MCP inspection

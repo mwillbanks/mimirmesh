@@ -58,13 +58,13 @@ MIMIRMESH_INSTALL_DIR="$HOME/.local/bin" curl -fsSL https://github.com/mwillbank
 From a target repository:
 
 ```bash
-mimirmesh init
+mimirmesh install
 ```
 
 For non-interactive environments:
 
 ```bash
-mimirmesh init --non-interactive
+mimirmesh install --non-interactive --preset minimal
 ```
 
 Then check status:
@@ -95,8 +95,7 @@ Runtime behavior:
 
 ```text
 mimirmesh
-mimirmesh init
-mimirmesh setup
+mimirmesh install
 mimirmesh refresh
 mimirmesh doctor
 

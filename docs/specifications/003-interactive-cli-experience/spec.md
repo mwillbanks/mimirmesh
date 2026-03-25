@@ -10,7 +10,7 @@
 ### Session 2026-03-13
 
 - Q: Which workflows must remain non-interactive by default when automation is preferred? → A: Mutating workflows default to interactive prompts; inspection and status workflows remain non-interactive by default; mutating workflows can opt into non-interactive execution with explicit flags.
-- Q: Which workflows must the first-release full-screen TUI cover directly? → A: The first-release TUI covers the core operational workflows: home or dashboard, setup or init, runtime control, upgrade or repair, and MCP inspection; lower-frequency surfaces remain command-first initially.
+- Q: Which workflows must the first-release full-screen TUI cover directly? → A: The first-release TUI covers the core operational workflows: home or dashboard, install, runtime control, upgrade or repair, and MCP inspection; lower-frequency surfaces remain command-first initially.
 - Q: What accessibility floor must the first release meet? → A: The CLI must support keyboard-first navigation, non-color status cues, reduced-motion-safe behavior, and screen-reader-friendly text semantics where terminal support allows.
 - Q: What progress model must major workflows use? → A: Major workflows use step-based progress with explicit step labels, completed-step history, an active spinner for in-flight work, and a final summary that preserves partial-success evidence.
 - Q: How must terminal outcomes be classified and presented? → A: Major workflows use explicit terminal outcomes of success, degraded, and failed; each outcome states impact, completed work, blocked capability, and next action.
@@ -28,9 +28,9 @@ As a developer using MímirMesh, I can launch `mimirmesh` with no subcommand and
 **Acceptance Scenarios**:
 
 1. **Given** the user runs `mimirmesh` in a project, **When** the application starts, **Then** the user sees a full-screen terminal interface that highlights major workflows, current project/runtime status, and available next actions.
-2. **Given** the user is browsing the TUI, **When** they move between workflow areas such as setup, runtime, MCP inspection, and repair, **Then** the interface preserves a consistent layout, navigation model, and status presentation.
+2. **Given** the user is browsing the TUI, **When** they move between workflow areas such as install, runtime, MCP inspection, and repair, **Then** the interface preserves a consistent layout, navigation model, and status presentation.
 3. **Given** the user selects a workflow from the TUI, **When** that workflow begins, **Then** the interface shows the current step, in-progress state, completed steps, and any warnings or required attention.
-4. **Given** the user opens the default TUI entry experience, **When** they review the first-release navigation surface, **Then** they can access home or dashboard, setup or init, runtime control, upgrade or repair, and MCP inspection directly from the interface.
+4. **Given** the user opens the default TUI entry experience, **When** they review the first-release navigation surface, **Then** they can access home or dashboard, install, runtime control, upgrade or repair, and MCP inspection directly from the interface.
 5. **Given** the user relies on keyboard-only interaction or reduced-motion preferences, **When** they navigate the TUI or run direct commands, **Then** they can complete the workflow without depending on color-only meaning or motion-heavy feedback.
 6. **Given** the shell presents runtime control or MCP inspection as an available workflow, **When** live discovery, bootstrap, readiness, or health checks have not completed successfully, **Then** the interface shows the workflow as not ready or degraded based on observed execution evidence instead of presenting it as ready.
 
@@ -38,7 +38,7 @@ As a developer using MímirMesh, I can launch `mimirmesh` with no subcommand and
 
 ### User Story 2 - Run Direct Commands with Rich Human Feedback (Priority: P2)
 
-As a developer using direct subcommands, I can run setup, init, repair, upgrade, runtime, and inspection commands and receive rich human-readable progress, status, and outcome feedback so that commands feel trustworthy rather than like raw machine output.
+As a developer using direct subcommands, I can run install, repair, upgrade, runtime, and inspection commands and receive rich human-readable progress, status, and outcome feedback so that commands feel trustworthy rather than like raw machine output.
 
 **Why this priority**: Direct commands remain part of the product surface. They must deliver a high-quality operator experience even when users do not enter the TUI.
 
@@ -46,7 +46,7 @@ As a developer using direct subcommands, I can run setup, init, repair, upgrade,
 
 **Acceptance Scenarios**:
 
-1. **Given** the user runs a long-running direct command such as setup, init, refresh, or runtime upgrade, **When** work is in progress, **Then** the command continuously shows what step is running and whether the system is progressing normally.
+1. **Given** the user runs a long-running direct command such as install, refresh, or runtime upgrade, **When** work is in progress, **Then** the command continuously shows what step is running and whether the system is progressing normally.
 2. **Given** the user runs a command that completes successfully, **When** the command finishes, **Then** the command summarizes what changed, what remains healthy, and any recommended next action.
 3. **Given** the user runs a command that encounters a failure or degraded condition, **When** the command stops or partially completes, **Then** the output identifies what failed, what still succeeded, the impact on the project, and what the user should do next.
 4. **Given** the user runs an inspection or status command in a scripted context, **When** the command executes without interactive flags, **Then** it completes without prompts while still returning the same observed status and outcome semantics.
@@ -85,7 +85,7 @@ As a developer performing sensitive or complex operations, I can follow guided p
 ### Functional Requirements
 
 - **FR-001**: The system MUST provide a full-screen terminal entry experience when the user launches `mimirmesh` without a subcommand.
-- **FR-002**: The default terminal entry experience MUST expose the first-release core operational workflows directly, including home or dashboard, setup or initialization, runtime control, upgrade or repair, and MCP inspection.
+- **FR-002**: The default terminal entry experience MUST expose the first-release core operational workflows directly, including home or dashboard, install, runtime control, upgrade or repair, and MCP inspection.
 - **FR-003**: The default terminal entry experience MUST display current project and runtime state in a way that helps the user understand what is healthy, unavailable, incomplete, or requires attention.
 - **FR-004**: Users MUST be able to navigate to and initiate the first-release core operational workflows from the default terminal interface without needing to remember direct command names.
 - **FR-005**: Direct subcommands MUST remain available for the workflows supported directly by the default terminal interface and for lower-frequency command-first surfaces not included in the first TUI release.
@@ -103,7 +103,7 @@ As a developer performing sensitive or complex operations, I can follow guided p
 - **FR-017**: Consequential mutating workflows that affect project state, runtime availability, integration wiring, or MCP execution safety MUST default to guided interactive execution for human operators, but MUST support explicit non-interactive invocation for automation-oriented use cases.
 - **FR-018**: The system MUST detect and handle non-interactive execution contexts by avoiding unusable prompt flows and reporting what alternate invocation the user needs when explicit non-interactive flags were not supplied.
 - **FR-019**: The system MUST detect when the terminal cannot comfortably present the full-screen interface and provide a clear fallback or guidance path.
-- **FR-020**: The system MUST provide operator-visible feedback for setup, initialization, repair, upgrade, runtime lifecycle, and MCP inspection workflows that makes the current state of each workflow explicit through step-based progress and terminal outcome summaries.
+- **FR-020**: The system MUST provide operator-visible feedback for install, repair, upgrade, runtime lifecycle, and MCP inspection workflows that makes the current state of each workflow explicit through step-based progress and terminal outcome summaries.
 - **FR-021**: Terminal outcome presentations MUST state the impact on the project or runtime, the work that completed successfully, any blocked capability, and the recommended next action.
 - **FR-022**: The system MUST ensure that equivalent actions initiated from the TUI or direct subcommands produce matching status terminology, warning semantics, and end-state reporting.
 - **FR-023**: Inspection and status workflows invoked from the TUI and direct subcommands MUST preserve the same non-interactive default semantics unless the user explicitly enters a guided action flow.
@@ -150,7 +150,7 @@ As a developer performing sensitive or complex operations, I can follow guided p
 
 ### Assumptions
 
-- The most important operator-facing workflows are setup, initialization, repair, upgrade, runtime lifecycle control, and MCP inspection.
+- The most important operator-facing workflows are install, repair, upgrade, runtime lifecycle control, and MCP inspection.
 - The default experience should favor interactive human guidance, while automation-oriented output remains available only when explicitly requested.
 - Some command contexts will remain non-interactive, so the feature must preserve scripted usage without forcing prompts that cannot be answered.
 - Inspection and status workflows are expected to remain non-interactive by default, while mutating workflows can require explicit flags to suppress guided prompts in automation.
@@ -162,7 +162,7 @@ As a developer performing sensitive or complex operations, I can follow guided p
 - The feature depends on existing major workflows already being callable through the CLI so they can be exposed through a unified terminal product experience.
 - The feature depends on trustworthy workflow-state signals from runtime, configuration, repair, upgrade, and MCP inspection operations.
 - The feature covers user interaction, workflow presentation, progress visibility, prompt design, and machine-readable parity for operator-facing CLI surfaces.
-- The initial full-screen TUI scope covers home or dashboard, setup or init, runtime control, upgrade or repair, and MCP inspection.
+- The initial full-screen TUI scope covers home or dashboard, install, runtime control, upgrade or repair, and MCP inspection.
 - The feature does not require removing direct subcommands in favor of TUI-only interaction.
 - The feature does not require moving every lower-frequency CLI surface into the full-screen TUI in the first release.
 - The feature does not require adding entirely new product workflows beyond improving how existing major workflows are launched, observed, and guided.
@@ -172,7 +172,7 @@ As a developer performing sensitive or complex operations, I can follow guided p
 ### Measurable Outcomes
 
 - **SC-001**: Validation proves that bare `mimirmesh` launches the full-screen shell with visible access to the primary workflows and that one of those workflows can be started through keyboard-first navigation without requiring direct command knowledge.
-- **SC-002**: At least 95% of runs of setup, init, repair, upgrade, runtime lifecycle, and MCP inspection workflows present continuous progress or current-state visibility from start until terminal outcome.
+- **SC-002**: At least 95% of runs of install, repair, upgrade, runtime lifecycle, and MCP inspection workflows present continuous progress or current-state visibility from start until terminal outcome.
 - **SC-003**: Validation proves that representative direct commands render active step labels, progress visibility, explicit warnings when present, and final outcome summaries instead of raw object-style output.
 - **SC-004**: At least 95% of operator-visible workflow completions end with a summary that correctly states what succeeded, what failed, and what requires attention.
 - **SC-005**: Validation proves that guided prompts appear for representative sensitive workflows, explain why input is required, identify consequences, and require explicit flags when equivalent non-interactive execution is requested.

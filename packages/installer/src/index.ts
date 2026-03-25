@@ -13,8 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import type { MimirmeshConfig } from "@mimirmesh/config";
-
-export type InstallTarget = "vscode" | "cursor" | "claude" | "codex";
+import type { InstallTarget } from "./install-policy";
 
 export type UpdateCheckResult = {
 	currentVersion: string;
@@ -30,6 +29,36 @@ export type InstallResult = {
 	clientPath: string | null;
 	verified: boolean;
 };
+
+export type {
+	InstallAreaId,
+	InstallAreaKind,
+	InstallationArea,
+	InstallationPolicy,
+	InstallationPreset,
+	InstallMode,
+	InstallPresetId,
+	InstallSelectionState,
+	InstallTarget,
+} from "./install-policy";
+export {
+	createInstallationAreas,
+	createInstallationPolicy,
+	installAreaCatalog,
+	installPresetCatalog,
+	installTargetCatalog,
+	isInstallAreaId,
+	isInstallPresetId,
+	resolveInstallAreas,
+	resolveInstallPreset,
+	validateInstallationPolicy,
+} from "./install-policy";
+export type {
+	DetectedInstallArtifact,
+	InstallationStateSnapshot,
+	InstallChangeSummary,
+} from "./install-state";
+export { buildInstallChangeSummary, createInstallationStateSnapshot } from "./install-state";
 
 const parseSemver = (version: string): number[] =>
 	version

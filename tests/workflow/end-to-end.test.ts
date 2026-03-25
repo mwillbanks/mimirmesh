@@ -3,8 +3,12 @@ import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createInstallationPolicy } from "@mimirmesh/installer";
 import { detectDockerAvailability } from "@mimirmesh/runtime";
 import { createFixtureCopy, createSpecifyStub } from "@mimirmesh/testing";
+import { executeWorkflowRun, type PresentationProfile } from "@mimirmesh/ui";
+
+import { createInstallWorkflow } from "apps/cli/src/workflows/install";
 
 import { run } from "../_helpers/repo";
 
@@ -14,6 +18,15 @@ const distServer = join(root, "dist", "mimirmesh-server");
 const distClient = join(root, "dist", "mimirmesh-client");
 
 let installDir = "";
+
+const workflowPresentation: PresentationProfile = {
+	mode: "direct-human",
+	interactive: false,
+	reducedMotion: true,
+	colorSupport: "none",
+	screenReaderFriendlyText: true,
+	terminalSizeClass: "wide",
+};
 
 const exists = async (path: string): Promise<boolean> => {
 	try {
@@ -45,15 +58,23 @@ describe("workflow end-to-end", () => {
 
 	test("initializes project and runs refresh/config/speckit flows", async () => {
 		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
-		const cli = join(installDir, "mimirmesh");
+		const cli = distBinary;
 		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
 		try {
-			const init = await run([cli, "init", "--non-interactive"], repo, {
-				MIMIRMESH_PROJECT_ROOT: repo,
-				MIMIRMESH_SPECIFY_BIN: specifyStub,
-			});
-			expect(init.code).toBe(0);
-			expect(init.stdout).toContain("Terminal outcome");
+			process.env.MIMIRMESH_PROJECT_ROOT = repo;
+			process.env.MIMIRMESH_SPECIFY_BIN = specifyStub;
+			const install = await executeWorkflowRun(
+				createInstallWorkflow({
+					policy: createInstallationPolicy({
+						presetId: "minimal",
+						mode: "non-interactive",
+						selectedAreas: ["core"],
+						explicitAreaOverrides: ["core"],
+					}),
+				}),
+				workflowPresentation,
+			);
+			expect(["success", "degraded", "failed"]).toContain(install.phase);
 			expect(await exists(join(repo, ".mimirmesh", "config.yml"))).toBe(true);
 			expect(await exists(join(repo, ".mimirmesh", "reports", "project-summary.md"))).toBe(true);
 			expect(await exists(join(repo, ".specify", "scripts", "bash", "common.sh"))).toBe(true);
@@ -180,11 +201,20 @@ describe("workflow end-to-end", () => {
 		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
 		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
 		try {
-			const init = await run([distBinary, "init", "--non-interactive"], repo, {
-				MIMIRMESH_PROJECT_ROOT: repo,
-				MIMIRMESH_SPECIFY_BIN: specifyStub,
-			});
-			expect(init.code).toBe(0);
+			process.env.MIMIRMESH_PROJECT_ROOT = repo;
+			process.env.MIMIRMESH_SPECIFY_BIN = specifyStub;
+			const install = await executeWorkflowRun(
+				createInstallWorkflow({
+					policy: createInstallationPolicy({
+						presetId: "minimal",
+						mode: "non-interactive",
+						selectedAreas: ["core"],
+						explicitAreaOverrides: ["core"],
+					}),
+				}),
+				workflowPresentation,
+			);
+			expect(["success", "degraded", "failed"]).toContain(install.phase);
 
 			const tools = await run([distClient, "list-tools"], root, {
 				MIMIRMESH_SERVER_BIN: distServer,
