@@ -434,15 +434,16 @@ export const installIdeConfig = async (options: {
 	const rootKey = options.target === "vscode" ? "servers" : "mcpServers";
 	const serverEntry = {
 		command: options.serverCommand,
-		args: serverArgs,
 		env: {
 			MIMIRMESH_MODE: "local",
 			MIMIRMESH_PROJECT_ROOT: options.projectRoot,
 		},
 	};
+	const normalizedServerEntry =
+		serverArgs.length > 0 ? { ...serverEntry, args: serverArgs } : serverEntry;
 	const content = {
 		[rootKey]: {
-			mimirmesh: serverEntry,
+			mimirmesh: normalizedServerEntry,
 		},
 	};
 
@@ -459,7 +460,7 @@ export const installIdeConfig = async (options: {
 				...existing,
 				[rootKey]: {
 					...existingRoot,
-					mimirmesh: serverEntry,
+					mimirmesh: normalizedServerEntry,
 				},
 			};
 		} catch {

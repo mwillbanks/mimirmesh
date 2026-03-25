@@ -18,6 +18,8 @@ describe("workflow interactive direct commands", () => {
 	test("renders step-based progress and terminal outcomes for human-facing direct commands", async () => {
 		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
 		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
+		const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
+		const originalSpecifyBin = process.env.MIMIRMESH_SPECIFY_BIN;
 
 		try {
 			const installIde = await run(
@@ -61,6 +63,16 @@ describe("workflow interactive direct commands", () => {
 			expect(payload.workflowId).toBe("runtime-status");
 			expect(payload.outcome).not.toBeNull();
 		} finally {
+			if (originalProjectRoot === undefined) {
+				delete process.env.MIMIRMESH_PROJECT_ROOT;
+			} else {
+				process.env.MIMIRMESH_PROJECT_ROOT = originalProjectRoot;
+			}
+			if (originalSpecifyBin === undefined) {
+				delete process.env.MIMIRMESH_SPECIFY_BIN;
+			} else {
+				process.env.MIMIRMESH_SPECIFY_BIN = originalSpecifyBin;
+			}
 			await run([distBinary, "runtime", "stop", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});
@@ -118,6 +130,8 @@ describe("workflow interactive direct commands", () => {
 			"--non-interactive",
 			"--json",
 		];
+		const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
+		const originalSpecifyBin = process.env.MIMIRMESH_SPECIFY_BIN;
 
 		try {
 			await Promise.all([
@@ -160,6 +174,16 @@ describe("workflow interactive direct commands", () => {
 			};
 			expect(["success", "degraded"]).toContain(confirmedPayload.outcome?.kind ?? "");
 		} finally {
+			if (originalProjectRoot === undefined) {
+				delete process.env.MIMIRMESH_PROJECT_ROOT;
+			} else {
+				process.env.MIMIRMESH_PROJECT_ROOT = originalProjectRoot;
+			}
+			if (originalSpecifyBin === undefined) {
+				delete process.env.MIMIRMESH_SPECIFY_BIN;
+			} else {
+				process.env.MIMIRMESH_SPECIFY_BIN = originalSpecifyBin;
+			}
 			await run([distBinary, "runtime", "stop", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});

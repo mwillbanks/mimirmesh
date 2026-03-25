@@ -93,6 +93,6 @@ export const installIdeCommandHelp: CommandHelpDefinition = {
 	],
 	examples: [
 		"mimirmesh install ide --non-interactive --target vscode",
-		"mimirmesh install ide --non-interactive --target cursor --server-command mimirmesh",
+		"mimirmesh install ide --non-interactive --target cursor --server-command $HOME/.local/bin/mimirmesh-server",
 	],
 };

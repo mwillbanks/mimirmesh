@@ -60,6 +60,8 @@ describe("workflow end-to-end", () => {
 		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
 		const cli = distBinary;
 		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
+		const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
+		const originalSpecifyBin = process.env.MIMIRMESH_SPECIFY_BIN;
 		try {
 			process.env.MIMIRMESH_PROJECT_ROOT = repo;
 			process.env.MIMIRMESH_SPECIFY_BIN = specifyStub;
@@ -160,11 +162,11 @@ describe("workflow end-to-end", () => {
 			};
 			const configuredCommand = ideConfig.servers?.mimirmesh?.command ?? "";
 			expect(Boolean(ideConfig.servers)).toBe(true);
-			expect(configuredCommand.includes("mimirmesh-server")).toBe(false);
-			expect(configuredCommand.endsWith("mimirmesh") || configuredCommand === "mimirmesh").toBe(
-				true,
-			);
-			expect(ideConfig.servers?.mimirmesh?.args).toEqual(["server"]);
+			expect(configuredCommand.includes("mimirmesh-server")).toBe(true);
+			expect(
+				configuredCommand.endsWith("mimirmesh-server") || configuredCommand === "mimirmesh-server",
+			).toBe(true);
+			expect(ideConfig.servers?.mimirmesh?.args).toBeUndefined();
 
 			const specInit = await run([cli, "speckit", "init", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
@@ -185,6 +187,16 @@ describe("workflow end-to-end", () => {
 			};
 			expect(specStatusPayload.outcome.payload.ready).toBe(true);
 		} finally {
+			if (originalProjectRoot === undefined) {
+				delete process.env.MIMIRMESH_PROJECT_ROOT;
+			} else {
+				process.env.MIMIRMESH_PROJECT_ROOT = originalProjectRoot;
+			}
+			if (originalSpecifyBin === undefined) {
+				delete process.env.MIMIRMESH_SPECIFY_BIN;
+			} else {
+				process.env.MIMIRMESH_SPECIFY_BIN = originalSpecifyBin;
+			}
 			await run([cli, "runtime", "stop", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});
@@ -200,6 +212,8 @@ describe("workflow end-to-end", () => {
 
 		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
 		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
+		const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
+		const originalSpecifyBin = process.env.MIMIRMESH_SPECIFY_BIN;
 		try {
 			process.env.MIMIRMESH_PROJECT_ROOT = repo;
 			process.env.MIMIRMESH_SPECIFY_BIN = specifyStub;
@@ -284,6 +298,16 @@ describe("workflow end-to-end", () => {
 			expect(retiredAliasCall.code).toBe(0);
 			expect(retiredAliasCall.stdout.includes("srclight_search_symbols")).toBe(true);
 		} finally {
+			if (originalProjectRoot === undefined) {
+				delete process.env.MIMIRMESH_PROJECT_ROOT;
+			} else {
+				process.env.MIMIRMESH_PROJECT_ROOT = originalProjectRoot;
+			}
+			if (originalSpecifyBin === undefined) {
+				delete process.env.MIMIRMESH_SPECIFY_BIN;
+			} else {
+				process.env.MIMIRMESH_SPECIFY_BIN = originalSpecifyBin;
+			}
 			await run([distBinary, "runtime", "stop", "--non-interactive"], repo, {
 				MIMIRMESH_PROJECT_ROOT: repo,
 			});

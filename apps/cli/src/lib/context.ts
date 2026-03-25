@@ -458,6 +458,27 @@ export const installIde = async (
 
 		const arg0 = process.argv[0] ? resolve(process.argv[0]) : "";
 		const executableName = basename(arg0);
+		const siblingServerBinary =
+			executableName === "mimirmesh" || executableName === "mm"
+				? await resolveExistingPath(join(dirname(arg0), "mimirmesh-server"))
+				: null;
+		if (siblingServerBinary) {
+			return {
+				command: siblingServerBinary,
+				args: [],
+			};
+		}
+
+		const serverFromPath = await resolveExistingPath(
+			typeof Bun.which === "function" ? Bun.which("mimirmesh-server") : undefined,
+		);
+		if (serverFromPath) {
+			return {
+				command: serverFromPath,
+				args: [],
+			};
+		}
+
 		if ((executableName === "mimirmesh" || executableName === "mm") && (await pathExists(arg0))) {
 			return {
 				command: arg0,
@@ -475,16 +496,6 @@ export const installIde = async (
 			};
 		}
 
-		const serverFromPath = await resolveExistingPath(
-			typeof Bun.which === "function" ? Bun.which("mimirmesh-server") : undefined,
-		);
-		if (serverFromPath) {
-			return {
-				command: serverFromPath,
-				args: [],
-			};
-		}
-
 		const serverSource = await resolveExistingPath(
 			join(context.projectRoot, "apps", "server", "src", "index.ts"),
 		);
@@ -499,8 +510,8 @@ export const installIde = async (
 		}
 
 		return {
-			command: "mimirmesh",
-			args: ["server"],
+			command: "mimirmesh-server",
+			args: [],
 		};
 	};
 

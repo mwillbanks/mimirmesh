@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -53,8 +53,18 @@ const pathExists = async (path: string): Promise<boolean> => {
 };
 
 describe("speckit manager", () => {
-	afterEach(() => {
+	const originalSpecifyBin = process.env.MIMIRMESH_SPECIFY_BIN;
+
+	beforeEach(() => {
 		delete process.env.MIMIRMESH_SPECIFY_BIN;
+	});
+
+	afterEach(() => {
+		if (originalSpecifyBin === undefined) {
+			delete process.env.MIMIRMESH_SPECIFY_BIN;
+		} else {
+			process.env.MIMIRMESH_SPECIFY_BIN = originalSpecifyBin;
+		}
 	});
 
 	test("does not treat orphaned agent prompts as initialized Spec Kit", async () => {

@@ -44,14 +44,16 @@ describe("cli install ide server resolution", () => {
 		expect(config.servers.mimirmesh.command).toBe(resolve(distServer));
 	});
 
-	test("uses the current mimirmesh binary with server subcommand when invoked directly", async () => {
+	test("uses sibling mimirmesh-server when invoked from an installed mimirmesh binary", async () => {
 		const repo = await mkdtemp(join(tmpdir(), "mimirmesh-install-ide-mimirmesh-"));
 		const mimirmeshBin = join(repo, "bin", "mimirmesh");
+		const serverBin = join(repo, "bin", "mimirmesh-server");
 		await makeExecutable(mimirmeshBin);
+		await makeExecutable(serverBin);
 		process.argv[0] = mimirmeshBin;
 
 		const result = await installIde({ projectRoot: repo } as CliContext, "vscode");
-		expect(result.serverCommand).toBe(resolve(mimirmeshBin));
-		expect(result.serverArgs).toEqual(["server"]);
+		expect(result.serverCommand).toBe(resolve(serverBin));
+		expect(result.serverArgs).toEqual([]);
 	});
 });
