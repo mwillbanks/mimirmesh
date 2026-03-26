@@ -273,8 +273,9 @@ const ensureConnected = async () => {
 	if (!connecting) {
 		connecting = connectClient()
 			.catch((error) => {
+				logError("ensureConnected: engine connection failed", error);
 				ready = false;
-				lastError = sanitizeErrorMessage(error);
+				lastError = "Engine connection failed";
 				throw error;
 			})
 			.finally(() => {
@@ -282,6 +283,14 @@ const ensureConnected = async () => {
 			});
 	}
 	await connecting;
+};
+
+const logError = (context, error) => {
+	if (error instanceof Error && error.stack) {
+		process.stderr.write(`${context}: ${error.stack}\n`);
+	} else {
+		process.stderr.write(`${context}: ${String(error)}\n`);
+	}
 };
 
 export const sanitizeErrorMessage = (error) => {
@@ -388,8 +397,9 @@ const handleDiscover = async (_req, res) => {
 			})),
 		});
 	} catch (error) {
+		logError("handleDiscover failed", error);
 		ready = false;
-		lastError = sanitizeErrorMessage(error);
+		lastError = "Engine unavailable";
 		jsonResponse(res, 503, {
 			ok: false,
 			engine: engineId,
@@ -421,8 +431,9 @@ const handleCall = async (req, res) => {
 			result,
 		});
 	} catch (error) {
+		logError("handleCall failed", error);
 		ready = false;
-		lastError = sanitizeErrorMessage(error);
+		lastError = "Call to engine failed";
 		jsonResponse(res, 502, {
 			ok: false,
 			error: lastError,
@@ -461,9 +472,10 @@ const server = http.createServer(async (req, res) => {
 			error: "Not Found",
 		});
 	} catch (error) {
+		logError("Unhandled error in HTTP server", error);
 		jsonResponse(res, 500, {
 			ok: false,
-			error: sanitizeErrorMessage(error),
+			error: "Internal server error",
 		});
 	}
 });
@@ -494,7 +506,8 @@ export const startBridge = async () => {
 	try {
 		await ensureConnected();
 	} catch (error) {
-		lastError = sanitizeErrorMessage(error);
+		logError("startBridge: initial connection failed", error);
+		lastError = "Initial engine connection failed";
 	}
 
 	server.listen(bridgePort, "0.0.0.0", () => {
