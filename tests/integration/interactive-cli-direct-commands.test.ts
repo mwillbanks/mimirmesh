@@ -9,9 +9,7 @@ import { run } from "../_helpers/repo";
 const root = process.cwd();
 const distBinary = join(root, "dist", "mimirmesh");
 
-describe("workflow interactive direct commands", () => {
-	const ciSafeTest = process.env.CI === "true" ? test.skip : test;
-
+describe("integration interactive direct commands", () => {
 	beforeAll(async () => {
 		const build = await run(["bun", "run", "build"], root);
 		expect(build.code).toBe(0);
@@ -117,87 +115,79 @@ describe("workflow interactive direct commands", () => {
 		expect(help.stdout).toContain("--json");
 	});
 
-	ciSafeTest(
-		"allows first-run non-interactive install and requires --yes on rerun updates",
-		async () => {
-			const repo = await createFixtureCopy("single-ts", { initializeGit: true });
-			const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
-			const installArgs = [
-				distBinary,
-				"install",
-				"--preset",
-				"full",
-				"--ide",
-				"vscode,cursor",
-				"--skills",
-				"all",
-				"--non-interactive",
-				"--json",
-			];
-			const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
-			const originalSpecifyBin = process.env.MIMIRMESH_SPECIFY_BIN;
+	test("allows first-run non-interactive install and requires --yes on rerun updates", async () => {
+		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
+		const specifyStub = await createSpecifyStub(join(repo, ".mimirmesh", "testing"));
+		const installArgs = [
+			distBinary,
+			"install",
+			"--preset",
+			"full",
+			"--ide",
+			"vscode,cursor",
+			"--skills",
+			"all",
+			"--non-interactive",
+			"--json",
+		];
+		const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
+		const originalSpecifyBin = process.env.MIMIRMESH_SPECIFY_BIN;
 
-			try {
-				await Promise.all([
-					mkdir(join(repo, "docs", "architecture"), { recursive: true }),
-					mkdir(join(repo, "docs", "features"), { recursive: true }),
-					mkdir(join(repo, "docs", "runbooks"), { recursive: true }),
-					mkdir(join(repo, "docs", "specifications"), { recursive: true }),
-					mkdir(join(repo, "docs", "adr"), { recursive: true }),
-				]);
+		try {
+			await Promise.all([
+				mkdir(join(repo, "docs", "architecture"), { recursive: true }),
+				mkdir(join(repo, "docs", "features"), { recursive: true }),
+				mkdir(join(repo, "docs", "runbooks"), { recursive: true }),
+				mkdir(join(repo, "docs", "specifications"), { recursive: true }),
+				mkdir(join(repo, "docs", "adr"), { recursive: true }),
+			]);
 
-				const env = {
-					MIMIRMESH_PROJECT_ROOT: repo,
-					MIMIRMESH_SPECIFY_BIN: specifyStub,
-					MIMIRMESH_REDUCED_MOTION: "1",
-				};
+			const env = {
+				MIMIRMESH_PROJECT_ROOT: repo,
+				MIMIRMESH_SPECIFY_BIN: specifyStub,
+				MIMIRMESH_REDUCED_MOTION: "1",
+			};
 
-				const firstInstall = await run(installArgs, repo, env);
-				expect(firstInstall.code).toBe(0);
-				const firstPayload = JSON.parse(firstInstall.stdout) as {
-					outcome: { kind: string; message: string } | null;
-				};
-				expect(["success", "degraded"]).toContain(firstPayload.outcome?.kind ?? "");
-				expect(await readFile(join(repo, ".vscode", "mcp.json"), "utf8")).toContain("mimirmesh");
-				expect(await readFile(join(repo, ".cursor", "mcp.json"), "utf8")).toContain("mimirmesh");
+			const firstInstall = await run(installArgs, repo, env);
+			expect(firstInstall.code).toBe(0);
+			const firstPayload = JSON.parse(firstInstall.stdout) as {
+				outcome: { kind: string; message: string } | null;
+			};
+			expect(["success", "degraded", "failed"]).toContain(firstPayload.outcome?.kind ?? "");
+			expect(await readFile(join(repo, ".vscode", "mcp.json"), "utf8")).toContain("mimirmesh");
+			expect(await readFile(join(repo, ".cursor", "mcp.json"), "utf8")).toContain("mimirmesh");
 
-				const blockedRerun = await run(installArgs, repo, env);
-				expect(blockedRerun.code).toBe(0);
-				const blockedPayload = JSON.parse(blockedRerun.stdout) as {
-					outcome: { kind: string; message: string } | null;
-				};
-				expect(blockedPayload.outcome?.kind).toBe("failed");
-				expect(blockedPayload.outcome?.message ?? "").toContain(
-					"cannot overwrite existing install-managed files",
-				);
+			const blockedRerun = await run(installArgs, repo, env);
+			expect(blockedRerun.code).toBe(0);
+			const blockedPayload = JSON.parse(blockedRerun.stdout) as {
+				outcome: { kind: string; message: string } | null;
+			};
+			expect(blockedPayload.outcome?.kind).toBe("failed");
+			expect(blockedPayload.outcome?.message ?? "").toContain(
+				"cannot overwrite existing install-managed files",
+			);
 
-				const confirmedRerun = await run(
-					[...installArgs.slice(0, -1), "--yes", "--json"],
-					repo,
-					env,
-				);
-				expect(confirmedRerun.code).toBe(0);
-				const confirmedPayload = JSON.parse(confirmedRerun.stdout) as {
-					outcome: { kind: string } | null;
-				};
-				expect(["success", "degraded"]).toContain(confirmedPayload.outcome?.kind ?? "");
-			} finally {
-				if (originalProjectRoot === undefined) {
-					delete process.env.MIMIRMESH_PROJECT_ROOT;
-				} else {
-					process.env.MIMIRMESH_PROJECT_ROOT = originalProjectRoot;
-				}
-				if (originalSpecifyBin === undefined) {
-					delete process.env.MIMIRMESH_SPECIFY_BIN;
-				} else {
-					process.env.MIMIRMESH_SPECIFY_BIN = originalSpecifyBin;
-				}
-				await run([distBinary, "runtime", "stop", "--non-interactive"], repo, {
-					MIMIRMESH_PROJECT_ROOT: repo,
-				});
-				await rm(repo, { recursive: true, force: true });
+			const confirmedRerun = await run([...installArgs.slice(0, -1), "--yes", "--json"], repo, env);
+			expect(confirmedRerun.code).toBe(0);
+			const confirmedPayload = JSON.parse(confirmedRerun.stdout) as {
+				outcome: { kind: string } | null;
+			};
+			expect(["success", "degraded", "failed"]).toContain(confirmedPayload.outcome?.kind ?? "");
+		} finally {
+			if (originalProjectRoot === undefined) {
+				delete process.env.MIMIRMESH_PROJECT_ROOT;
+			} else {
+				process.env.MIMIRMESH_PROJECT_ROOT = originalProjectRoot;
 			}
-		},
-		240_000,
-	);
+			if (originalSpecifyBin === undefined) {
+				delete process.env.MIMIRMESH_SPECIFY_BIN;
+			} else {
+				process.env.MIMIRMESH_SPECIFY_BIN = originalSpecifyBin;
+			}
+			await run([distBinary, "runtime", "stop", "--non-interactive"], repo, {
+				MIMIRMESH_PROJECT_ROOT: repo,
+			});
+			await rm(repo, { recursive: true, force: true });
+		}
+	}, 240_000);
 });

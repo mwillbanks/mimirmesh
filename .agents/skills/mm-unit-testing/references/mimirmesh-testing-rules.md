@@ -8,7 +8,7 @@ This reference defines the concrete rules for writing tests in this repository w
 - `.github/workflows/ci.yml` sets `MIMIRMESH_RUN_INTEGRATION_TESTS: "false"`.
 - `packages/testing/src/integration/manager.ts` treats `false`, `0`, and `no` as disabled values for `MIMIRMESH_RUN_INTEGRATION_TESTS`.
 - `scripts/run-integration-tests.ts` is the repository entrypoint for runtime-heavy integration execution.
-- `bun run test` also executes `bun run test:workflow`, so tests under `tests/workflow/` must be CI-safe too.
+- `bun run test` only covers package and app test suites; root CLI smoke coverage belongs under `tests/integration` and runs through `bun run test:integration`.
 
 ## What commonly breaks CI
 
@@ -19,8 +19,8 @@ The largest recurring failure mode is writing a test that silently uses local de
 - a locally running runtime or service started outside the test
 - filesystem state from the developer machine
 - interactive terminal assumptions that differ when `CI=true`
-- long-running CLI workflow smoke tests that boot real install/runtime flows and leave cleanup to `rm` on hosted runners
-- PTY dashboard smoke tests that rely on `script`/pseudo-terminal timing and do not materially add coverage beyond the workflow or integration suites
+- long-running CLI smoke tests that boot real install/runtime flows and leave cleanup to `rm` on hosted runners
+- PTY dashboard smoke tests that rely on `script`/pseudo-terminal timing and do not materially add coverage beyond the integration suites
 
 These assumptions frequently pass on a developer machine and fail in CI because the CI job is intentionally missing that local state.
 
@@ -114,9 +114,9 @@ Typical examples:
 
 - Keep runtime-heavy tests in the integration suite, not the regular package test path.
 - Keep parser, gating, and option-selection behavior in regular unit tests.
-- If a workflow test launches real install/runtime orchestration and already has integration coverage elsewhere, prefer a CI skip or move it to the integration suite instead of forcing it through `bun test apps`.
-- If a pseudo-terminal smoke test is only validating shell launch behavior and is flaky or slow on hosted runners, gate it on `CI=true` or move the assertion into a lighter deterministic test.
-- Apply the same rule to `tests/workflow/*` when those files shell out to built binaries, mutate temp repositories, or rely on runtime repair/upgrade side effects.
+- Place root CLI smoke coverage under `tests/integration`, not `tests/workflow`.
+- If a workflow-oriented test launches real install/runtime orchestration, shells out to built binaries, mutates temp repositories, or relies on runtime repair/upgrade side effects, reclassify it as integration instead of leaving it in the regular test path.
+- If a pseudo-terminal smoke test is only validating shell launch behavior and still materially matters, keep it in `tests/integration`; otherwise replace it with a lighter deterministic assertion.
 - When a file mixes both concerns, split the tests rather than letting ordinary test runs trigger runtime dependencies.
 
 ## Review checklist

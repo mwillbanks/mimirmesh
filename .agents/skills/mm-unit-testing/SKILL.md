@@ -47,10 +47,11 @@ Activate this skill when the task involves any of the following:
 
 1. Classify the behavior before writing the test.
 2. For regular tests, mock every dependency on filesystem state, Docker state, runtime state, environment state, and process execution.
-3. For integration tests, place them in the integration path and ensure they only run when `MIMIRMESH_RUN_INTEGRATION_TESTS` is not disabled.
-4. If a test is not integration-scoped but still cannot run in CI, gate it on `process.env.CI === "true"` and skip it deliberately.
-5. Never allow regular test runs to create or require `.mimirmesh` state as an implicit side effect.
-6. Prefer testing small decision points and parsers directly instead of booting runtime infrastructure.
+3. For integration tests, place them under `tests/integration` and ensure they only run when `MIMIRMESH_RUN_INTEGRATION_TESTS` is not disabled through the repository integration entrypoint.
+4. Treat CLI smoke tests, pseudo-terminal checks, and cross-process workflow validation as integration coverage instead of leaving them under `tests/workflow`.
+5. If a test is not integration-scoped but still cannot run in CI, gate it on `process.env.CI === "true"` only as a last resort after exhausting mocking and reclassification.
+6. Never allow regular test runs to create or require `.mimirmesh` state as an implicit side effect.
+7. Prefer testing small decision points and parsers directly instead of booting runtime infrastructure.
 
 ## Required reference
 
