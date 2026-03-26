@@ -34,6 +34,18 @@ describe("config schema", () => {
 		expect(enabled.engines.srclight.enabled).toBe(true);
 	});
 
+	test("rejects prototype-polluting path segments and does not mutate Object.prototype", () => {
+		const config = createDefaultConfig("/tmp/project");
+
+		expect(() => setConfigValue(config, "__proto__.polluted", true)).toThrow(
+			"Config path segment '__proto__' is not allowed.",
+		);
+		expect(() => setConfigValue(config, "logging.constructor.level", "debug")).toThrow(
+			"Config path segment 'constructor' is not allowed.",
+		);
+		expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+	});
+
 	test("defaults legacy-missing gpuMode to auto without reading legacy srclight gpu flags", () => {
 		const config = createDefaultConfig("/tmp/project");
 		const legacyShape = {

@@ -102,13 +102,31 @@ const recommendedDirectories: Record<TemplateFamily, string> = {
 	agentGuidance: ".",
 };
 
-const slugify = (value: string): string =>
-	value
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+/, "")
-		.replace(/-+$/, "") || "document";
+const isSlugCharacter = (character: string): boolean => {
+	const code = character.charCodeAt(0);
+	return (code >= 97 && code <= 122) || (code >= 48 && code <= 57);
+};
+
+const slugify = (value: string): string => {
+	const normalized = value.toLowerCase().trim();
+	const characters: string[] = [];
+	let pendingSeparator = false;
+
+	for (const character of normalized) {
+		if (isSlugCharacter(character)) {
+			if (pendingSeparator && characters.length > 0) {
+				characters.push("-");
+			}
+			characters.push(character);
+			pendingSeparator = false;
+			continue;
+		}
+
+		pendingSeparator = characters.length > 0;
+	}
+
+	return characters.join("") || "document";
+};
 
 const renderTemplate = (
 	template: string,

@@ -274,7 +274,7 @@ const ensureConnected = async () => {
 		connecting = connectClient()
 			.catch((error) => {
 				ready = false;
-				lastError = error instanceof Error ? error.message : String(error);
+				lastError = sanitizeErrorMessage(error);
 				throw error;
 			})
 			.finally(() => {
@@ -284,15 +284,7 @@ const ensureConnected = async () => {
 	await connecting;
 };
 
-const jsonResponse = (res, statusCode, payload) => {
-	res.writeHead(statusCode, {
-		"content-type": "application/json",
-		"cache-control": "no-store",
-	});
-	res.end(JSON.stringify(payload));
-};
-
-const sanitizeErrorMessage = (error) => {
+export const sanitizeErrorMessage = (error) => {
 	const raw = error instanceof Error ? error.message : String(error);
 	// Return single-line error messages without stack traces or absolute paths.
 	return raw
@@ -300,6 +292,54 @@ const sanitizeErrorMessage = (error) => {
 		.map((line) => line.trim())
 		.filter((line) => line.length > 0 && !line.startsWith("at "))
 		.join(" ");
+};
+
+export const toSafeJsonValue = (value, seen = new WeakSet()) => {
+	if (typeof value === "bigint") {
+		return value.toString();
+	}
+
+	if (value instanceof Error) {
+		const safeError = {
+			name: value.name,
+			message: sanitizeErrorMessage(value),
+		};
+		if (typeof value.code === "string" || typeof value.code === "number") {
+			safeError.code = value.code;
+		}
+		return safeError;
+	}
+
+	if (Array.isArray(value)) {
+		return value.map((entry) => toSafeJsonValue(entry, seen));
+	}
+
+	if (typeof value === "object" && value !== null) {
+		if (seen.has(value)) {
+			return "[Circular]";
+		}
+
+		seen.add(value);
+		const safeObject = {};
+		for (const [key, entry] of Object.entries(value)) {
+			if (key === "stack") {
+				continue;
+			}
+			safeObject[key] = toSafeJsonValue(entry, seen);
+		}
+		seen.delete(value);
+		return safeObject;
+	}
+
+	return value;
+};
+
+const jsonResponse = (res, statusCode, payload) => {
+	res.writeHead(statusCode, {
+		"content-type": "application/json",
+		"cache-control": "no-store",
+	});
+	res.end(JSON.stringify(toSafeJsonValue(payload)));
 };
 
 const parseBody = async (req) => {
@@ -349,7 +389,7 @@ const handleDiscover = async (_req, res) => {
 		});
 	} catch (error) {
 		ready = false;
-		lastError = error instanceof Error ? error.message : String(error);
+		lastError = sanitizeErrorMessage(error);
 		jsonResponse(res, 503, {
 			ok: false,
 			engine: engineId,
@@ -428,19 +468,29 @@ const server = http.createServer(async (req, res) => {
 	}
 });
 
-process.on("SIGINT", async () => {
-	await closeClient();
-	await stopChild();
-	process.exit(0);
-});
+let shutdownHandlersRegistered = false;
 
-process.on("SIGTERM", async () => {
-	await closeClient();
-	await stopChild();
-	process.exit(0);
-});
+const registerShutdownHandlers = () => {
+	if (shutdownHandlersRegistered) {
+		return;
+	}
 
-(async () => {
+	shutdownHandlersRegistered = true;
+	process.on("SIGINT", async () => {
+		await closeClient();
+		await stopChild();
+		process.exit(0);
+	});
+
+	process.on("SIGTERM", async () => {
+		await closeClient();
+		await stopChild();
+		process.exit(0);
+	});
+};
+
+export const startBridge = async () => {
+	registerShutdownHandlers();
 	try {
 		await ensureConnected();
 	} catch (error) {
@@ -450,4 +500,8 @@ process.on("SIGTERM", async () => {
 	server.listen(bridgePort, "0.0.0.0", () => {
 		process.stderr.write(`bridge:${engineId}:listening:${bridgePort}\n`);
 	});
-})();
+};
+
+if (import.meta.main) {
+	await startBridge();
+}

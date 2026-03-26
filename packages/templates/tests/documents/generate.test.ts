@@ -55,4 +55,12 @@ describe("templates", () => {
 
 		expect(path.endsWith("/docs/adr/adopt-local-adrs.md")).toBe(true);
 	});
+
+	test("collapses repeated separators when building document paths", async () => {
+		const repo = await createFixtureCopy("single-ts");
+
+		const path = recommendedDocumentPath(repo, "feature", "  ---Alpha***Beta___Gamma---  ");
+
+		expect(path.endsWith("/docs/features/alpha-beta-gamma.md")).toBe(true);
+	});
 });

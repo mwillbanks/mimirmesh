@@ -16,6 +16,15 @@ const assertSafeConfigPath = (segments: string[]): void => {
 	}
 };
 
+const defineOwnProperty = (target: Record<string, unknown>, key: string, value: unknown): void => {
+	Object.defineProperty(target, key, {
+		value,
+		writable: true,
+		enumerable: true,
+		configurable: true,
+	});
+};
+
 export const getConfigValue = (config: MimirmeshConfig, path: string): unknown => {
 	if (!path) {
 		return config;
@@ -51,14 +60,15 @@ export const setConfigValue = (
 	let cursor = clone;
 
 	for (const segment of segments.slice(0, -1)) {
-		const next = cursor[segment];
+		let next = cursor[segment];
 		if (typeof next !== "object" || next === null || Array.isArray(next)) {
-			cursor[segment] = {};
+			next = {};
+			defineOwnProperty(cursor, segment, next);
 		}
-		cursor = cursor[segment] as Record<string, unknown>;
+		cursor = next as Record<string, unknown>;
 	}
 
-	cursor[segments.at(-1) as string] = value;
+	defineOwnProperty(cursor, segments.at(-1) as string, value);
 	return clone as MimirmeshConfig;
 };
 
