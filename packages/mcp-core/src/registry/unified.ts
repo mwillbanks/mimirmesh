@@ -191,6 +191,36 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 			value: z.any().optional().describe("Value to write at the config path."),
 		},
 	},
+	load_deferred_tools: {
+		description:
+			"Load a deferred engine group into the current MCP session and refresh the visible tool surface.",
+		inputSchema: {
+			engine: z
+				.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"])
+				.describe("Deferred engine group to load into the current session."),
+		},
+	},
+	refresh_tool_surface: {
+		description:
+			"Refresh already-loaded deferred engine groups so the current session picks up live policy or discovery changes.",
+		inputSchema: {
+			engine: z
+				.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"])
+				.optional()
+				.describe("Optional engine group to refresh instead of all loaded groups."),
+		},
+	},
+	inspect_tool_schema: {
+		description:
+			"Inspect compressed or fuller schema detail for a visible tool without introducing a custom MCP protocol.",
+		inputSchema: {
+			toolName: z.string().trim().min(1).describe("Visible tool name to inspect."),
+			view: z
+				.enum(["compressed", "full", "debug"])
+				.optional()
+				.describe("Schema detail level to return."),
+		},
+	},
 };
 
 export const unifiedToolDescriptions: Record<UnifiedToolName, string> = Object.fromEntries(

@@ -1,5 +1,6 @@
 import type {
 	EngineId,
+	McpCompressionLevel,
 	MimirmeshConfig,
 	ProjectRuntimeVersionRecord,
 	RuntimeState,
@@ -49,6 +50,27 @@ export type RuntimeConnection = {
 	mounts: Record<string, string>;
 	services: string[];
 	bridgePorts: Partial<Record<EngineId, number>>;
+};
+
+export type McpSessionToolSurfaceState = {
+	sessionId: string;
+	policyVersion: string;
+	compressionLevel: McpCompressionLevel;
+	loadedEngineGroups: EngineId[];
+	lastNotificationAt: string | null;
+	lastLoadedAt: string | null;
+	lastUpdatedAt: string;
+	lazyLoadDiagnostics: Array<{
+		sessionId: string;
+		engineId: EngineId;
+		trigger: "explicit-load" | "tool-invocation" | "refresh";
+		startedAt: string;
+		completedAt: string;
+		outcome: "success" | "degraded" | "failed";
+		discoveredToolCount: number;
+		diagnostics: string[];
+		notificationSent: boolean;
+	}>;
 };
 
 export type EngineDiscoveredTool = {

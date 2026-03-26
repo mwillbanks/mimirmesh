@@ -27,6 +27,12 @@ export const engineStatePath = (projectRoot: string, engine: string): string =>
 	join(enginesStateDir(projectRoot), `${engine}.json`);
 export const mcpServerStatePath = (projectRoot: string): string =>
 	join(runtimeRoot(projectRoot), "mcp-server.json");
+const sanitizeSessionId = (sessionId: string): string =>
+	sessionId.replace(/[^a-zA-Z0-9._-]+/g, "_");
+export const mcpSessionStateDir = (projectRoot: string): string =>
+	join(runtimeRoot(projectRoot), "mcp-sessions");
+export const mcpSessionStatePath = (projectRoot: string, sessionId: string): string =>
+	join(mcpSessionStateDir(projectRoot), `${sanitizeSessionId(sessionId)}.json`);
 export const upgradeMetadataPath = (projectRoot: string): string =>
 	join(runtimeRoot(projectRoot), "upgrade-metadata.json");
 export const upgradeCheckpointPath = (projectRoot: string): string =>

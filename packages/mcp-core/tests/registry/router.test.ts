@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { createServer } from "node:net";
 
 import { createDefaultConfig } from "@mimirmesh/config";
 import { persistConnection, persistRoutingTable } from "@mimirmesh/runtime";
@@ -6,10 +7,76 @@ import { createFixtureCopy } from "@mimirmesh/testing";
 
 import { createToolRouter } from "../../src/registry/router";
 
+let bridgeServer: ReturnType<typeof Bun.serve> | null = null;
+
+const reservePort = async (): Promise<number> =>
+	new Promise((resolve, reject) => {
+		const server = createServer();
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			const address = server.address();
+			const port = typeof address === "object" && address ? address.port : null;
+			server.close((error) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+				if (!port) {
+					reject(new Error("Failed to reserve test port"));
+					return;
+				}
+				resolve(port);
+			});
+		});
+	});
+
+afterEach(async () => {
+	if (bridgeServer) {
+		await bridgeServer.stop(true);
+		bridgeServer = null;
+	}
+});
+
 describe("mcp tool router", () => {
-	test("lists unified and discovered passthrough tools", async () => {
+	test("lists core management tools first and exposes passthrough tools only after loading a deferred group", async () => {
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
+		const port = await reservePort();
+		bridgeServer = Bun.serve({
+			port,
+			fetch(request) {
+				const url = new URL(request.url);
+				if (url.pathname === "/discover") {
+					return Response.json({
+						ok: true,
+						tools: [
+							{
+								name: "hybrid_search",
+								description: "search code",
+								inputSchema: {
+									type: "object",
+									properties: {
+										query: {
+											type: "string",
+										},
+									},
+								},
+							},
+						],
+					});
+				}
+				if (url.pathname === "/health") {
+					return Response.json({
+						ok: true,
+						ready: true,
+						child: {
+							running: true,
+						},
+					});
+				}
+				return new Response("not found", { status: 404 });
+			},
+		});
 
 		await persistConnection(repo, {
 			projectName: config.runtime.projectName,
@@ -22,7 +89,7 @@ describe("mcp tool router", () => {
 			},
 			services: ["mm-srclight"],
 			bridgePorts: {
-				srclight: 65530,
+				srclight: port,
 			},
 		});
 		await persistRoutingTable(repo, {
@@ -67,7 +134,13 @@ describe("mcp tool router", () => {
 		expect(tools.some((tool) => tool.name === "inspect_platform_code")).toBe(true);
 		expect(tools.some((tool) => tool.name === "list_workspace_projects")).toBe(true);
 		expect(tools.some((tool) => tool.name === "refresh_index")).toBe(true);
-		expect(tools.some((tool) => tool.name === "srclight_hybrid_search")).toBe(true);
+		expect(tools.some((tool) => tool.name === "load_deferred_tools")).toBe(true);
+		expect(tools.some((tool) => tool.name === "inspect_tool_schema")).toBe(true);
+		expect(tools.some((tool) => tool.name === "srclight_hybrid_search")).toBe(false);
+
+		await router.loadDeferredToolGroup("srclight");
+		const loadedTools = await router.listTools();
+		expect(loadedTools.some((tool) => tool.name === "srclight_hybrid_search")).toBe(true);
 	});
 
 	test("returns provenance for passthrough failures", async () => {

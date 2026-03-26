@@ -19,6 +19,9 @@ describe("unified tool schemas", () => {
 		expect(unifiedToolInputSchemas.document_architecture.limit).toBeDefined();
 		expect(unifiedToolInputSchemas.generate_adr.decision).toBeDefined();
 		expect(unifiedToolInputSchemas.generate_adr.prdPath).toBeDefined();
+		expect(unifiedToolInputSchemas.load_deferred_tools.engine).toBeDefined();
+		expect(unifiedToolInputSchemas.refresh_tool_surface.engine).toBeDefined();
+		expect(unifiedToolInputSchemas.inspect_tool_schema.toolName).toBeDefined();
 	});
 
 	test("keeps explain_subsystem on the canonical friendly contract", () => {

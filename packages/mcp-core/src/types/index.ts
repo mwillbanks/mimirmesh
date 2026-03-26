@@ -22,7 +22,10 @@ export type UnifiedToolName =
 	| "document_runbook"
 	| "runtime_status"
 	| "config_get"
-	| "config_set";
+	| "config_set"
+	| "load_deferred_tools"
+	| "refresh_tool_surface"
+	| "inspect_tool_schema";
 
 export type ToolName = UnifiedToolName | string;
 
@@ -66,7 +69,13 @@ export type NormalizedToolResult = {
 export type ToolDefinition = {
 	name: ToolName;
 	description: string;
-	type: "unified" | "passthrough";
+	type: "unified" | "passthrough" | "management";
+	originEngine?: EngineId | "mimirmesh";
+	sessionState?: "core" | "loaded" | "deferred-indicator";
+	compressionLevel?: MimirmeshConfig["mcp"]["toolSurface"]["compressionLevel"];
+	argumentHints?: string[];
+	inputSchema?: Record<string, unknown>;
+	fullSchemaAvailable?: boolean;
 };
 
 export type MiddlewareContext = {
@@ -86,6 +95,7 @@ export type ToolMiddleware = (
 export type ToolRouterOptions = {
 	projectRoot: string;
 	config: MimirmeshConfig;
+	sessionId?: string;
 	adapters?: unknown[];
 	logger?: {
 		log: (
@@ -96,6 +106,40 @@ export type ToolRouterOptions = {
 		error: (message: string, details?: string) => Promise<void>;
 	};
 	middlewares?: ToolMiddleware[];
+};
+
+export type ToolSchemaDetailLevel = "compressed" | "full" | "debug";
+
+export type ToolSchemaInspection = {
+	toolName: ToolName;
+	sessionId: string;
+	detailLevel: ToolSchemaDetailLevel;
+	resolvedEngine: EngineId | "mimirmesh";
+	schemaPayload: Record<string, unknown>;
+};
+
+export type ToolSurfaceSummary = {
+	sessionId: string;
+	policyVersion: string;
+	compressionLevel: MimirmeshConfig["mcp"]["toolSurface"]["compressionLevel"];
+	coreToolCount: number;
+	toolCount: number;
+	loadedEngineGroups: EngineId[];
+	deferredEngineGroups: Array<{
+		engineId: EngineId;
+		displayName: string;
+		toolCount: number;
+		availabilityState: "deferred" | "loaded" | "unavailable" | "degraded";
+		healthMessage: string;
+		lastDiscoveredAt: string | null;
+	}>;
+	tools: ToolDefinition[];
+	diagnostics: Array<{
+		engineId: EngineId;
+		outcome: "success" | "degraded" | "failed";
+		completedAt: string;
+		message: string;
+	}>;
 };
 
 export type RoutingEngineRoute = {

@@ -12,6 +12,7 @@ Upgrade state and safety evidence also live under `.mimirmesh/runtime/`:
 - `upgrade-checkpoint.json`
 - `upgrade-backups.json`
 - `mcp-server.json`
+- `mcp-sessions/*.json`
 
 Commands:
 
@@ -44,6 +45,13 @@ For automation:
 - use `--json` when callers need the serialized workflow envelope
 
 Status and inspection commands remain non-interactive by default.
+
+MCP tool-surface operations:
+
+- `mimirmesh mcp list-tools` reports session id, policy version, compression level, loaded groups, deferred groups, and recent lazy-load diagnostics
+- `mimirmesh mcp load-tools <engine>` performs live discovery for a deferred engine group and updates only the current session
+- `mimirmesh mcp tool-schema <tool>` returns compressed or full schema detail for visible tools
+- `mimirmesh runtime status` includes the current MCP loaded/deferred group state in its workflow evidence and machine-readable payload
 
 Runtime upgrade behavior:
 

@@ -12,6 +12,7 @@ import type {
 
 import {
 	loadCliContext,
+	mcpInspectToolSurface,
 	runtimeAction,
 	runtimeDoctor,
 	runtimeUpgradeMigrate,
@@ -148,7 +149,22 @@ export const createRuntimeActionWorkflow = (
 		if (action === "status") {
 			controller.startStep("inspect-runtime", "Running live Docker, runtime, and routing checks.");
 			const status = await runtimeAction(context, "status");
-			const evidence = runtimeEvidence(status);
+			const toolSurface = await mcpInspectToolSurface(context);
+			const evidence = [
+				...runtimeEvidence(status),
+				{
+					label: "Loaded MCP groups",
+					value: toolSurface.loadedEngineGroups.join(", ") || "none",
+				},
+				{
+					label: "Deferred MCP groups",
+					value:
+						toolSurface.deferredEngineGroups
+							.filter((group) => group.availabilityState !== "loaded")
+							.map((group) => group.engineId)
+							.join(", ") || "none",
+				},
+			];
 			if (status.health.state === "ready") {
 				controller.completeStep("inspect-runtime", {
 					summary: "Runtime is ready.",
@@ -200,7 +216,10 @@ export const createRuntimeActionWorkflow = (
 							? runtimeRestartGuidance
 							: "Review the reported reasons and run `mimirmesh doctor` or `mimirmesh runtime upgrade repair` if needed.",
 				evidence: [...evidence, { label: "Message", value: status.message }],
-				machineReadablePayload: status,
+				machineReadablePayload: {
+					...status,
+					toolSurface,
+				},
 			};
 		}
 

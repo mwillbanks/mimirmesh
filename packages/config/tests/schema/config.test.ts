@@ -69,4 +69,16 @@ describe("config schema", () => {
 		expect(result.ok).toBe(true);
 		expect(result.config?.runtime.gpuMode).toBe("auto");
 	});
+
+	test("rejects tool-surface policies that place an engine in both core and deferred groups", () => {
+		const config = createDefaultConfig("/tmp/project");
+		config.mcp.toolSurface.coreEngineGroups = ["srclight"];
+		config.mcp.toolSurface.deferredEngineGroups = ["srclight"];
+
+		const result = validateConfigValue(config);
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((error) => error.includes("cannot be both core and deferred"))).toBe(
+			true,
+		);
+	});
 });

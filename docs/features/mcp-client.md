@@ -17,6 +17,13 @@ The operator-facing `mimirmesh mcp ...` commands also share the same workflow
 renderer as the rest of the CLI: human-readable progress and outcomes by
 default, with `--json` reserved for explicit machine consumption.
 
+The MCP client and CLI now use a session-scoped tool-surface policy. A fresh
+session starts with unified tools plus the deferred-management tools:
+
+- `load_deferred_tools`
+- `refresh_tool_surface`
+- `inspect_tool_schema`
+
 ## Server Resolution
 
 Resolution order:
@@ -38,6 +45,13 @@ The client accepts canonical names such as:
 Before transport, it converts `.` and `/` to `_`, so unified names and published passthrough names flow through the same stdio MCP surface.
 
 If a caller uses a retired `mimirmesh`-prefixed passthrough alias such as `mimirmesh.srclight.search_symbols`, the client receives an explicit replacement error naming the published engine-native tool.
+
+Deferred engine groups are not listed as passthrough tools until the active
+session loads them. The CLI surfaces the current session state through:
+
+- `mimirmesh mcp list-tools`
+- `mimirmesh mcp load-tools <engine>`
+- `mimirmesh mcp tool-schema <tool> --view compressed|full|debug`
 
 ## Unified Tool Behavior
 
@@ -62,14 +76,16 @@ Relevant unified tools:
 
 Observed client contract:
 
-- `list-tools` returns transport-safe names only
+- `list-tools` returns transport-safe names only and distinguishes core vs loaded tools in machine-readable output
 - `search_code` can be invoked directly from the client without the caller knowing which engine won routing
 - `document_architecture` merges ADR architecture analysis with document evidence when both live routes are available
 - unified results include provenance so the caller can see which engine executed the request
+- `inspect_tool_schema` returns compressed or fuller per-tool schema detail without a custom MCP protocol
 
 ## Srclight Passthrough Behavior
 
-Srclight passthrough routes appear only when the runtime has discovered them from the live engine.
+Srclight passthrough routes appear only when the runtime has discovered them from the live engine,
+and they become visible to a session only after that session loads the deferred `srclight` group.
 
 Representative names:
 
@@ -97,7 +113,7 @@ The client does not fake engine availability.
 Expected runtime-sensitive behavior:
 
 - if Docker or Compose is unavailable, `runtime_status` reports failure or degradation with explicit reasons
-- if Srclight is healthy and discovered, Srclight passthrough tools appear in `list-tools`
+- if Srclight is healthy and discovered, `mimirmesh mcp load-tools srclight` can expose Srclight passthrough tools for the current session
 - if `runtime.gpuMode=on` is set on a host without NVIDIA runtime support, startup fails before the client can treat Srclight as available
 - if `runtime.gpuMode=auto` runs on a non-GPU host, the client still sees the CPU-backed Srclight service and unified routes
 - if Srclight cannot reach Git metadata inside the container, history-aware passthrough tools remain discovered but runtime status and doctor report that `recent_changes`, `whats_changed`, `git_hotspots`, and `blame_symbol` are degraded
@@ -117,10 +133,14 @@ Bridge-backed requests reconnect once and retry once on timeout, abort, `502`, a
 
 - `mimirmesh-client list-tools`
 - `mimirmesh-client tool search_code '{"query":"export"}'`
+- `mimirmesh-client tool load_deferred_tools '{"engine":"srclight"}'`
+- `mimirmesh-client tool inspect_tool_schema '{"toolName":"search_code","view":"full"}'`
 - `mimirmesh-client tool srclight_search_symbols '{"query":"ToolRouter"}'`
 - `mimirmesh-client tool mimirmesh.srclight.search_symbols '{"query":"ToolRouter"}'`
 - `mimirmesh runtime status`
 - `mimirmesh mcp list-tools`
+- `mimirmesh mcp load-tools srclight`
+- `mimirmesh mcp tool-schema search_code --view full`
 - `mimirmesh mcp tool <tool> '{"key":"value"}' --json`
 
 ## Guided Tool Selection

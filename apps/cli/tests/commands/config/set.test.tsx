@@ -50,4 +50,21 @@ describe("config set command", () => {
 		expect(output).toContain("This will set logging.level to debug in .mimirmesh/config.yml.");
 		expect(output).toContain("mimirmesh config set <path> <value> --non-interactive");
 	});
+
+	test("surfaces MCP tool-surface policy edits as first-class config mutations", () => {
+		const output = withInteractiveTerminal(() =>
+			renderInkStatic(
+				<ConfigSetCommand
+					args={["mcp.toolSurface.compressionLevel", "aggressive"]}
+					options={{}}
+					presentation={interactivePresentation}
+				/>,
+			),
+		);
+
+		expect(output).toContain("Confirm configuration update");
+		expect(output).toContain(
+			"This will set mcp.toolSurface.compressionLevel to aggressive in .mimirmesh/config.yml.",
+		);
+	});
 });

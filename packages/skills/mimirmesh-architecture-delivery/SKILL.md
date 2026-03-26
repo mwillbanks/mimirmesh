@@ -38,6 +38,7 @@ This skill owns architecture planning, ADR thresholds, architecture documentatio
 
 - Update `docs/architecture/` or `docs/features/` when the subsystem design or user/operator understanding changes.
 - Update `docs/runbooks/` when operational steps, rollout checks, recovery procedures, or troubleshooting change.
+- When MCP behavior changes, explicitly account for `mcp list-tools`, `mcp load-tools`, `mcp tool-schema`, session-scoped deferred groups, notification-driven refresh, and compressed-vs-full schema expectations in docs and closeout reasoning.
 - Keep docs tied to real code, real runtime behavior, and accepted decisions. Do not generate prose blindly.
 
 ## Guardrails

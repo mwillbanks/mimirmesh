@@ -38,6 +38,7 @@ Use this skill for fast, precise code discovery. Bias toward scoped retrieval an
 
 - Do not start with `evaluate_codebase` for code navigation.
 - Do not use passthrough search tools first unless the routed surface cannot express the needed lookup.
+- Published passthrough tools may be deferred per session; prefer unified routed tools first and only rely on deferred engine tools when the routed surface cannot answer the question.
 - Do not keep broadening the search after you have already localized the answer.
 
 ## Output expectation

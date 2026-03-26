@@ -6,7 +6,9 @@ import { useCallback, useMemo, useState } from "react";
 import InstallCommand from "../commands/install";
 import InstallIdeCommand from "../commands/install/ide";
 import McpListToolsCommand from "../commands/mcp/list-tools";
+import McpLoadToolsCommand from "../commands/mcp/load-tools";
 import McpToolCommand from "../commands/mcp/tool";
+import McpToolSchemaCommand from "../commands/mcp/tool-schema";
 import RefreshCommand from "../commands/refresh";
 import RuntimeDoctorCommand from "../commands/runtime/doctor";
 import RuntimeRefreshCommand from "../commands/runtime/refresh";
@@ -102,9 +104,19 @@ const sectionActions: Record<string, ActionOption[]> = {
 			description: "Inspect unified and passthrough MCP tools.",
 		},
 		{
+			id: "load-tools",
+			label: "Load deferred tools",
+			description: "Load a deferred engine group into the current session.",
+		},
+		{
 			id: "tool",
 			label: "Invoke MCP tool",
 			description: "Choose and call a unified or passthrough MCP tool.",
+		},
+		{
+			id: "tool-schema",
+			label: "Inspect tool schema",
+			description: "Compare compressed and full schema detail for a visible tool.",
 		},
 	],
 };
@@ -238,22 +250,47 @@ const renderAction = (
 	}
 
 	if (sectionId === "mcp") {
-		return actionId === "tool" ? (
-			<McpToolCommand
-				args={[undefined, undefined]}
-				options={{}}
-				presentation={presentation}
-				exitOnComplete={false}
-				onComplete={onComplete}
-			/>
-		) : (
-			<McpListToolsCommand
-				options={{}}
-				presentation={presentation}
-				exitOnComplete={false}
-				onComplete={onComplete}
-			/>
-		);
+		switch (actionId) {
+			case "tool":
+				return (
+					<McpToolCommand
+						args={[undefined, undefined]}
+						options={{}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			case "load-tools":
+				return (
+					<McpLoadToolsCommand
+						args={["srclight"]}
+						options={{}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			case "tool-schema":
+				return (
+					<McpToolSchemaCommand
+						args={["explain_project"]}
+						options={{ view: "compressed" }}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			default:
+				return (
+					<McpListToolsCommand
+						options={{}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+		}
 	}
 
 	return null;

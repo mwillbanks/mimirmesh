@@ -37,7 +37,9 @@ const commandModules: Record<string, () => Promise<CommandModule>> = {
 	"runtime/upgrade/migrate": asCommandModule(() => import("./commands/runtime/upgrade/migrate")),
 	"runtime/upgrade/repair": asCommandModule(() => import("./commands/runtime/upgrade/repair")),
 	"mcp/list-tools": asCommandModule(() => import("./commands/mcp/list-tools")),
+	"mcp/load-tools": asCommandModule(() => import("./commands/mcp/load-tools")),
 	"mcp/tool": asCommandModule(() => import("./commands/mcp/tool")),
+	"mcp/tool-schema": asCommandModule(() => import("./commands/mcp/tool-schema")),
 	"note/add": asCommandModule(() => import("./commands/note/add")),
 	"note/list": asCommandModule(() => import("./commands/note/list")),
 	"note/search": asCommandModule(() => import("./commands/note/search")),
@@ -76,7 +78,9 @@ const printUsage = (): void => {
 	);
 	print("  mimirmesh runtime upgrade [status|migrate|repair] [--non-interactive] [--json]");
 	print("  mimirmesh mcp list-tools [--json]");
+	print("  mimirmesh mcp load-tools <engine> [--non-interactive] [--json]");
 	print("  mimirmesh mcp tool <tool> [json] [--non-interactive] [--json]");
+	print("  mimirmesh mcp tool-schema <tool> [--view compressed|full|debug] [--json]");
 	print("  mimirmesh install ide [--target <target>] [--non-interactive] [--json]");
 	print("  mimirmesh skills install|update|remove [skill-name] [--non-interactive] [--json]");
 	print("");

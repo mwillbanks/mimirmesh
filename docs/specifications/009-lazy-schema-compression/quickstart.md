@@ -116,3 +116,23 @@ Expected result:
 - state completion only after the hardening implementation, tests, docs, and validation have actually passed
 - immediately run `agent-execution-mode` in `agentic-self-review`
 - fix safe findings before concluding the feature work
+
+## Observed Validation Snapshot
+
+Measured from the CI-safe benchmark and integration fixtures added for this feature:
+
+| Outcome | Result |
+|---------|--------|
+| SC-001 default surface reduction vs eager baseline | 41.44% smaller |
+| SC-002 partially loaded session vs eager baseline | 27.78% smaller after one engine group is visible |
+| SC-003 lazy-load completion target | pass, guarded by `< 2s` in `tests/integration/mcp/lazy-load-latency.test.ts` |
+| SC-005 live policy propagation target | pass, guarded by the policy-refresh workflow validation suite |
+| SC-007 notification plus refresh visibility target | pass, covered by MCP startup and integration refresh tests |
+| RVO-004 compressed schema target | 40.93% smaller for the representative `srclight_search_symbols` schema payload |
+
+Benchmark references:
+
+- `packages/mcp-core/tests/registry/router.performance.test.ts`
+- `tests/integration/mcp/lazy-load-latency.test.ts`
+- `tests/workflow/mcp-policy-refresh.test.ts`
+- `apps/server/tests/startup/start-server.test.ts`

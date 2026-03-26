@@ -178,6 +178,17 @@ export const createDefaultConfig = (projectRoot: string): MimirmeshConfig => {
 				codex: { installed: false, configPath: join(projectRoot, ".codex", "mcp.json") },
 			},
 		},
+		mcp: {
+			toolSurface: {
+				compressionLevel: "balanced",
+				coreEngineGroups: [],
+				deferredEngineGroups: ["srclight", "document-mcp", "mcp-adr-analysis-server"],
+				deferredVisibility: "summary",
+				fullSchemaAccess: true,
+				refreshPolicy: "explicit",
+				allowInvocationLazyLoad: true,
+			},
+		},
 		update: {
 			channel: "stable",
 			autoCheck: true,

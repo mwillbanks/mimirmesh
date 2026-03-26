@@ -35,6 +35,9 @@ export type {
 	ToolProvenance,
 	ToolResultItem,
 	ToolRouterOptions,
+	ToolSchemaDetailLevel,
+	ToolSchemaInspection,
+	ToolSurfaceSummary,
 	ToolWarningCode,
 	UnifiedToolName,
 } from "./types";

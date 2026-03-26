@@ -46,6 +46,8 @@ export {
 	runtimeStop,
 } from "./services/runtime-lifecycle";
 export {
+	hashString,
+	hashValue,
 	loadBackupManifest,
 	loadBootstrapState,
 	loadConnection as loadRuntimeConnection,
@@ -67,15 +69,24 @@ export {
 	runtimeFiles,
 } from "./state/io";
 export { ensureProjectLayout } from "./state/layout";
-export type { BuildManifest, McpServerSession } from "./state/mcp-server";
+export type {
+	BuildManifest,
+	McpLazyLoadDiagnostic,
+	McpServerSession,
+	McpToolSurfaceSession,
+} from "./state/mcp-server";
 export {
 	clearMcpServerSession,
+	clearMcpToolSurfaceSession,
+	createDefaultMcpToolSurfaceSession,
 	detectMcpServerStaleness,
 	hasLatestBuildManifest,
 	loadExecutableBuildManifest,
 	loadLatestBuildManifest,
 	loadMcpServerSession,
+	loadMcpToolSurfaceSession,
 	persistMcpServerSession,
+	persistMcpToolSurfaceSession,
 } from "./state/mcp-server";
 export {
 	backupSnapshotRoot,
@@ -87,6 +98,8 @@ export {
 	enginesStateDir,
 	healthPath,
 	mcpServerStatePath,
+	mcpSessionStateDir,
+	mcpSessionStatePath,
 	quarantineRoot,
 	routingTablePath,
 	runtimeRoot,
@@ -100,6 +113,7 @@ export type {
 	BootstrapStateFile,
 	EngineDiscoveredTool,
 	EngineRuntimeState,
+	McpSessionToolSurfaceState,
 	PassthroughRoute,
 	RoutingTable,
 	RuntimeActionResult,

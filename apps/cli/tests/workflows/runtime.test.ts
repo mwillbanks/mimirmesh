@@ -40,6 +40,10 @@ describe("runtime workflows", () => {
 				"pending",
 			);
 			expect(finalState.outcome?.evidence?.some((row) => row.label === "Runtime state")).toBe(true);
+			expect(
+				(finalState.outcome?.machineReadablePayload as { toolSurface?: unknown } | undefined)
+					?.toolSurface,
+			).toBeDefined();
 		} finally {
 			await rm(fixture.repo, { recursive: true, force: true });
 		}

@@ -63,6 +63,7 @@ type RegisteredToolHandle = {
 	};
 	handler: (input: Record<string, unknown>, extra?: unknown) => Promise<TransportToolResult>;
 	disable: () => void;
+	enable: () => void;
 };
 
 type TransportToolResult = {
@@ -78,6 +79,7 @@ type TransportToolResult = {
 
 export const startMcpServer = async (projectRootInput?: string): Promise<void> => {
 	const projectRoot = projectRootInput ?? process.env.MIMIRMESH_PROJECT_ROOT ?? process.cwd();
+	const sessionId = process.env.MIMIRMESH_SESSION_ID ?? `mcp-${process.pid}`;
 	const version = await resolveVersion();
 	const config = await readConfig(projectRoot, { createIfMissing: true });
 	const logger = await createProjectLogger({
@@ -91,6 +93,7 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 	if (executableBuild) {
 		await persistMcpServerSession(projectRoot, {
 			pid: process.pid,
+			sessionId,
 			startedAt: new Date().toISOString(),
 			version: executableBuild.manifest.version,
 			builtAt: executableBuild.manifest.builtAt,
@@ -104,6 +107,7 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 	const router = createToolRouter({
 		projectRoot,
 		config,
+		sessionId,
 		adapters,
 		logger,
 	});
@@ -185,7 +189,7 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 	await logger.log(
 		"mcp",
 		"info",
-		`Registering ${filterUnifiedTools(toolDefinitions).length} unified and ${filterPassthroughTools(toolDefinitions).length} passthrough tools`,
+		`Registering ${filterUnifiedTools(toolDefinitions).length} unified and ${filterPassthroughTools(toolDefinitions).length} visible passthrough tools`,
 	);
 
 	for (const tool of toolDefinitions) {
@@ -231,6 +235,56 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 		);
 	}
 
+	const syncPassthroughVisibility = async (): Promise<void> => {
+		const [visibleTools, nextRuntime] = await Promise.all([
+			router.listTools(),
+			loadRuntimeRoutingContext(projectRoot),
+		]);
+		const visibleTransportNames = new Set(
+			filterPassthroughTools(visibleTools).map((tool) => toTransportToolName(tool.name)),
+		);
+
+		for (const route of nextRuntime.routing?.passthrough ?? []) {
+			const publishedName = toTransportToolName(
+				route.publication?.publishedTool ?? route.publicTool,
+			);
+			if (!registeredTools.has(publishedName)) {
+				registerTransportTool(
+					publishedName,
+					{
+						title: publishedName,
+						description: route.description ?? `${route.engine}.${route.engineTool}`,
+						inputSchema: passthroughSchema as unknown as McpAnySchema,
+					},
+					async (input: ToolInput) => {
+						const result = await router.callTool(
+							(route.publication?.publishedTool ?? route.publicTool) as ToolName,
+							input as Record<string, unknown>,
+						);
+						return {
+							content: [{ type: "text" as const, text: result.message }],
+							structuredContent: { result },
+							isError: !result.success,
+						};
+					},
+					{ disable: !visibleTransportNames.has(publishedName) },
+				);
+			}
+
+			const handle = registeredTools.get(publishedName);
+			if (!handle) {
+				continue;
+			}
+			if (visibleTransportNames.has(publishedName)) {
+				handle.tool.enable();
+			} else {
+				handle.tool.disable();
+			}
+		}
+	};
+
+	await syncPassthroughVisibility();
+
 	for (const alias of retiredAliases) {
 		const transportToolName = toTransportToolName(alias.alias);
 		registerTransportTool(
@@ -265,10 +319,21 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 	}
 
 	server.server.setRequestHandler(CallToolRequestSchema, async (request) =>
-		invokeRegisteredTool(
-			request.params.name,
-			(request.params.arguments ?? {}) as Record<string, unknown>,
-		),
+		(async () => {
+			const result = await invokeRegisteredTool(
+				request.params.name,
+				(request.params.arguments ?? {}) as Record<string, unknown>,
+			);
+			if (
+				request.params.name === "load_deferred_tools" ||
+				request.params.name === "refresh_tool_surface"
+			) {
+				await syncPassthroughVisibility();
+				await router.markToolSurfaceNotified();
+				server.sendToolListChanged();
+			}
+			return result;
+		})(),
 	);
 
 	const transport = new StdioServerTransport();

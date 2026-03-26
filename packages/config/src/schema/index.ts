@@ -90,6 +90,9 @@ export const engineIdSchema = z.enum(["srclight", "document-mcp", "mcp-adr-analy
 
 export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 export const gpuModeSchema = z.enum(["auto", "on", "off"]);
+export const mcpCompressionLevelSchema = z.enum(["minimal", "balanced", "aggressive"]);
+export const mcpDeferredVisibilitySchema = z.enum(["summary", "hidden"]);
+export const mcpRefreshPolicySchema = z.enum(["explicit", "automatic"]);
 
 export const engineBridgeSchema = z.object({
 	containerPort: z.number().int().positive().default(4701),
@@ -192,6 +195,34 @@ export const runtimeConfigSchema = z.object({
 	state: runtimeStateSchema.default("failed"),
 });
 
+export const mcpToolSurfacePolicySchema = z
+	.object({
+		compressionLevel: mcpCompressionLevelSchema.default("balanced"),
+		coreEngineGroups: z.array(engineIdSchema).default([]),
+		deferredEngineGroups: z
+			.array(engineIdSchema)
+			.default(["srclight", "document-mcp", "mcp-adr-analysis-server"]),
+		deferredVisibility: mcpDeferredVisibilitySchema.default("summary"),
+		fullSchemaAccess: z.boolean().default(true),
+		refreshPolicy: mcpRefreshPolicySchema.default("explicit"),
+		allowInvocationLazyLoad: z.boolean().default(true),
+	})
+	.superRefine((value, context) => {
+		for (const engine of value.coreEngineGroups) {
+			if (value.deferredEngineGroups.includes(engine)) {
+				context.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ["deferredEngineGroups"],
+					message: `Engine group '${engine}' cannot be both core and deferred.`,
+				});
+			}
+		}
+	});
+
+export const mcpConfigSchema = z.object({
+	toolSurface: mcpToolSurfacePolicySchema,
+});
+
 export const configSchema = z.object({
 	version: z.literal(2),
 	project: z.object({
@@ -229,6 +260,7 @@ export const configSchema = z.object({
 			codex: z.object({ installed: z.boolean(), configPath: z.string() }),
 		}),
 	}),
+	mcp: mcpConfigSchema,
 	update: z.object({
 		channel: z.enum(["stable", "beta", "nightly"]),
 		autoCheck: z.boolean(),
@@ -346,7 +378,12 @@ export const runtimeUpgradeMetadataSchema = z.object({
 export type RuntimeState = z.infer<typeof runtimeStateSchema>;
 export type EngineId = z.infer<typeof engineIdSchema>;
 export type GpuMode = z.infer<typeof gpuModeSchema>;
+export type McpCompressionLevel = z.infer<typeof mcpCompressionLevelSchema>;
+export type McpDeferredVisibility = z.infer<typeof mcpDeferredVisibilitySchema>;
+export type McpRefreshPolicy = z.infer<typeof mcpRefreshPolicySchema>;
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
+export type McpToolSurfacePolicy = z.infer<typeof mcpToolSurfacePolicySchema>;
+export type McpConfig = z.infer<typeof mcpConfigSchema>;
 export type MimirmeshConfig = z.infer<typeof configSchema>;
 export type MimirmeshGlobalConfig = z.infer<typeof globalConfigSchema>;
 export type RuntimeUpgradeState = z.infer<typeof runtimeUpgradeStateSchema>;

@@ -8,7 +8,8 @@ Srclight is the only active code-intelligence engine; `codebase-memory-mcp` is r
 `mimirmesh-server` is the stdio MCP surface for the project-local runtime. It:
 
 - registers the unified MímirMesh tools
-- adds passthrough tools from live engine discovery only
+- keeps passthrough tools session-scoped and deferred by default
+- adds passthrough tools from live engine discovery only when a session loads the owning engine group
 - publishes engine-native passthrough tool names while preserving the internal routing table truth
 - executes unified and passthrough calls through the same routing table used by the CLI
 
@@ -18,6 +19,13 @@ The human-facing CLI surfaces that inspect or invoke MCP tools now present the
 same explicit workflow language as the rest of the product: step progress,
 warnings, degraded outcomes, and next actions by default, with `--json`
 available only when a caller explicitly wants the serialized workflow envelope.
+
+Each server session also exposes three management tools as part of the core
+surface:
+
+- `load_deferred_tools`
+- `refresh_tool_surface`
+- `inspect_tool_schema`
 
 ## Tool Naming
 
@@ -57,6 +65,8 @@ Required runtime artifacts:
 - `.mimirmesh/runtime/routing-table.json`
 - `.mimirmesh/runtime/bootstrap-state.json`
 - `.mimirmesh/runtime/engines/srclight.json`
+- `.mimirmesh/runtime/mcp-server.json`
+- `.mimirmesh/runtime/mcp-sessions/*.json`
 
 If Docker or Compose is unavailable, the server still starts, but runtime-backed tools reflect that failed or degraded state instead of inventing readiness.
 
@@ -121,7 +131,9 @@ Bridge-backed passthrough calls also normalize mount-aware paths before invocati
 
 ## Passthrough Exposure
 
-Srclight passthrough tools are never registered from a static catalog. They appear only when the bridge discovers them from the running engine.
+Srclight passthrough tools are never registered from a static catalog. They are
+discovered from the running engine and remain hidden from `tools/list` until the
+current session loads the owning deferred group.
 
 Representative passthrough tools validated in tests and routing rules:
 
@@ -139,6 +151,14 @@ Representative passthrough tools validated in tests and routing rules:
 - `srclight_reindex`
 - `srclight_changes_to`
 - `srclight_embedding_status`
+
+Lazy-load contract:
+
+- session start publishes unified tools plus the management tools above
+- `load_deferred_tools` refreshes discovery for one engine group and updates only that session’s visible tool list
+- the server emits MCP `notifications/tools/list_changed` after a successful surface change
+- `inspect_tool_schema` returns compressed or full detail for visible tools without a custom wire protocol
+- already-loaded groups remain stable across live policy changes until `refresh_tool_surface` is invoked
 
 ## Failure Classification
 
@@ -158,12 +178,40 @@ This same truth model is what the CLI surfaces in `mimirmesh mcp list-tools`
 and `mimirmesh mcp tool`; neither surface invents tool availability when the
 runtime is not actually ready.
 
+Runtime status and CLI machine-readable payloads now also surface:
+
+- session id
+- policy version
+- compression level
+- loaded engine groups
+- deferred engine groups
+- recent lazy-load diagnostics
+
 When the runtime is stale, the surfaced tools now return explicit warning codes and remediation messages instead of generic bridge failures. Current machine-readable warning codes are:
 
 - `runtime_restart_required`
 - `mcp_server_stale`
 - `bridge_unhealthy`
 - `upstream_tool_fallback_used`
+
+## Validation Snapshot
+
+The current lazy-surface and schema-compression validation fixtures record these observed results:
+
+| Validation target | Result |
+|-------------------|--------|
+| Default tool-surface payload vs eager passthrough baseline | 41.44% smaller |
+| Session with one engine group already visible vs eager baseline | 27.78% smaller |
+| Representative compressed schema payload vs full schema payload | 40.93% smaller |
+| Lazy-load latency target | pass under the `< 2s` guard in integration validation |
+| Policy refresh visibility target | pass under the workflow refresh validation suite |
+
+These checks are enforced by:
+
+- `packages/mcp-core/tests/registry/router.performance.test.ts`
+- `tests/integration/mcp/lazy-load-latency.test.ts`
+- `tests/workflow/mcp-policy-refresh.test.ts`
+- `apps/server/tests/startup/start-server.test.ts`
 
 ## Repository Ignore Semantics
 
@@ -181,3 +229,5 @@ MímirMesh uses those sources when it walks the repository for local analysis an
 - `.mimirmesh/runtime/routing-table.json`
 - `.mimirmesh/runtime/bootstrap-state.json`
 - `.mimirmesh/runtime/engines/srclight.json`
+- `.mimirmesh/runtime/mcp-server.json`
+- `.mimirmesh/runtime/mcp-sessions/`

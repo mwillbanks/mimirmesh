@@ -25,6 +25,7 @@ Use this as the default entry skill for broad or ambiguous engineering requests 
 - Route to `mimirmesh-speckit-delivery` for new features, cross-cutting changes, significant refactors, API changes, or multi-component fixes.
 - Route to `mimirmesh-architecture-delivery` for subsystem design, architecture changes, ADR-worthy work, architecture docs, or runbook closeout.
 - Route to `mimirmesh-integration-analysis` for deployments, CI/CD, service boundaries, external contracts, rollout impact, or system topology.
+- Route questions about MCP tool-surface shape, deferred engine groups, session-scoped visibility, or schema-compression behavior to `mimirmesh-architecture-delivery` unless the request is a localized bug, in which case use `mimirmesh-code-investigation`.
 
 ## Cheapest sufficient sequence
 

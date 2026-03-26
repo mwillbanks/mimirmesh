@@ -5,9 +5,12 @@ import { join } from "node:path";
 
 import {
 	clearMcpServerSession,
+	createDefaultMcpToolSurfaceSession,
 	detectMcpServerStaleness,
 	loadLatestBuildManifest,
+	loadMcpToolSurfaceSession,
 	persistMcpServerSession,
+	persistMcpToolSurfaceSession,
 } from "../../src";
 
 describe("mcp server runtime state", () => {
@@ -32,6 +35,7 @@ describe("mcp server runtime state", () => {
 
 			await persistMcpServerSession(projectRoot, {
 				pid: process.pid,
+				sessionId: "test-session",
 				startedAt: "2026-03-17T11:00:00.000Z",
 				version: "1.2.2",
 				builtAt: "2026-03-17T11:00:00.000Z",
@@ -51,6 +55,40 @@ describe("mcp server runtime state", () => {
 			}
 		} finally {
 			await clearMcpServerSession(projectRoot);
+			await rm(projectRoot, { recursive: true, force: true });
+		}
+	});
+
+	test("persists session-scoped tool-surface state for deferred engine groups", async () => {
+		const projectRoot = await mkdtemp(join(tmpdir(), "mimirmesh-mcp-session-"));
+		try {
+			const session = createDefaultMcpToolSurfaceSession({
+				sessionId: "cli-default",
+				policyVersion: "policy-v1",
+				compressionLevel: "balanced",
+			});
+			session.loadedEngineGroups = ["srclight"];
+			session.lastNotificationAt = "2026-03-17T12:05:00.000Z";
+			session.lazyLoadDiagnostics = [
+				{
+					sessionId: "cli-default",
+					engineId: "srclight",
+					trigger: "explicit-load",
+					startedAt: "2026-03-17T12:00:00.000Z",
+					completedAt: "2026-03-17T12:00:01.000Z",
+					outcome: "success",
+					discoveredToolCount: 4,
+					diagnostics: ["Loaded 4 tool(s)."],
+					notificationSent: true,
+				},
+			];
+
+			await persistMcpToolSurfaceSession(projectRoot, session);
+			const loaded = await loadMcpToolSurfaceSession(projectRoot, "cli-default");
+
+			expect(loaded?.loadedEngineGroups).toEqual(["srclight"]);
+			expect(loaded?.lazyLoadDiagnostics[0]?.notificationSent).toBe(true);
+		} finally {
 			await rm(projectRoot, { recursive: true, force: true });
 		}
 	});

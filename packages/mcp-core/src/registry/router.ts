@@ -15,17 +15,19 @@ import {
 	classifyUpgradeStatus,
 	detectMcpServerStaleness,
 	loadEngineState,
+	persistMcpToolSurfaceSession,
 	runtimeStatus,
 } from "@mimirmesh/runtime";
 import { loadRepositoryIgnoreMatcher } from "@mimirmesh/workspace";
 
-import { loadRuntimeRoutingContext } from "../discovery/runtime";
-import { deduplicateAndRank } from "../merge/results";
 import {
-	buildRetiredPassthroughAliasResult,
-	publishedPassthroughToolName,
-	retiredPassthroughAliasFor,
-} from "../passthrough";
+	loadOrCreateMcpToolSurfaceSession,
+	loadRuntimeRoutingContext,
+	refreshDeferredEngineDiscovery,
+	toolSurfacePolicyVersion,
+} from "../discovery/runtime";
+import { deduplicateAndRank } from "../merge/results";
+import { buildRetiredPassthroughAliasResult, retiredPassthroughAliasFor } from "../passthrough";
 import { normalizeEnginePayloadPaths, translateEngineToolInput } from "../paths/translation";
 import { passthroughRouteFor, unifiedRoutesFor } from "../routing/table";
 import { invokeEngineTool } from "../transport/bridge";
@@ -38,6 +40,9 @@ import type {
 	ToolProvenance,
 	ToolResultItem,
 	ToolRouterOptions,
+	ToolSchemaDetailLevel,
+	ToolSchemaInspection,
+	ToolSurfaceSummary,
 	ToolWarningCode,
 	UnifiedToolName,
 } from "../types";
@@ -51,6 +56,16 @@ import {
 
 const nowId = (prefix: string): string =>
 	`${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+const managementToolNames = new Set<UnifiedToolName>([
+	"load_deferred_tools",
+	"refresh_tool_surface",
+	"inspect_tool_schema",
+]);
+const engineDisplayNames: Record<EngineId, string> = {
+	srclight: "Srclight",
+	"document-mcp": "Document MCP",
+	"mcp-adr-analysis-server": "ADR Analysis",
+};
 
 const normalizePath = (value: string): string => value.replaceAll("\\", "/");
 
@@ -243,6 +258,112 @@ const missingRequiredFields = (
 		return false;
 	});
 
+const schemaProperties = (
+	inputSchema: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+	const properties = inputSchema?.properties;
+	return typeof properties === "object" && properties !== null
+		? (properties as Record<string, unknown>)
+		: {};
+};
+
+const optionalFieldsForSchema = (inputSchema: Record<string, unknown> | undefined): string[] => {
+	const required = new Set(requiredFieldsForSchema(inputSchema));
+	return Object.keys(schemaProperties(inputSchema)).filter((field) => !required.has(field));
+};
+
+const formatArgumentHints = (inputSchema: Record<string, unknown> | undefined): string[] => {
+	const required = requiredFieldsForSchema(inputSchema).map((field) => `required:${field}`);
+	const optional = optionalFieldsForSchema(inputSchema).map((field) => `optional:${field}`);
+	return [...required, ...optional];
+};
+
+const summarizeArgumentHints = (inputSchema: Record<string, unknown> | undefined): string => {
+	const hints = formatArgumentHints(inputSchema);
+	if (hints.length === 0) {
+		return "no args";
+	}
+	return hints.join(", ");
+};
+
+const compressDescription = (
+	description: string,
+	inputSchema: Record<string, unknown> | undefined,
+	level: MimirmeshConfig["mcp"]["toolSurface"]["compressionLevel"],
+): string => {
+	const summary = description.trim().replace(/\s+/g, " ");
+	if (level === "minimal") {
+		return summary;
+	}
+	const hints = summarizeArgumentHints(inputSchema);
+	if (level === "balanced") {
+		return `${summary} Args: ${hints}.`;
+	}
+	const sentence = summary.split(/[.!?]/)[0]?.trim() ?? summary;
+	return `${sentence}. Args: ${hints}.`;
+};
+
+const zodTypeLabel = (schema: unknown): string => {
+	const candidate = schema as {
+		type?: string;
+		unwrap?: () => unknown;
+		options?: string[];
+		element?: unknown;
+		constructor?: { name?: string };
+	};
+	if (typeof candidate?.unwrap === "function") {
+		return zodTypeLabel(candidate.unwrap());
+	}
+	if (Array.isArray(candidate?.options)) {
+		return `enum(${candidate.options.join(", ")})`;
+	}
+	if (candidate?.type === "string" || candidate?.constructor?.name === "ZodString") {
+		return "string";
+	}
+	if (candidate?.type === "number" || candidate?.constructor?.name === "ZodNumber") {
+		return "number";
+	}
+	if (candidate?.type === "boolean" || candidate?.constructor?.name === "ZodBoolean") {
+		return "boolean";
+	}
+	if (candidate?.type === "array" || candidate?.constructor?.name === "ZodArray") {
+		return `array<${zodTypeLabel(candidate.element)}>`;
+	}
+	return "unknown";
+};
+
+const unifiedShapeToJsonSchema = (shape: Record<string, unknown>): Record<string, unknown> => {
+	const required: string[] = [];
+	const properties = Object.fromEntries(
+		Object.entries(shape).map(([name, schema]) => {
+			const optional =
+				typeof schema === "object" &&
+				schema !== null &&
+				((schema as { isOptional?: () => boolean }).isOptional?.() === true ||
+					(schema as { constructor?: { name?: string } }).constructor?.name === "ZodOptional");
+			if (!optional) {
+				required.push(name);
+			}
+			return [
+				name,
+				{
+					type: zodTypeLabel(schema),
+					description:
+						(typeof schema === "object" &&
+							schema !== null &&
+							(schema as { description?: string }).description) ??
+						"",
+				},
+			];
+		}),
+	);
+	return {
+		type: "object",
+		properties,
+		required,
+	};
+};
+
 const extractTextContent = (payload: unknown): string => {
 	if (typeof payload === "string") {
 		return payload;
@@ -312,6 +433,7 @@ const extractAdrPaths = (text: string): string[] => {
 export class ToolRouter {
 	private readonly projectRoot: string;
 	private config: MimirmeshConfig;
+	private readonly sessionId: string;
 	private readonly logger?: ToolRouterOptions["logger"];
 	private readonly executeWithMiddleware: (
 		context: MiddlewareContext,
@@ -320,6 +442,7 @@ export class ToolRouter {
 	constructor(options: ToolRouterOptions) {
 		this.projectRoot = options.projectRoot;
 		this.config = options.config;
+		this.sessionId = options.sessionId ?? process.env.MIMIRMESH_SESSION_ID ?? "cli-default";
 		this.logger = options.logger;
 
 		const defaultMiddlewares = [
@@ -337,8 +460,266 @@ export class ToolRouter {
 		return this.config;
 	}
 
+	public getSessionId(): string {
+		return this.sessionId;
+	}
+
 	public setConfig(config: MimirmeshConfig): void {
 		this.config = config;
+	}
+
+	private async resolveSessionState() {
+		const runtime = await loadRuntimeRoutingContext(this.projectRoot);
+		const session = await loadOrCreateMcpToolSurfaceSession(
+			this.projectRoot,
+			this.config,
+			this.sessionId,
+		);
+		const expectedPolicyVersion = toolSurfacePolicyVersion(this.config);
+		if (
+			session.policyVersion !== expectedPolicyVersion ||
+			session.compressionLevel !== this.config.mcp.toolSurface.compressionLevel
+		) {
+			const updatedSession = {
+				...session,
+				policyVersion: expectedPolicyVersion,
+				compressionLevel: this.config.mcp.toolSurface.compressionLevel,
+				lastUpdatedAt: new Date().toISOString(),
+			};
+			await persistMcpToolSurfaceSession(this.projectRoot, updatedSession);
+			return {
+				runtime,
+				session: updatedSession,
+			};
+		}
+		return { runtime, session };
+	}
+
+	private buildToolDefinition(options: {
+		name: ToolName;
+		description: string;
+		type: ToolDefinition["type"];
+		originEngine?: EngineId | "mimirmesh";
+		sessionState: NonNullable<ToolDefinition["sessionState"]>;
+		inputSchema?: Record<string, unknown>;
+	}): ToolDefinition {
+		return {
+			name: options.name,
+			description: compressDescription(
+				options.description,
+				options.inputSchema,
+				this.config.mcp.toolSurface.compressionLevel,
+			),
+			type: options.type,
+			originEngine: options.originEngine ?? "mimirmesh",
+			sessionState: options.sessionState,
+			compressionLevel: this.config.mcp.toolSurface.compressionLevel,
+			argumentHints: formatArgumentHints(options.inputSchema),
+			inputSchema: options.inputSchema,
+			fullSchemaAvailable: this.config.mcp.toolSurface.fullSchemaAccess,
+		};
+	}
+
+	private async visiblePassthroughTools(): Promise<ToolDefinition[]> {
+		const { runtime, session } = await this.resolveSessionState();
+		const core = new Set(this.config.mcp.toolSurface.coreEngineGroups);
+		const loaded = new Set(session.loadedEngineGroups);
+		return (runtime.routing?.passthrough ?? [])
+			.filter(
+				(route) => route.publication == null || core.has(route.engine) || loaded.has(route.engine),
+			)
+			.map((route) =>
+				this.buildToolDefinition({
+					name: (route.publication?.publishedTool ?? route.publicTool) as ToolName,
+					description: route.description ?? `${route.engine}.${route.engineTool}`,
+					type: "passthrough",
+					originEngine: route.engine,
+					sessionState:
+						route.publication == null ? "core" : loaded.has(route.engine) ? "loaded" : "core",
+					inputSchema: route.inputSchema,
+				}),
+			);
+	}
+
+	public async inspectToolSurface(): Promise<ToolSurfaceSummary> {
+		const { runtime, session } = await this.resolveSessionState();
+		const tools = await this.listTools();
+		const loaded = new Set(session.loadedEngineGroups);
+		const core = new Set(this.config.mcp.toolSurface.coreEngineGroups);
+		const deferred = new Set(this.config.mcp.toolSurface.deferredEngineGroups);
+		const deferredEngineGroups = (
+			Object.entries(this.config.engines) as Array<[EngineId, MimirmeshConfig["engines"][EngineId]]>
+		)
+			.filter(([engine]) => deferred.has(engine) || loaded.has(engine) || core.has(engine))
+			.map(([engine, engineConfig]) => {
+				const state = runtime.routing?.passthrough.filter((route) => route.engine === engine) ?? [];
+				const engineState: "loaded" | "unavailable" | "deferred" = loaded.has(engine)
+					? "loaded"
+					: !engineConfig.enabled
+						? "unavailable"
+						: "deferred";
+				return {
+					engineId: engine,
+					displayName: engineDisplayNames[engine],
+					toolCount: state.length,
+					availabilityState: engineState,
+					healthMessage:
+						engineState === "unavailable"
+							? "Engine disabled in config."
+							: runtime.routing
+								? "Deferred until loaded."
+								: "Runtime routing unavailable.",
+					lastDiscoveredAt: runtime.routing?.generatedAt ?? null,
+				};
+			});
+
+		return {
+			sessionId: session.sessionId,
+			policyVersion: session.policyVersion,
+			compressionLevel: session.compressionLevel,
+			coreToolCount: tools.filter((tool) => tool.sessionState === "core").length,
+			toolCount: tools.length,
+			loadedEngineGroups: [...session.loadedEngineGroups],
+			deferredEngineGroups,
+			tools,
+			diagnostics: session.lazyLoadDiagnostics.map((diagnostic) => ({
+				engineId: diagnostic.engineId,
+				outcome: diagnostic.outcome,
+				completedAt: diagnostic.completedAt,
+				message: diagnostic.diagnostics.join("; ") || diagnostic.outcome,
+			})),
+		};
+	}
+
+	public async inspectToolSchema(
+		toolName: ToolName,
+		detailLevel: ToolSchemaDetailLevel = "compressed",
+	): Promise<ToolSchemaInspection> {
+		const { runtime } = await this.resolveSessionState();
+		if (isUnifiedTool(toolName)) {
+			const schemaPayload = unifiedShapeToJsonSchema(unifiedToolInputSchemas[toolName]);
+			return {
+				toolName,
+				sessionId: this.sessionId,
+				detailLevel,
+				resolvedEngine: "mimirmesh",
+				schemaPayload:
+					detailLevel === "compressed"
+						? {
+								description: compressDescription(
+									unifiedToolDescriptions[toolName],
+									schemaPayload,
+									this.config.mcp.toolSurface.compressionLevel,
+								),
+								argumentHints: summarizeArgumentHints(schemaPayload),
+							}
+						: {
+								description: unifiedToolDescriptions[toolName],
+								inputSchema: schemaPayload,
+							},
+			};
+		}
+
+		const route = runtime.routing ? passthroughRouteFor(runtime.routing, toolName) : null;
+		if (!route) {
+			throw new Error(`Tool schema unavailable for ${toolName}.`);
+		}
+		return {
+			toolName,
+			sessionId: this.sessionId,
+			detailLevel,
+			resolvedEngine: route.engine,
+			schemaPayload:
+				detailLevel === "compressed"
+					? {
+							description: compressDescription(
+								route.description ?? `${route.engine}.${route.engineTool}`,
+								route.inputSchema,
+								this.config.mcp.toolSurface.compressionLevel,
+							),
+							argumentHints: summarizeArgumentHints(route.inputSchema),
+						}
+					: {
+							description: route.description ?? `${route.engine}.${route.engineTool}`,
+							inputSchema: route.inputSchema ?? { type: "object", properties: {} },
+						},
+		};
+	}
+
+	public async loadDeferredToolGroup(
+		engine: EngineId,
+		trigger: "explicit-load" | "tool-invocation" | "refresh" = "explicit-load",
+	): Promise<ToolSurfaceSummary> {
+		const startedAt = new Date().toISOString();
+		const { session } = await this.resolveSessionState();
+		try {
+			const refreshed = await refreshDeferredEngineDiscovery({
+				projectRoot: this.projectRoot,
+				config: this.config,
+				engine,
+			});
+			const nextSession = {
+				...session,
+				policyVersion: toolSurfacePolicyVersion(this.config),
+				compressionLevel: this.config.mcp.toolSurface.compressionLevel,
+				loadedEngineGroups: [...new Set([...session.loadedEngineGroups, engine])],
+				lastLoadedAt: new Date().toISOString(),
+				lastUpdatedAt: new Date().toISOString(),
+				lazyLoadDiagnostics: [
+					{
+						sessionId: session.sessionId,
+						engineId: engine,
+						trigger,
+						startedAt,
+						completedAt: new Date().toISOString(),
+						outcome: "success" as const,
+						discoveredToolCount: refreshed.discoveredToolCount,
+						diagnostics: [`Loaded ${refreshed.discoveredToolCount} tool(s).`],
+						notificationSent: false,
+					},
+					...session.lazyLoadDiagnostics,
+				].slice(0, 20),
+			};
+			await persistMcpToolSurfaceSession(this.projectRoot, nextSession);
+			return this.inspectToolSurface();
+		} catch (error) {
+			const nextSession = {
+				...session,
+				lastUpdatedAt: new Date().toISOString(),
+				lazyLoadDiagnostics: [
+					{
+						sessionId: session.sessionId,
+						engineId: engine,
+						trigger,
+						startedAt,
+						completedAt: new Date().toISOString(),
+						outcome: "failed" as const,
+						discoveredToolCount: 0,
+						diagnostics: [error instanceof Error ? error.message : String(error)],
+						notificationSent: false,
+					},
+					...session.lazyLoadDiagnostics,
+				].slice(0, 20),
+			};
+			await persistMcpToolSurfaceSession(this.projectRoot, nextSession);
+			throw error;
+		}
+	}
+
+	public async markToolSurfaceNotified(): Promise<void> {
+		const session = await loadOrCreateMcpToolSurfaceSession(
+			this.projectRoot,
+			this.config,
+			this.sessionId,
+		);
+		await persistMcpToolSurfaceSession(this.projectRoot, {
+			...session,
+			lastNotificationAt: new Date().toISOString(),
+			lastUpdatedAt: new Date().toISOString(),
+			lazyLoadDiagnostics: session.lazyLoadDiagnostics.map((diagnostic, index) =>
+				index === 0 ? { ...diagnostic, notificationSent: true } : diagnostic,
+			),
+		});
 	}
 
 	private translateToolInputForEngine(
@@ -424,19 +805,20 @@ export class ToolRouter {
 	}
 
 	public async listTools(): Promise<ToolDefinition[]> {
-		const base: ToolDefinition[] = unifiedToolList.map((tool) => ({
-			name: tool.name,
-			description: tool.description,
-			type: "unified",
-		}));
+		const base: ToolDefinition[] = unifiedToolList.map((tool) =>
+			this.buildToolDefinition({
+				name: tool.name,
+				description: tool.description,
+				type: managementToolNames.has(tool.name) ? "management" : "unified",
+				originEngine: "mimirmesh",
+				sessionState: "core",
+				inputSchema: isUnifiedTool(tool.name)
+					? unifiedShapeToJsonSchema(unifiedToolInputSchemas[tool.name])
+					: undefined,
+			}),
+		);
 
-		const runtime = await loadRuntimeRoutingContext(this.projectRoot);
-		const passthrough = (runtime.routing?.passthrough ?? []).map((route) => ({
-			name: publishedPassthroughToolName(route) as ToolName,
-			description: route.description ?? `${route.engine}.${route.engineTool}`,
-			type: "passthrough" as const,
-		}));
-
+		const passthrough = await this.visiblePassthroughTools();
 		return [...base, ...passthrough];
 	}
 
@@ -577,6 +959,148 @@ export class ToolRouter {
 				degraded: false,
 				warnings: [],
 				warningCodes: [],
+			};
+		}
+
+		if (toolName === "load_deferred_tools") {
+			const engine = input.engine;
+			if (
+				engine !== "srclight" &&
+				engine !== "document-mcp" &&
+				engine !== "mcp-adr-analysis-server"
+			) {
+				return {
+					tool: toolName,
+					success: false,
+					message: "load_deferred_tools requires a valid engine.",
+					items: [],
+					provenance: [],
+					degraded: true,
+					warnings: ["Provide engine as srclight, document-mcp, or mcp-adr-analysis-server."],
+					warningCodes: [],
+				};
+			}
+			const surface = await this.loadDeferredToolGroup(engine, "explicit-load");
+			return {
+				tool: toolName,
+				success: true,
+				message: `Loaded deferred engine group ${engine}.`,
+				items: [
+					{
+						id: "load-deferred-tools",
+						title: engine,
+						content: JSON.stringify(surface, null, 2),
+						score: 100,
+						metadata: surface,
+					},
+				],
+				provenance: [
+					{
+						engine: "mimirmesh",
+						tool: "load_deferred_tools",
+						latencyMs: 0,
+						health: "healthy",
+					},
+				],
+				degraded: false,
+				warnings: [],
+				warningCodes: [],
+				raw: surface,
+			};
+		}
+
+		if (toolName === "refresh_tool_surface") {
+			const requested = input.engine;
+			const session = await loadOrCreateMcpToolSurfaceSession(
+				this.projectRoot,
+				this.config,
+				this.sessionId,
+			);
+			const targets: EngineId[] =
+				requested === "srclight" ||
+				requested === "document-mcp" ||
+				requested === "mcp-adr-analysis-server"
+					? [requested]
+					: session.loadedEngineGroups;
+			for (const engine of targets) {
+				await this.loadDeferredToolGroup(engine, "refresh");
+			}
+			const surface = await this.inspectToolSurface();
+			return {
+				tool: toolName,
+				success: true,
+				message:
+					targets.length === 0
+						? "No loaded deferred engine groups required refresh."
+						: `Refreshed ${targets.length} loaded deferred engine group(s).`,
+				items: [
+					{
+						id: "refresh-tool-surface",
+						title: "tool-surface",
+						content: JSON.stringify(surface, null, 2),
+						score: 100,
+						metadata: surface,
+					},
+				],
+				provenance: [
+					{
+						engine: "mimirmesh",
+						tool: "refresh_tool_surface",
+						latencyMs: 0,
+						health: "healthy",
+					},
+				],
+				degraded: false,
+				warnings: [],
+				warningCodes: [],
+				raw: surface,
+			};
+		}
+
+		if (toolName === "inspect_tool_schema") {
+			const target = typeof input.toolName === "string" ? input.toolName : "";
+			if (!target) {
+				return {
+					tool: toolName,
+					success: false,
+					message: "inspect_tool_schema requires toolName.",
+					items: [],
+					provenance: [],
+					degraded: true,
+					warnings: ["Provide a visible tool name to inspect."],
+					warningCodes: [],
+				};
+			}
+			const view =
+				input.view === "full" || input.view === "debug" || input.view === "compressed"
+					? input.view
+					: "full";
+			const schema = await this.inspectToolSchema(target, view);
+			return {
+				tool: toolName,
+				success: true,
+				message: `Inspected ${target} schema.`,
+				items: [
+					{
+						id: "inspect-tool-schema",
+						title: target,
+						content: JSON.stringify(schema.schemaPayload, null, 2),
+						score: 100,
+						metadata: schema,
+					},
+				],
+				provenance: [
+					{
+						engine: schema.resolvedEngine,
+						tool: "inspect_tool_schema",
+						latencyMs: 0,
+						health: "healthy",
+					},
+				],
+				degraded: false,
+				warnings: [],
+				warningCodes: [],
+				raw: schema.schemaPayload,
 			};
 		}
 
@@ -739,7 +1263,7 @@ export class ToolRouter {
 		toolName: string,
 		input: ToolInput,
 	): Promise<NormalizedToolResult> {
-		const runtime = await loadRuntimeRoutingContext(this.projectRoot);
+		const { runtime, session } = await this.resolveSessionState();
 		if (!runtime.routing || !runtime.connection) {
 			return {
 				tool: toolName,
@@ -777,6 +1301,31 @@ export class ToolRouter {
 				warnings: ["Tool is not present in discovered passthrough routes."],
 				warningCodes: [],
 			};
+		}
+
+		const core = new Set(this.config.mcp.toolSurface.coreEngineGroups);
+		const loaded = new Set(session.loadedEngineGroups);
+		if (!core.has(route.engine) && !loaded.has(route.engine)) {
+			if (this.config.mcp.toolSurface.allowInvocationLazyLoad) {
+				try {
+					await this.loadDeferredToolGroup(route.engine, "tool-invocation");
+				} catch {
+					// Keep the existing routing-table fallback for already-discovered routes even if
+					// a live refresh cannot complete. This preserves direct invocation compatibility.
+				}
+			} else {
+				return {
+					tool: toolName,
+					success: false,
+					message: `${toolName} is deferred until ${route.engine} is loaded for this session.`,
+					items: [],
+					provenance: [],
+					degraded: true,
+					warnings: [`Run load_deferred_tools for ${route.engine} before invoking ${toolName}.`],
+					warningCodes: [],
+					nextAction: `Run \`mimirmesh mcp load-tools ${route.engine}\` and retry.`,
+				};
+			}
 		}
 
 		const adapter = getAdapter(route.engine);

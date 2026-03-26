@@ -5,6 +5,7 @@ import { stringify } from "yaml";
 import type { MimirmeshConfig } from "../schema";
 
 const retiredEngineId = "codebase-memory-mcp";
+const defaultDeferredEngineGroups = ["srclight", "document-mcp", "mcp-adr-analysis-server"];
 
 type JsonRecord = Record<string, unknown>;
 
@@ -54,6 +55,94 @@ const assignMissingBoolean = (
 	backfilledFields.push(fieldPath);
 };
 
+const assignMissingStringArray = (
+	target: JsonRecord,
+	key: string,
+	candidate: unknown,
+	fieldPath: string,
+	backfilledFields: string[],
+): void => {
+	if (Array.isArray(target[key])) {
+		return;
+	}
+	if (!Array.isArray(candidate) || candidate.some((value) => typeof value !== "string")) {
+		return;
+	}
+
+	target[key] = [...candidate];
+	backfilledFields.push(fieldPath);
+};
+
+const backfillMissingMcpConfig = (target: JsonRecord, backfilledFields: string[]): void => {
+	let mcp: JsonRecord;
+	if (isRecord(target.mcp)) {
+		mcp = target.mcp;
+	} else {
+		mcp = {};
+		target.mcp = mcp;
+		backfilledFields.push("mcp");
+	}
+
+	let toolSurface: JsonRecord;
+	if (isRecord(mcp.toolSurface)) {
+		toolSurface = mcp.toolSurface;
+	} else {
+		toolSurface = {};
+		mcp.toolSurface = toolSurface;
+		backfilledFields.push("mcp.toolSurface");
+	}
+
+	assignMissingString(
+		toolSurface,
+		"compressionLevel",
+		"balanced",
+		"mcp.toolSurface.compressionLevel",
+		backfilledFields,
+	);
+	assignMissingStringArray(
+		toolSurface,
+		"coreEngineGroups",
+		[],
+		"mcp.toolSurface.coreEngineGroups",
+		backfilledFields,
+	);
+	assignMissingStringArray(
+		toolSurface,
+		"deferredEngineGroups",
+		defaultDeferredEngineGroups,
+		"mcp.toolSurface.deferredEngineGroups",
+		backfilledFields,
+	);
+	assignMissingString(
+		toolSurface,
+		"deferredVisibility",
+		"summary",
+		"mcp.toolSurface.deferredVisibility",
+		backfilledFields,
+	);
+	assignMissingBoolean(
+		toolSurface,
+		"fullSchemaAccess",
+		true,
+		"mcp.toolSurface.fullSchemaAccess",
+		backfilledFields,
+	);
+	assignMissingString(
+		toolSurface,
+		"refreshPolicy",
+		"explicit",
+		"mcp.toolSurface.refreshPolicy",
+		backfilledFields,
+	);
+	assignMissingBoolean(
+		toolSurface,
+		"allowInvocationLazyLoad",
+		true,
+		"mcp.toolSurface.allowInvocationLazyLoad",
+		backfilledFields,
+	);
+};
+
 export const migrateCodebaseMemoryConfigValue = (value: unknown): CodebaseMemoryMigrationResult => {
 	if (!isRecord(value)) {
 		return {
@@ -64,7 +153,10 @@ export const migrateCodebaseMemoryConfigValue = (value: unknown): CodebaseMemory
 	}
 
 	const engines = value.engines;
-	if (!isRecord(engines) || !(retiredEngineId in engines)) {
+	const retiredEnginePresent = isRecord(engines) && retiredEngineId in engines;
+	const missingMcpConfig = !isRecord(value.mcp) || !isRecord((value.mcp as JsonRecord).toolSurface);
+
+	if (!retiredEnginePresent && !missingMcpConfig) {
 		return {
 			changed: false,
 			value,
@@ -73,8 +165,17 @@ export const migrateCodebaseMemoryConfigValue = (value: unknown): CodebaseMemory
 	}
 
 	const migrated = structuredClone(value) as JsonRecord;
-	const migratedEngines = migrated.engines;
 	const backfilledFields: string[] = [];
+	backfillMissingMcpConfig(migrated, backfilledFields);
+	const migratedEngines = migrated.engines;
+
+	if (!retiredEnginePresent) {
+		return {
+			changed: backfilledFields.length > 0,
+			value: migrated,
+			backfilledFields,
+		};
+	}
 
 	if (!isRecord(migratedEngines)) {
 		return {

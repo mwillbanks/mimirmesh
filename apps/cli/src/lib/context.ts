@@ -69,6 +69,7 @@ import {
 
 export type CliContext = {
 	projectRoot: string;
+	sessionId: string;
 	config: MimirmeshConfig;
 	logger: ProjectLogger;
 	router: ToolRouter;
@@ -80,31 +81,36 @@ const makeRouter = (
 	projectRoot: string,
 	config: MimirmeshConfig,
 	logger: ProjectLogger,
+	sessionId: string,
 ): ToolRouter => {
 	const adapters = createAdapters(config);
 	return createToolRouter({
 		projectRoot,
 		config,
+		sessionId,
 		adapters,
 		logger,
 	});
 };
 
+const resolveCliSessionId = (): string => process.env.MIMIRMESH_SESSION_ID?.trim() || "cli-default";
+
 export const loadCliContext = async (projectRoot = process.cwd()): Promise<CliContext> => {
 	const resolvedProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT ?? projectRoot;
 	await ensureProjectLayout(resolvedProjectRoot);
 	const config = await readConfig(resolvedProjectRoot, { createIfMissing: true });
+	const sessionId = resolveCliSessionId();
 	const logger = await createProjectLogger({
 		projectRoot: resolvedProjectRoot,
 		config,
-		sessionId: process.env.MIMIRMESH_SESSION_ID,
+		sessionId,
 	});
-	const router = makeRouter(resolvedProjectRoot, config, logger);
 	return {
 		projectRoot: resolvedProjectRoot,
+		sessionId,
 		config,
 		logger,
-		router,
+		router: makeRouter(resolvedProjectRoot, config, logger, sessionId),
 	};
 };
 
@@ -154,7 +160,7 @@ const updateContextConfig = async (
 		...context,
 		config: nextConfig,
 		logger: nextLogger,
-		router: makeRouter(context.projectRoot, nextConfig, nextLogger),
+		router: makeRouter(context.projectRoot, nextConfig, nextLogger, context.sessionId),
 	};
 };
 
@@ -632,6 +638,18 @@ export const speckitInit = async (context: CliContext) => initializeSpecKit(cont
 export const speckitDoctor = async (context: CliContext) => doctorSpecKit(context.projectRoot);
 
 export const mcpListTools = async (context: CliContext) => context.router.listTools();
+
+export const mcpInspectToolSurface = async (context: CliContext) =>
+	context.router.inspectToolSurface();
+
+export const mcpLoadDeferredTools = async (context: CliContext, engine: EngineId) =>
+	context.router.loadDeferredToolGroup(engine, "explicit-load");
+
+export const mcpInspectToolSchema = async (
+	context: CliContext,
+	toolName: string,
+	view: "compressed" | "full" | "debug" = "full",
+) => context.router.inspectToolSchema(toolName, view);
 
 export const mcpCallTool = async (
 	context: CliContext,

@@ -39,6 +39,7 @@ MímirMesh is spec-driven. Use this skill for planned implementation work, not f
 - Retrieve current architectural context from `docs/adr/`, `document_architecture`, `explain_project`, and `trace_integration` when relevant.
 - Use `evaluate_codebase` when risk or subsystem quality affects the plan.
 - Ensure the spec, plan, and tasks explicitly cover tests, docs, runtime validation, and CLI UX obligations when those surfaces change.
+- When MCP behavior is in scope, ensure the plan and tasks explicitly cover deferred engine visibility, session isolation, MCP-compatible refresh notifications, compressed schema inspection, operator commands, and runtime diagnostics.
 
 ## Quality gates
 

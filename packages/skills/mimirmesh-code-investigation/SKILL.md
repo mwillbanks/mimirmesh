@@ -29,6 +29,7 @@ Use this skill for debugging and RCA. Start broad enough to localize the issue, 
 
 - Use `srclight_blame_symbol` only after you know the exact symbol whose ownership or last-change evidence matters.
 - Use `srclight_changes_to`, `srclight_recent_changes`, or `srclight_whats_changed` only when the routed investigation shows that timeline evidence is necessary.
+- Remember that published passthrough tools can now be deferred per session; if the active tool surface does not include them yet, confirm that deferred-tool loading is actually necessary before escalating out of the routed surface.
 - If you still have a legacy `mimirmesh.srclight.*` example in old notes, replace it with the published `srclight_*` tool name before invoking it.
 - Do not start with history tools when the current code location has not been localized yet.
 

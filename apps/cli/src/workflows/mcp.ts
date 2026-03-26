@@ -1,36 +1,44 @@
+import type { EngineId } from "@mimirmesh/config";
 import type { WorkflowDefinition } from "@mimirmesh/ui";
 
-import { loadCliContext, mcpCallTool, mcpListTools, runtimeAction } from "../lib/context";
+import {
+	loadCliContext,
+	mcpCallTool,
+	mcpInspectToolSchema,
+	mcpInspectToolSurface,
+	mcpLoadDeferredTools,
+	runtimeAction,
+} from "../lib/context";
 
 export const createMcpListToolsWorkflow = (): WorkflowDefinition => ({
 	id: "mcp-list-tools",
 	title: "Inspect MCP Tools",
-	description: "List unified and passthrough MCP tools using live project-local routing state.",
+	description:
+		"List core, deferred, and loaded MCP tool surfaces using session-scoped policy and live runtime routing state.",
 	category: "mcp",
 	entryModes: ["tui-embedded", "direct-command"],
 	interactivePolicy: "default-non-interactive",
 	machineReadableSupported: true,
 	requiresProjectContext: true,
-	recommendedNextActions: ["mcp-tool", "runtime-status"],
+	recommendedNextActions: ["mcp-load-tools", "mcp-tool-schema", "runtime-status"],
 	steps: [
 		{ id: "load-context", label: "Load MCP context", kind: "validation" },
-		{
-			id: "inspect-runtime",
-			label: "Check runtime readiness for passthrough tools",
-			kind: "discovery",
-		},
-		{ id: "list-tools", label: "List available MCP tools", kind: "discovery" },
+		{ id: "inspect-runtime", label: "Check runtime readiness", kind: "discovery" },
+		{ id: "inspect-surface", label: "Inspect session tool surface", kind: "discovery" },
 	],
 	execute: async ({ controller }) => {
-		controller.startStep("load-context", "Loading project-local config and router.");
+		controller.startStep("load-context", "Loading project-local config, logger, and MCP router.");
 		const context = await loadCliContext();
 		controller.completeStep("load-context", {
-			evidence: [{ label: "Project root", value: context.projectRoot }],
+			evidence: [
+				{ label: "Project root", value: context.projectRoot },
+				{ label: "Session", value: context.sessionId },
+			],
 		});
 
 		controller.startStep(
 			"inspect-runtime",
-			"Checking whether runtime-backed passthrough tools are currently ready.",
+			"Checking runtime health before reporting deferred groups.",
 		);
 		const runtime = await runtimeAction(context, "status");
 		const runtimeEvidence = [
@@ -38,12 +46,10 @@ export const createMcpListToolsWorkflow = (): WorkflowDefinition => ({
 			{ label: "Runtime message", value: runtime.message },
 		];
 		if (runtime.health.state === "ready") {
-			controller.completeStep("inspect-runtime", {
-				evidence: runtimeEvidence,
-			});
+			controller.completeStep("inspect-runtime", { evidence: runtimeEvidence });
 		} else {
 			controller.degradeStep("inspect-runtime", {
-				summary: "Runtime-backed passthrough discovery is not fully ready.",
+				summary: "Runtime-backed deferred groups may be unavailable.",
 				evidence: runtimeEvidence,
 			});
 			runtime.health.reasons.forEach((reason, index) => {
@@ -55,54 +61,182 @@ export const createMcpListToolsWorkflow = (): WorkflowDefinition => ({
 			});
 		}
 
-		controller.startStep("list-tools", "Listing unified tools and any live passthrough routes.");
-		const tools = await mcpListTools(context);
-		controller.completeStep("list-tools", {
+		controller.startStep("inspect-surface", "Reading the current session tool surface.");
+		const surface = await mcpInspectToolSurface(context);
+		controller.completeStep("inspect-surface", {
 			evidence: [
-				{ label: "Total tools", value: String(tools.length) },
+				{ label: "Visible tools", value: String(surface.toolCount) },
+				{ label: "Core tools", value: String(surface.coreToolCount) },
 				{
-					label: "Passthrough tools",
-					value: String(tools.filter((tool) => tool.type === "passthrough").length),
+					label: "Loaded groups",
+					value: surface.loadedEngineGroups.join(", ") || "none",
+				},
+				{
+					label: "Deferred groups",
+					value:
+						surface.deferredEngineGroups
+							.filter((group) => group.availabilityState !== "loaded")
+							.map((group) => group.engineId)
+							.join(", ") || "none",
 				},
 			],
 		});
 
-		const degraded = runtime.health.state !== "ready";
-
 		return {
-			kind: degraded ? "degraded" : "success",
-			message: degraded
-				? `Discovered ${tools.length} MCP tools, but runtime-backed passthrough coverage is degraded.`
-				: `Discovered ${tools.length} MCP tools.`,
-			impact: degraded
-				? "Unified tools are available, but some passthrough routes may be unavailable until runtime health improves."
-				: "Unified and passthrough MCP inspection surfaces are available.",
+			kind: runtime.health.state === "ready" ? "success" : "degraded",
+			message: `Session ${surface.sessionId} exposes ${surface.toolCount} visible MCP tools.`,
+			impact:
+				runtime.health.state === "ready"
+					? "Core tools and deferred-load controls are available with live runtime readiness."
+					: "Core tools are available, but deferred engine groups may not load until runtime issues are fixed.",
 			completedWork: [
-				"Loaded the project-local router",
-				"Checked runtime readiness for passthrough routes",
-				"Listed the available MCP tools",
+				"Loaded the project-local MCP context",
+				"Checked runtime readiness",
+				"Inspected the current session tool surface",
 			],
-			blockedCapabilities: degraded ? ["Healthy passthrough MCP inspection"] : [],
-			nextAction: degraded
-				? runtime.upgradeStatus?.requiredActions.includes("restart-runtime")
-					? "Run `mimirmesh runtime restart --non-interactive` before relying on passthrough tools."
-					: "Run `mimirmesh runtime status` and address the runtime warnings before relying on passthrough tools."
-				: "Run `mimirmesh mcp tool <name>` to inspect a specific tool.",
+			blockedCapabilities:
+				runtime.health.state === "ready"
+					? []
+					: ["Healthy deferred-engine loading for all MCP groups"],
+			nextAction: surface.deferredEngineGroups.some(
+				(group) => group.availabilityState === "deferred",
+			)
+				? "Run `mimirmesh mcp load-tools <engine>` to load a deferred engine group."
+				: "Run `mimirmesh mcp tool <name>` or `mimirmesh mcp tool-schema <name>`.",
 			evidence: [
-				{ label: "Tool count", value: String(tools.length) },
-				{
-					label: "Passthrough count",
-					value: String(tools.filter((tool) => tool.type === "passthrough").length),
-				},
-				...tools.slice(0, 10).map((tool, index) => ({
+				{ label: "Policy version", value: surface.policyVersion },
+				{ label: "Compression", value: surface.compressionLevel },
+				{ label: "Tool count", value: String(surface.toolCount) },
+				...surface.tools.slice(0, 10).map((tool, index) => ({
 					label: `Tool ${index + 1}`,
-					value: `${tool.name}${tool.description ? ` - ${tool.description}` : ""}`,
+					value: `${tool.name} [${tool.type}/${tool.sessionState ?? "n/a"}]`,
 				})),
 			],
 			machineReadablePayload: {
+				sessionId: surface.sessionId,
+				policyVersion: surface.policyVersion,
+				coreToolCount: surface.coreToolCount,
+				loadedEngineGroups: surface.loadedEngineGroups,
+				deferredEngineGroups: surface.deferredEngineGroups,
+				compressionLevel: surface.compressionLevel,
+				toolCount: surface.toolCount,
+				diagnostics: surface.diagnostics,
+				tools: surface.tools,
 				runtime,
-				tools,
 			},
+		};
+	},
+});
+
+export const createMcpLoadToolsWorkflow = (engine: EngineId): WorkflowDefinition => ({
+	id: "mcp-load-tools",
+	title: `Load MCP Tools (${engine})`,
+	description: "Load a deferred engine group into the current session with visible progress.",
+	category: "mcp",
+	entryModes: ["tui-embedded", "direct-command"],
+	interactivePolicy: "default-interactive",
+	machineReadableSupported: true,
+	requiresProjectContext: true,
+	recommendedNextActions: ["mcp-list-tools", "runtime-status"],
+	steps: [
+		{ id: "load-context", label: "Load MCP context", kind: "validation" },
+		{ id: "load-engine", label: "Load deferred engine group", kind: "runtime-action" },
+	],
+	execute: async ({ controller }) => {
+		controller.startStep("load-context", "Loading project-local MCP context.");
+		const context = await loadCliContext();
+		controller.completeStep("load-context", {
+			evidence: [
+				{ label: "Project root", value: context.projectRoot },
+				{ label: "Session", value: context.sessionId },
+			],
+		});
+
+		controller.startStep("load-engine", `Loading deferred engine group ${engine}.`);
+		const surface = await mcpLoadDeferredTools(context, engine);
+		controller.completeStep("load-engine", {
+			summary: `Loaded ${engine} into the current session.`,
+			evidence: [
+				{ label: "Loaded groups", value: surface.loadedEngineGroups.join(", ") || "none" },
+				{ label: "Visible tools", value: String(surface.toolCount) },
+			],
+		});
+
+		return {
+			kind: "success",
+			message: `Loaded deferred engine group ${engine}.`,
+			impact: "The current session can now list and invoke tools from that engine group.",
+			completedWork: [
+				"Loaded the project-local MCP context",
+				`Loaded deferred engine group ${engine}`,
+			],
+			blockedCapabilities: [],
+			nextAction: "Run `mimirmesh mcp list-tools` or invoke one of the newly visible tools.",
+			evidence: [
+				{ label: "Session", value: surface.sessionId },
+				{ label: "Tool count", value: String(surface.toolCount) },
+			],
+			machineReadablePayload: {
+				sessionId: surface.sessionId,
+				policyVersion: surface.policyVersion,
+				loadedEngineGroups: surface.loadedEngineGroups,
+				deferredEngineGroups: surface.deferredEngineGroups,
+				toolCount: surface.toolCount,
+				diagnostics: surface.diagnostics,
+			},
+		};
+	},
+});
+
+export const createMcpToolSchemaWorkflow = (
+	toolName: string,
+	view: "compressed" | "full" | "debug",
+): WorkflowDefinition => ({
+	id: "mcp-tool-schema",
+	title: `Inspect MCP Tool Schema (${toolName})`,
+	description: "Inspect compressed or full schema detail for a visible MCP tool.",
+	category: "mcp",
+	entryModes: ["tui-embedded", "direct-command"],
+	interactivePolicy: "default-non-interactive",
+	machineReadableSupported: true,
+	requiresProjectContext: true,
+	recommendedNextActions: ["mcp-tool", "mcp-list-tools"],
+	steps: [
+		{ id: "load-context", label: "Load MCP context", kind: "validation" },
+		{ id: "inspect-schema", label: "Inspect tool schema", kind: "discovery" },
+	],
+	execute: async ({ controller }) => {
+		controller.startStep("load-context", "Loading project-local MCP context.");
+		const context = await loadCliContext();
+		controller.completeStep("load-context", {
+			evidence: [
+				{ label: "Project root", value: context.projectRoot },
+				{ label: "Session", value: context.sessionId },
+			],
+		});
+
+		controller.startStep("inspect-schema", `Inspecting ${toolName} with ${view} detail.`);
+		const schema = await mcpInspectToolSchema(context, toolName, view);
+		controller.completeStep("inspect-schema", {
+			evidence: [
+				{ label: "Tool", value: toolName },
+				{ label: "Detail", value: view },
+				{ label: "Engine", value: schema.resolvedEngine },
+			],
+		});
+
+		return {
+			kind: "success",
+			message: `Inspected ${toolName} schema.`,
+			impact: "The current session can compare compressed metadata with fuller schema detail.",
+			completedWork: ["Loaded the project-local MCP context", `Inspected ${toolName} schema`],
+			blockedCapabilities: [],
+			nextAction: "Run `mimirmesh mcp tool <name>` once the schema looks correct.",
+			evidence: [
+				{ label: "Tool", value: toolName },
+				{ label: "Engine", value: schema.resolvedEngine },
+			],
+			machineReadablePayload: schema,
 		};
 	},
 });
@@ -129,7 +263,10 @@ export const createMcpToolWorkflow = (
 		controller.startStep("load-context", "Loading project-local config and router.");
 		const context = await loadCliContext();
 		controller.completeStep("load-context", {
-			evidence: [{ label: "Project root", value: context.projectRoot }],
+			evidence: [
+				{ label: "Project root", value: context.projectRoot },
+				{ label: "Session", value: context.sessionId },
+			],
 		});
 
 		controller.startStep("invoke-tool", `Calling ${toolName} through the shared router.`);

@@ -1,9 +1,10 @@
 import { access, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import type { McpCompressionLevel } from "@mimirmesh/config";
 import { z } from "zod";
 
 import { writeJson } from "./io";
-import { mcpServerStatePath } from "./paths";
+import { mcpServerStatePath, mcpSessionStatePath } from "./paths";
 
 const buildManifestSchema = z.object({
 	version: z.string().min(1),
@@ -14,6 +15,7 @@ const buildManifestSchema = z.object({
 
 const mcpServerSessionSchema = z.object({
 	pid: z.number().int().positive(),
+	sessionId: z.string().min(1).default("mcp-server"),
 	startedAt: z.string().min(1),
 	version: z.string().min(1),
 	builtAt: z.string().min(1),
@@ -22,8 +24,35 @@ const mcpServerSessionSchema = z.object({
 	manifestPath: z.string().min(1).nullable().default(null),
 });
 
+const mcpLazyLoadDiagnosticSchema = z.object({
+	sessionId: z.string().min(1),
+	engineId: z.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"]),
+	trigger: z.enum(["explicit-load", "tool-invocation", "refresh"]),
+	startedAt: z.string().min(1),
+	completedAt: z.string().min(1),
+	outcome: z.enum(["success", "degraded", "failed"]),
+	discoveredToolCount: z.number().int().nonnegative(),
+	diagnostics: z.array(z.string()).default([]),
+	notificationSent: z.boolean().default(false),
+});
+
+const mcpToolSurfaceSessionSchema = z.object({
+	sessionId: z.string().min(1),
+	policyVersion: z.string().min(1),
+	compressionLevel: z.enum(["minimal", "balanced", "aggressive"]),
+	loadedEngineGroups: z
+		.array(z.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"]))
+		.default([]),
+	lastNotificationAt: z.string().min(1).nullable().default(null),
+	lastLoadedAt: z.string().min(1).nullable().default(null),
+	lastUpdatedAt: z.string().min(1),
+	lazyLoadDiagnostics: z.array(mcpLazyLoadDiagnosticSchema).default([]),
+});
+
 export type BuildManifest = z.infer<typeof buildManifestSchema>;
 export type McpServerSession = z.infer<typeof mcpServerSessionSchema>;
+export type McpLazyLoadDiagnostic = z.infer<typeof mcpLazyLoadDiagnosticSchema>;
+export type McpToolSurfaceSession = z.infer<typeof mcpToolSurfaceSessionSchema>;
 
 const pathExists = async (path: string): Promise<boolean> => {
 	try {
@@ -91,6 +120,50 @@ export const persistMcpServerSession = async (
 	session: McpServerSession,
 ): Promise<void> => {
 	await writeJson(mcpServerStatePath(projectRoot), session);
+};
+
+export const createDefaultMcpToolSurfaceSession = (options: {
+	sessionId: string;
+	policyVersion: string;
+	compressionLevel: McpCompressionLevel;
+}): McpToolSurfaceSession => ({
+	sessionId: options.sessionId,
+	policyVersion: options.policyVersion,
+	compressionLevel: options.compressionLevel,
+	loadedEngineGroups: [],
+	lastNotificationAt: null,
+	lastLoadedAt: null,
+	lastUpdatedAt: new Date().toISOString(),
+	lazyLoadDiagnostics: [],
+});
+
+export const persistMcpToolSurfaceSession = async (
+	projectRoot: string,
+	session: McpToolSurfaceSession,
+): Promise<void> => {
+	await writeJson(mcpSessionStatePath(projectRoot, session.sessionId), session);
+};
+
+export const loadMcpToolSurfaceSession = async (
+	projectRoot: string,
+	sessionId: string,
+): Promise<McpToolSurfaceSession | null> => {
+	try {
+		const parsed = JSON.parse(
+			await readFile(mcpSessionStatePath(projectRoot, sessionId), "utf8"),
+		) as unknown;
+		const validated = mcpToolSurfaceSessionSchema.safeParse(parsed);
+		return validated.success ? validated.data : null;
+	} catch {
+		return null;
+	}
+};
+
+export const clearMcpToolSurfaceSession = async (
+	projectRoot: string,
+	sessionId: string,
+): Promise<void> => {
+	await rm(mcpSessionStatePath(projectRoot, sessionId), { force: true });
 };
 
 export const loadMcpServerSession = async (
