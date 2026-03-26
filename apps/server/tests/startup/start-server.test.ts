@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 
+import { createDefaultConfig, writeConfig } from "@mimirmesh/config";
 import { persistConnection, persistRoutingTable } from "@mimirmesh/runtime";
 import { createFixtureCopy } from "@mimirmesh/testing";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { startSkillRegistryRuntime } from "../../../../tests/_helpers/skills-runtime";
 
 const repoRoot = resolve(import.meta.dir, "..", "..", "..", "..");
 const serverEntry = join(repoRoot, "apps", "server", "src", "index.ts");
@@ -61,6 +63,29 @@ const reservePort = async (): Promise<number> =>
 			});
 		});
 	});
+
+const createRepoSkill = async (
+	projectRoot: string,
+	name: string,
+	description: string,
+): Promise<void> => {
+	const skillRoot = join(projectRoot, ".agents", "skills", name);
+	await mkdir(skillRoot, { recursive: true });
+	await writeFile(
+		join(skillRoot, "SKILL.md"),
+		`---
+name: ${name}
+description: ${description}
+---
+
+# ${name}
+
+## When to Use
+- Use for ${description}
+`,
+		"utf8",
+	);
+};
 
 afterEach(async () => {
 	while (activeClients.length > 0) {
@@ -207,6 +232,181 @@ describe("server startup MCP publication", () => {
 			expect(JSON.stringify(retired.structuredContent ?? retired.content)).toContain(
 				"srclight_search_symbols",
 			);
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	}, 30_000);
+
+	test("publishes unified skills tools with contract-shaped schemas at startup", async () => {
+		const repo = await createFixtureCopy("single-ts");
+
+		try {
+			await createRepoSkill(repo, "startup-skills-surface", "Startup skill surface");
+			const active = await createConnectedClient(repo);
+			activeClients.push(active);
+
+			const listed = await active.client.listTools();
+			const missingDescriptions = listed.tools
+				.filter((tool) => (tool.description?.trim().length ?? 0) === 0)
+				.map((tool) => tool.name);
+			expect(listed.tools.some((tool) => tool.name === "skills_find")).toBe(true);
+			expect(listed.tools.some((tool) => tool.name === "skills_read")).toBe(true);
+			expect(listed.tools.some((tool) => tool.name === "skills_resolve")).toBe(true);
+			expect(listed.tools.some((tool) => tool.name === "skills_refresh")).toBe(true);
+			expect(listed.tools.some((tool) => tool.name === "skills_create")).toBe(true);
+			expect(listed.tools.some((tool) => tool.name === "skills_update")).toBe(true);
+			expect(missingDescriptions).toEqual([]);
+
+			const skillsFind = listed.tools.find((tool) => tool.name === "skills_find");
+			expect(typeof skillsFind?.description).toBe("string");
+			expect(skillsFind?.description?.length ?? 0).toBeLessThanOrEqual(160);
+
+			const inspectFind = await active.client.callTool({
+				name: "inspect_tool_schema",
+				arguments: {
+					toolName: "skills.find",
+					view: "compressed",
+				},
+			});
+			const inspectFindFull = await active.client.callTool({
+				name: "inspect_tool_schema",
+				arguments: {
+					toolName: "skills.find",
+					view: "full",
+				},
+			});
+			const inspectRead = await active.client.callTool({
+				name: "inspect_tool_schema",
+				arguments: {
+					toolName: "skills.read",
+					view: "full",
+				},
+			});
+
+			const findSchema = (
+				inspectFind.structuredContent as
+					| {
+							result?: {
+								raw?: {
+									description?: string;
+								};
+							};
+					  }
+					| undefined
+			)?.result?.raw;
+			const findFullSchema = (
+				inspectFindFull.structuredContent as
+					| {
+							result?: {
+								raw?: {
+									inputSchema?: {
+										properties?: Record<string, { type?: string }>;
+										required?: string[];
+									};
+								};
+							};
+					  }
+					| undefined
+			)?.result?.raw;
+			const readSchema = (
+				inspectRead.structuredContent as
+					| {
+							result?: {
+								raw?: {
+									inputSchema?: {
+										properties?: Record<string, { type?: string }>;
+										required?: string[];
+									};
+								};
+							};
+					  }
+					| undefined
+			)?.result?.raw;
+
+			expect(inspectFind.isError).toBeFalsy();
+			expect(inspectFindFull.isError).toBeFalsy();
+			expect(inspectRead.isError).toBeFalsy();
+			expect(findSchema?.description?.startsWith(skillsFind?.description ?? "")).toBe(true);
+			expect(findFullSchema?.inputSchema?.properties?.query).toBeDefined();
+			expect(findFullSchema?.inputSchema?.properties?.names).toBeDefined();
+			expect(findFullSchema?.inputSchema?.properties?.include).toBeDefined();
+			expect(findFullSchema?.inputSchema?.properties?.limit).toBeDefined();
+			expect(findFullSchema?.inputSchema?.properties?.offset).toBeDefined();
+			expect(findFullSchema?.inputSchema?.required ?? []).toEqual([]);
+
+			expect(readSchema?.inputSchema?.properties?.name).toBeDefined();
+			expect(readSchema?.inputSchema?.properties?.mode).toBeDefined();
+			expect(readSchema?.inputSchema?.properties?.include).toBeDefined();
+			expect(readSchema?.inputSchema?.properties?.select).toBeDefined();
+			expect(readSchema?.inputSchema?.required ?? []).toEqual(["name"]);
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	}, 30_000);
+
+	test("returns lean structured payloads for skills tools over MCP transport", async () => {
+		const repo = await createFixtureCopy("single-ts");
+
+		try {
+			await createRepoSkill(repo, "startup-transport-skill", "Lean transport payload");
+			const config = createDefaultConfig(repo);
+			const runtime = await startSkillRegistryRuntime(repo, config);
+			if (!runtime.available) {
+				return;
+			}
+			await writeConfig(repo, config);
+			const active = await createConnectedClient(repo);
+			activeClients.push(active);
+			await active.client.callTool({
+				name: "skills_refresh",
+				arguments: {},
+			});
+
+			try {
+				const findResult = await active.client.callTool({
+					name: "skills_find",
+					arguments: {
+						names: ["startup-transport-skill"],
+					},
+				});
+				const readResult = await active.client.callTool({
+					name: "skills_read",
+					arguments: {
+						name: "startup-transport-skill",
+					},
+				});
+
+				const findStructured = findResult.structuredContent as
+					| {
+							data?: {
+								total?: number;
+								results?: Array<{ name?: string }>;
+							};
+							result?: unknown;
+					  }
+					| undefined;
+				const readStructured = readResult.structuredContent as
+					| {
+							data?: {
+								name?: string;
+								mode?: string;
+								memory?: Record<string, unknown>;
+							};
+							result?: unknown;
+					  }
+					| undefined;
+
+				expect(findStructured?.result).toBeUndefined();
+				expect(findStructured?.data?.total).toBe(1);
+				expect(findStructured?.data?.results?.[0]?.name).toBe("startup-transport-skill");
+				expect(readStructured?.result).toBeUndefined();
+				expect(readStructured?.data?.name).toBe("startup-transport-skill");
+				expect(readStructured?.data?.mode).toBe("memory");
+				expect(JSON.stringify(readStructured)).not.toContain('"metadata"');
+				expect(JSON.stringify(readStructured)).not.toContain('\\n  \\"');
+			} finally {
+				await runtime.stop();
+			}
 		} finally {
 			await rm(repo, { recursive: true, force: true });
 		}

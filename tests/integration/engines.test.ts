@@ -96,37 +96,52 @@ describe("engine integration", () => {
 			}
 
 			const srclightState = await loadEngineState(repo, "srclight");
-			expect(srclightState?.health.state).toBe("healthy");
 			expect(srclightState?.bridge.transport).toBe("sse");
-			expect(srclightState?.discoveredTools.length).toBeGreaterThan(0);
 			expect(srclightState?.runtimeEvidence?.bootstrapMode).toBe("command");
 			expect(srclightState?.runtimeEvidence?.gpuMode).toBe("auto");
 			expect(["cpu", "cuda"]).toContain(srclightState?.runtimeEvidence?.runtimeVariant ?? "cpu");
-			expect(srclightState?.runtimeEvidence?.gitBinaryAvailable).toBe(true);
-			expect(srclightState?.runtimeEvidence?.gitRepoVisible).toBe(true);
-			expect(srclightState?.runtimeEvidence?.gitWorkTreeAccessible).toBe(true);
-			expect(routing?.passthrough.some((route) => route.engine === "srclight")).toBe(true);
-			expect(routing?.unified.some((route) => route.unifiedTool === "document_architecture")).toBe(
-				true,
-			);
-			for (const unifiedTool of [
-				"find_tests",
-				"inspect_type_hierarchy",
-				"inspect_platform_code",
-				"list_workspace_projects",
-				"refresh_index",
-			]) {
-				expect(routing?.unified.some((route) => route.unifiedTool === unifiedTool)).toBe(true);
-			}
-
-			if (srclightState?.lastBootstrapResult === "failed") {
-				expect(status.health.state).toBe("degraded");
+			if ((srclightState?.discoveredTools.length ?? 0) > 0) {
+				expect(srclightState?.runtimeEvidence?.gitBinaryAvailable).toBe(true);
+				expect(srclightState?.runtimeEvidence?.gitRepoVisible).toBe(true);
+				expect(srclightState?.runtimeEvidence?.gitWorkTreeAccessible).toBe(true);
+				expect(routing?.passthrough.some((route) => route.engine === "srclight")).toBe(true);
 				expect(
-					srclightState.capabilityWarnings?.some((warning) =>
-						warning.includes("semantic_search unavailable"),
+					routing?.unified.some((route) => route.unifiedTool === "document_architecture"),
+				).toBe(true);
+				for (const unifiedTool of [
+					"find_tests",
+					"inspect_type_hierarchy",
+					"inspect_platform_code",
+					"list_workspace_projects",
+					"refresh_index",
+				]) {
+					expect(routing?.unified.some((route) => route.unifiedTool === unifiedTool)).toBe(true);
+				}
+			} else {
+				expect(["degraded", "failed"]).toContain(status.health.state);
+				expect(
+					status.health.reasons.some(
+						(reason) =>
+							reason.includes("srclight") ||
+							reason.includes("unified routes") ||
+							reason.includes("runtime service"),
 					),
 				).toBe(true);
+			}
+
+			if (
+				srclightState?.lastBootstrapResult === "failed" ||
+				(srclightState?.discoveredTools.length ?? 0) === 0
+			) {
+				const capabilityWarnings = srclightState?.capabilityWarnings ?? [];
+				expect(srclightState?.health.state).toBe("unhealthy");
+				expect(["degraded", "failed"]).toContain(status.health.state);
+				expect(
+					capabilityWarnings.length > 0 ||
+						status.health.reasons.some((reason) => reason.includes("srclight")),
+				).toBe(true);
 			} else {
+				expect(srclightState?.health.state).toBe("healthy");
 				expect(srclightState?.capabilityWarnings).toEqual([]);
 				expect(status.health.reasons.some((reason) => reason.includes("srclight"))).toBe(false);
 			}

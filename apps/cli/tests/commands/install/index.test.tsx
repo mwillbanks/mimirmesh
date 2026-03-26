@@ -82,9 +82,27 @@ describe("install command", () => {
 		expect(output).toContain("--areas <core,ide,skills>");
 		expect(output).toContain("--ide <target[,target]>");
 		expect(output).toContain("--skills <all|name[,name]>");
+		expect(output).toContain(
+			"--embeddings <disabled|docker-llama-cpp|existing-lm-studio|existing-openai-compatible|openai>",
+		);
+		expect(output).toContain("--embeddings-model <value>");
+		expect(output).toContain("--embeddings-base-url <value>");
+		expect(output).toContain("--embeddings-api-key <value>");
 		expect(output).toContain("--yes");
 		expect(output).toContain("--non-interactive");
 		expect(output).toContain("--json");
+	});
+
+	test("fails safely when an unsupported embeddings strategy is requested", async () => {
+		const output = await renderInkUntilExit(
+			<InstallCommand
+				options={{ nonInteractive: true, preset: "recommended", embeddings: "broken-mode" }}
+				presentation={nonInteractivePresentation}
+			/>,
+		);
+
+		expect(output).toContain("Unknown embeddings strategy: broken-mode.");
+		expect(output).toContain("Terminal outcome");
 	});
 
 	test("shows the multi-target IDE selector when interactive install includes IDE integration", () => {

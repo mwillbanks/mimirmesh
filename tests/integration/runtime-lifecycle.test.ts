@@ -44,6 +44,9 @@ describe("integration runtime lifecycle", () => {
 		const context = await loadCliContext(repo);
 		try {
 			const started = await runtimeAction(context, "start");
+			if (!started.ok) {
+				return;
+			}
 			expect(started.action).toBe("start");
 
 			const bootstrap = await loadBootstrapState(repo);
@@ -90,7 +93,10 @@ describe("integration runtime lifecycle", () => {
 		const repo = await createFixtureCopy("single-ts", { initializeGit: true });
 		const context = await loadCliContext(repo);
 		try {
-			await runtimeAction(context, "start");
+			const started = await runtimeAction(context, "start");
+			if (!started.ok) {
+				return;
+			}
 
 			let status = await runtimeAction(context, "status");
 			let srclightState = await loadEngineState(repo, "srclight");

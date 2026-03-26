@@ -15,7 +15,10 @@ const requiredPrimarySkillNames = [
 	"mimirmesh-integration-analysis",
 ] as const;
 
-const supportingSkillNames = ["mimirmesh-operational-policies"] as const;
+const supportingSkillNames = [
+	"mimirmesh-operational-policies",
+	"mimirmesh-skill-usage-enforcement",
+] as const;
 
 const reservedDirectories = new Set(["src", "tests", "node_modules"]);
 const validSkillName = /^(?!-)(?!.*--)[a-z0-9-]{1,64}(?<!-)$/;
@@ -51,7 +54,7 @@ export type SkillValidationIssue = {
 	message: string;
 };
 
-const splitSkillDocument = (document: string): { frontmatter: string; body: string } => {
+export const splitSkillDocument = (document: string): { frontmatter: string; body: string } => {
 	const match = document.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
 	if (!match) {
 		throw new Error("SKILL.md must start with YAML frontmatter delimited by --- lines.");
@@ -76,7 +79,7 @@ const toAllowedTools = (value: string | undefined): string[] | undefined => {
 	return tools.length > 0 ? tools : undefined;
 };
 
-const parseSkillFrontmatter = (source: string): SkillFrontmatter => {
+export const parseSkillFrontmatter = (source: string): SkillFrontmatter => {
 	const parsed = YAML.parse(source);
 	if (typeof parsed !== "object" || parsed === null) {
 		throw new Error("SKILL.md frontmatter must parse to a mapping.");

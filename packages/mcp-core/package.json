@@ -8,6 +8,7 @@
 		"@mimirmesh/config": "workspace:*",
 		"@mimirmesh/logging": "workspace:*",
 		"@mimirmesh/runtime": "workspace:*",
+		"@mimirmesh/skills": "workspace:*",
 		"@mimirmesh/workspace": "workspace:*",
 		"zod": "^4.3.6"
 	}

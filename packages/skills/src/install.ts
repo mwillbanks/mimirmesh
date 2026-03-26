@@ -1,10 +1,22 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { cp, lstat, mkdir, readdir, readFile, realpath, rm, stat, symlink } from "node:fs/promises";
+import {
+	cp,
+	lstat,
+	mkdir,
+	readdir,
+	readFile,
+	realpath,
+	rm,
+	stat,
+	symlink,
+	writeFile,
+} from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { bundledSkillNames, createBundledSkillCatalog } from "./catalog";
+import type { AgentsManagedSectionOutcome } from "./types";
 
 export type SkillInstallMode = "symlink" | "copy";
 
@@ -31,6 +43,24 @@ export type SkillUpdateResult = {
 	skipped: string[];
 	missing: string[];
 };
+
+export type ManagedAgentsSectionResult = {
+	outcome: AgentsManagedSectionOutcome;
+	path: string;
+	contentHash: string;
+};
+
+export const managedAgentsSectionBegin = "<!-- BEGIN MIMIRMESH SKILLS SECTION -->";
+export const managedAgentsSectionEnd = "<!-- END MIMIRMESH SKILLS SECTION -->";
+
+const managedAgentsSectionBody = `## MimirMesh Skill Workflows
+
+- Use \`skills.find\` before loading local skill content broadly.
+- Use \`skills.read\` with default \`memory\` mode and targeted selections before broader reads.
+- Use \`skills.resolve\` and \`skills.refresh\` for deterministic repository-aware skill selection and cache refresh.
+- Use \`skills.create\` and \`skills.update\` for guided skill authoring and maintenance.
+- Do not treat this \`AGENTS.md\` section as a runtime ranking source; runtime resolution comes from the MimirMesh skill subsystem and \`.mimirmesh/config.yml\`.
+`;
 
 const bundledSkillsRootFromSource = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const sourceCheckoutRoot = resolve(bundledSkillsRootFromSource, "..", "..");
@@ -122,6 +152,9 @@ const directoryHash = async (root: string): Promise<string> => {
 
 	return hash.digest("hex");
 };
+
+const agentsSectionHash = (content: string): string =>
+	createHash("sha256").update(content).digest("hex");
 
 const validateSkillNames = (names: string[]): void => {
 	const unknown = names.filter(
@@ -330,4 +363,57 @@ export const removeBundledSkills = async (options: {
 	}
 
 	return { removed, skipped };
+};
+
+const renderManagedAgentsSection = (): string =>
+	`${managedAgentsSectionBegin}\n${managedAgentsSectionBody.trim()}\n${managedAgentsSectionEnd}`;
+
+export const ensureManagedAgentsSection = async (
+	projectRoot: string,
+): Promise<ManagedAgentsSectionResult> => {
+	const path = join(projectRoot, "AGENTS.md");
+	const rendered = renderManagedAgentsSection();
+	const renderedHash = agentsSectionHash(rendered);
+
+	try {
+		const existing = await readFile(path, "utf8");
+		if (
+			existing.includes(managedAgentsSectionBegin) &&
+			existing.includes(managedAgentsSectionEnd)
+		) {
+			const pattern = new RegExp(
+				`${managedAgentsSectionBegin}[\\s\\S]*?${managedAgentsSectionEnd}`,
+				"m",
+			);
+			const next = existing.replace(pattern, rendered);
+			if (next === existing) {
+				return {
+					outcome: "no-op",
+					path,
+					contentHash: renderedHash,
+				};
+			}
+			await writeFile(path, next, "utf8");
+			return {
+				outcome: "updated",
+				path,
+				contentHash: renderedHash,
+			};
+		}
+
+		const next = `${existing.trimEnd()}\n\n${rendered}\n`;
+		await writeFile(path, next, "utf8");
+		return {
+			outcome: "inserted",
+			path,
+			contentHash: renderedHash,
+		};
+	} catch {
+		await writeFile(path, `${rendered}\n`, "utf8");
+		return {
+			outcome: "created",
+			path,
+			contentHash: renderedHash,
+		};
+	}
 };

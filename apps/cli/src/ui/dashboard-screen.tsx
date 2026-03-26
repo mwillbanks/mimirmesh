@@ -14,6 +14,7 @@ const sections = [
 	{ id: "runtime", title: "Runtime" },
 	{ id: "upgrade", title: "Upgrade" },
 	{ id: "mcp", title: "MCP" },
+	{ id: "skills", title: "Skills" },
 	{ id: "more", title: "More" },
 ] as const;
 
@@ -77,6 +78,9 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 		if (_input === "m") {
 			setSectionIndex(4);
 		}
+		if (_input === "k") {
+			setSectionIndex(5);
+		}
 	});
 
 	const activeSection = sections[sectionIndex]?.id ?? "home";
@@ -129,6 +133,12 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 								snapshot.runtime.health.state === "ready"
 									? `${snapshot.tools.length} tools available`
 									: "passthrough readiness degraded",
+						};
+					case "skills":
+						return {
+							id: section.id,
+							title: section.title,
+							statusSummary: "deterministic registry",
 						};
 					default:
 						return {
@@ -190,8 +200,8 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 			title="Interactive CLI Experience"
 			subtitle={
 				compactLayout
-					? "Use the compact dashboard to launch the core install, runtime, upgrade, and MCP workflows."
-					: "Use the dashboard to launch the core install, runtime, upgrade, and MCP workflows."
+					? "Use the compact dashboard to launch the core install, runtime, upgrade, MCP, and skills workflows."
+					: "Use the dashboard to launch the core install, runtime, upgrade, MCP, and skills workflows."
 			}
 			presentation={presentation}
 			sidebar={
@@ -224,7 +234,7 @@ export const DashboardScreen = ({ presentation }: DashboardScreenProps) => {
 				) : (
 					<Text>
 						Keyboard: Left/Right changes section, Up/Down selects actions, Enter launches, Escape
-						returns, H/I/R/U/M jump to core sections, Q exits.
+						returns, H/I/R/U/M/K jump to core sections, Q exits.
 					</Text>
 				)
 			}

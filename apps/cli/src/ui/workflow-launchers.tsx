@@ -19,6 +19,12 @@ import RuntimeStopCommand from "../commands/runtime/stop";
 import RuntimeUpgradeMigrateCommand from "../commands/runtime/upgrade/migrate";
 import RuntimeUpgradeRepairCommand from "../commands/runtime/upgrade/repair";
 import RuntimeUpgradeStatusCommand from "../commands/runtime/upgrade/status";
+import SkillsCreateCommand from "../commands/skills/create";
+import SkillsFindCommand from "../commands/skills/find";
+import SkillsReadCommand from "../commands/skills/read";
+import SkillsRefreshCommand from "../commands/skills/refresh";
+import SkillsResolveCommand from "../commands/skills/resolve";
+import SkillsUpdateCommand from "../commands/skills/update";
 import type { collectDashboardSnapshot } from "../lib/context";
 import { WorkflowCard } from "./workflow-card";
 
@@ -117,6 +123,38 @@ const sectionActions: Record<string, ActionOption[]> = {
 			id: "tool-schema",
 			label: "Inspect tool schema",
 			description: "Compare compressed and full schema detail for a visible tool.",
+		},
+	],
+	skills: [
+		{
+			id: "find",
+			label: "Find skills",
+			description: "List or search skills through the deterministic discovery contract.",
+		},
+		{
+			id: "read",
+			label: "Read skill",
+			description: "Read a skill with compressed memory or targeted disclosure.",
+		},
+		{
+			id: "resolve",
+			label: "Resolve skills",
+			description: "Rank relevant skills for a prompt with deterministic precedence.",
+		},
+		{
+			id: "refresh",
+			label: "Refresh skills",
+			description: "Refresh repository-scoped skill cache and index state.",
+		},
+		{
+			id: "create",
+			label: "Create skill",
+			description: "Guide new skill authoring with maintained prompts and validation.",
+		},
+		{
+			id: "update",
+			label: "Update skill",
+			description: "Update an existing skill package or keep bundled maintenance workflows.",
 		},
 	],
 };
@@ -293,6 +331,73 @@ const renderAction = (
 		}
 	}
 
+	if (sectionId === "skills") {
+		switch (actionId) {
+			case "find":
+				return (
+					<SkillsFindCommand
+						options={{}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			case "read":
+				return (
+					<SkillsReadCommand
+						args={["mimirmesh-code-navigation"]}
+						options={{}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			case "resolve":
+				return (
+					<SkillsResolveCommand
+						args={["improve the skill discovery workflow"]}
+						options={{}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			case "refresh":
+				return (
+					<SkillsRefreshCommand
+						options={{}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			case "create":
+				return (
+					<SkillsCreateCommand
+						options={{
+							prompt: "Create a MímirMesh skill that teaches deterministic skill discovery.",
+						}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+			default:
+				return (
+					<SkillsUpdateCommand
+						args={["custom-skill"]}
+						options={{
+							prompt:
+								"Update the custom skill package to preserve deterministic skill registry guidance.",
+						}}
+						presentation={presentation}
+						exitOnComplete={false}
+						onComplete={onComplete}
+					/>
+				);
+		}
+	}
+
 	return null;
 };
 
@@ -394,6 +499,12 @@ export const WorkflowLaunchers = ({
 					description="Inspect unified and passthrough MCP tools, then invoke a specific tool when needed."
 					nextAction="Use the MCP section for tool discovery and invocation."
 				/>
+				<WorkflowCard
+					title="Skills"
+					status="deterministic registry"
+					description="Discover, read, resolve, refresh, create, or update repository skill workflows."
+					nextAction="Use the Skills section for discovery, reading, resolution, refresh, and authoring."
+				/>
 			</Box>
 		);
 	}
@@ -409,6 +520,7 @@ export const WorkflowLaunchers = ({
 				<Text>- `mimirmesh report generate|show`</Text>
 				<Text>- `mimirmesh note add|list|search`</Text>
 				<Text>- `mimirmesh document add`</Text>
+				<Text>- `mimirmesh skills find|read|resolve|refresh|create|update`</Text>
 				<Text>- `mimirmesh skills install|update|remove`</Text>
 				<Text>- `mimirmesh speckit init|status|doctor`</Text>
 			</Box>

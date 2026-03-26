@@ -5,6 +5,7 @@ export {
 export {
 	createDefaultConfig,
 	createDefaultGlobalConfig,
+	createDefaultSkillsConfig,
 	defaultEngines,
 } from "./defaults";
 export {
@@ -84,12 +85,29 @@ export {
 	type RuntimeUpgradeState,
 	runtimeMigrationKindSchema,
 	runtimeMigrationRollbackStrategySchema,
+	runtimeStateSchema,
 	runtimeTimestampSchema,
 	runtimeUpgradeDriftCategorySchema,
 	runtimeUpgradeMetadataSchema,
 	runtimeUpgradeRequiredActionSchema,
 	runtimeUpgradeResultSchema,
 	runtimeUpgradeStateSchema,
+	type SkillCompressionAlgorithm,
+	type SkillCompressionProfile,
+	type SkillEmbeddingProvider,
+	type SkillEmbeddingProviderType,
+	type SkillReadMode,
+	type SkillReadProgressiveDisclosure,
+	type SkillResolvePrecedenceStep,
+	type SkillsConfig,
+	skillCompressionAlgorithmSchema,
+	skillCompressionProfileSchema,
+	skillEmbeddingProviderSchema,
+	skillEmbeddingProviderTypeSchema,
+	skillReadModeSchema,
+	skillReadProgressiveDisclosureSchema,
+	skillResolvePrecedenceStepSchema,
+	skillsConfigSchema,
 	type UpgradeCheckpoint,
 	type UpgradeOutcome,
 	type UpgradeStatusReport,
@@ -99,4 +117,4 @@ export {
 	validateConfigValue,
 	validateGlobalConfigValue,
 } from "./schema";
-export { writeConfig, writeGlobalConfig } from "./writers";
+export { writeConfig, writeGlobalConfig, writeSkillsConfig } from "./writers";

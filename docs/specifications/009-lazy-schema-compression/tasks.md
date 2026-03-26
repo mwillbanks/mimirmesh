@@ -52,7 +52,7 @@
 ### Implementation for User Story 1
 
 - [X] T013 [US1] Build initial session tool-surface assembly and core/deferred filtering in `packages/mcp-core/src/registry/router.ts` and `packages/mcp-core/src/registry/unified.ts`
-- [X] T014 [US1] Register only compressed core tools and required deferred-management tools at server startup in `apps/server/src/startup/start-server.ts` and `apps/server/src/tools/passthrough/index.ts`
+- [X] T014 [US1] Register only compressed core tools and required deferred-management tools at server startup in `apps/server/src/startup/start-server.ts` and `apps/server/src/tools/passthrough/index.ts`, retaining concise descriptions in the published MCP tool surface
 - [X] T015 [US1] Render core vs deferred tool groups and initial tool-surface counts in `apps/cli/src/commands/mcp/list-tools.tsx` and `apps/cli/src/workflows/mcp.ts`
 
 **Checkpoint**: New sessions expose a minimal, independently testable core tool surface.

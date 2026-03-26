@@ -8,10 +8,11 @@ import {
 	type RuntimeAdapterContext,
 	translateAllEngineConfigs,
 } from "@mimirmesh/mcp-adapters";
-
 import { runBootstrap } from "../bootstrap/run";
+import { ensureSkillRegistryState } from "../bootstrap/skills";
 import { generateRuntimeFiles } from "../compose/generate";
 import { renderCompose } from "../compose/render";
+import { listSkillProviderServiceNames } from "../compose/skills-provider";
 import { discoverEngineCapability } from "../discovery/discover";
 import { parseComposePs } from "../health/compose";
 import { detectDockerAvailability } from "../health/docker";
@@ -29,6 +30,7 @@ import {
 	persistRoutingTable,
 } from "../state/io";
 import { ensureProjectLayout } from "../state/layout";
+import type { SkillRegistryState } from "../state/skills";
 import type {
 	EngineRuntimeState,
 	RuntimeActionResult,
@@ -46,12 +48,12 @@ import { composeDown, composePsJson, runCompose } from "./compose";
 import { resolveRuntimeAdapterContext } from "./gpu-policy";
 import { resolveBridgePorts } from "./ports";
 
-const enabledServiceNames = (config: MimirmeshConfig): string[] => {
+const enabledServiceNames = (projectRoot: string, config: MimirmeshConfig): string[] => {
 	const enabled = new Set(listEnabledEngines(config));
 	const services = allEngineAdapters
 		.filter((adapter) => enabled.has(adapter.id))
 		.map((adapter) => config.engines[adapter.id].serviceName);
-	return ["mm-postgres", ...services];
+	return ["mm-postgres", ...listSkillProviderServiceNames(projectRoot, config), ...services];
 };
 
 const requiredReportFiles = [
@@ -226,7 +228,7 @@ const applySrclightCapabilityChecks = async (
 	await persistEngineState(projectRoot, srclight);
 };
 
-const baseConnection = (config: MimirmeshConfig): RuntimeConnection => ({
+const baseConnection = (projectRoot: string, config: MimirmeshConfig): RuntimeConnection => ({
 	projectName: config.runtime.projectName,
 	composeFile: config.runtime.composeFile,
 	updatedAt: new Date().toISOString(),
@@ -235,7 +237,7 @@ const baseConnection = (config: MimirmeshConfig): RuntimeConnection => ({
 		repository: config.project.rootPath,
 		mimirmesh: `${config.project.rootPath}/.mimirmesh`,
 	},
-	services: enabledServiceNames(config),
+	services: enabledServiceNames(projectRoot, config),
 	bridgePorts: {},
 });
 
@@ -292,8 +294,11 @@ const runtimeUnavailableResult = async (options: {
 	config: MimirmeshConfig;
 	action: RuntimeActionResult["action"];
 	reasons: string[];
+	skillRegistry?: SkillRegistryState | null;
 }): Promise<RuntimeActionResult> => {
-	const connection = (await loadConnection(options.projectRoot)) ?? baseConnection(options.config);
+	const connection =
+		(await loadConnection(options.projectRoot)) ??
+		baseConnection(options.projectRoot, options.config);
 	const runtimeVersion = await detectProjectRuntimeVersion(options.projectRoot);
 	const health = buildRuntimeHealth({
 		state: "failed",
@@ -306,6 +311,7 @@ const runtimeUnavailableResult = async (options: {
 		runtimeVersion,
 		upgradeState: null,
 		migrationStatus: null,
+		skillRegistry: options.skillRegistry ?? null,
 	});
 
 	await persistConnection(options.projectRoot, connection);
@@ -327,6 +333,7 @@ export const runtimeStatus = async (
 	config: MimirmeshConfig,
 ): Promise<RuntimeActionResult> => {
 	await ensureProjectLayout(projectRoot);
+	const initialSkillRegistry = await ensureSkillRegistryState(projectRoot, config);
 	const availability = await detectDockerAvailability();
 	if (
 		!availability.dockerInstalled ||
@@ -338,6 +345,7 @@ export const runtimeStatus = async (
 			config,
 			action: "status",
 			reasons: availability.reasons,
+			skillRegistry: initialSkillRegistry,
 		});
 	}
 
@@ -345,8 +353,12 @@ export const runtimeStatus = async (
 	const services = ps.exitCode === 0 ? parseComposePs(ps.stdout) : [];
 	const enabled = listEnabledEngines(config);
 	const bridgePorts = await resolveBridgePorts(config, enabled);
-	const existingConnection = (await loadConnection(projectRoot)) ?? baseConnection(config);
+	const existingConnection =
+		(await loadConnection(projectRoot)) ?? baseConnection(projectRoot, config);
 	const adapterContext = await resolveRuntimeAdapterContext(config);
+	const skillRegistry = await ensureSkillRegistryState(projectRoot, config, {
+		hostGpuAvailable: adapterContext.gpuResolutions?.srclight?.hostNvidiaAvailable ?? false,
+	});
 	const discovery = await discoverEngineCapability({
 		projectRoot,
 		config,
@@ -388,6 +400,7 @@ export const runtimeStatus = async (
 		runtimeVersion,
 		upgradeState: upgradeStatus.report.state,
 		migrationStatus: upgradeStatus.report.requiredActions.join(", "),
+		skillRegistry,
 	});
 
 	const connection = existingConnection;
@@ -432,6 +445,9 @@ export const runtimeStart = async (
 		adapterContext,
 	});
 	await persistConnection(projectRoot, generated.connection);
+	const initialSkillRegistry = await ensureSkillRegistryState(projectRoot, config, {
+		hostGpuAvailable: adapterContext.gpuResolutions?.srclight?.hostNvidiaAvailable ?? false,
+	});
 
 	const availability = await detectDockerAvailability();
 	if (
@@ -444,6 +460,7 @@ export const runtimeStart = async (
 			config,
 			action: "start",
 			reasons: availability.reasons,
+			skillRegistry: initialSkillRegistry,
 		});
 	}
 
@@ -504,8 +521,15 @@ export const runtimeStart = async (
 	const blockedOptional = new Set(optionalBuildFailures.map((failure) => failure.engine));
 	const runnableEngines = enabledEngines.filter((engine) => !blockedOptional.has(engine));
 	const runnableServices = runnableEngines.map((engine) => config.engines[engine].serviceName);
+	const skillProviderServices = listSkillProviderServiceNames(projectRoot, config);
 
-	const up = await runCompose(config, ["up", "-d", "mm-postgres", ...runnableServices]);
+	const up = await runCompose(config, [
+		"up",
+		"-d",
+		"mm-postgres",
+		...skillProviderServices,
+		...runnableServices,
+	]);
 	if (up.exitCode !== 0) {
 		await logger?.error("docker compose up failed", up.stderr || up.stdout);
 		return runtimeUnavailableResult({
@@ -633,6 +657,9 @@ export const runtimeStart = async (
 		engineStates: discovery.states,
 	});
 	await applySrclightCapabilityChecks(projectRoot, runtimeConfig, discovery.states);
+	const skillRegistry = await ensureSkillRegistryState(projectRoot, runtimeConfig, {
+		hostGpuAvailable: adapterContext.gpuResolutions?.srclight?.hostNvidiaAvailable ?? false,
+	});
 
 	const bridges = await resolveBridgeState(bridgePorts, runtimeConfig);
 	const hasRequiredReports = await reportsGenerated(projectRoot);
@@ -670,14 +697,15 @@ export const runtimeStart = async (
 		runtimeVersion,
 		upgradeState: upgradeStatus.report.state,
 		migrationStatus: upgradeStatus.report.requiredActions.join(", "),
+		skillRegistry,
 	});
 
 	const connection = {
-		...((await loadConnection(projectRoot)) ?? baseConnection(config)),
+		...((await loadConnection(projectRoot)) ?? baseConnection(projectRoot, config)),
 		startedAt,
 		updatedAt: new Date().toISOString(),
 		bridgePorts,
-		services: ["mm-postgres", ...runnableServices],
+		services: ["mm-postgres", ...skillProviderServices, ...runnableServices],
 	};
 
 	await persistConnection(projectRoot, connection);
@@ -728,7 +756,7 @@ export const runtimeStop = async (
 		}
 	}
 
-	const connection = (await loadConnection(projectRoot)) ?? baseConnection(config);
+	const connection = (await loadConnection(projectRoot)) ?? baseConnection(projectRoot, config);
 	connection.startedAt = null;
 	connection.updatedAt = new Date().toISOString();
 	const runtimeVersion = await detectProjectRuntimeVersion(projectRoot);

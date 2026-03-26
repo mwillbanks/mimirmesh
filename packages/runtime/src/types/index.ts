@@ -6,6 +6,7 @@ import type {
 	RuntimeState,
 	UpgradeStatusReport,
 } from "@mimirmesh/config";
+import type { SkillRegistryState } from "../state/skills";
 
 export type RuntimeBridgeTransport = "stdio" | "sse" | "streamable-http";
 
@@ -40,6 +41,7 @@ export type RuntimeHealth = {
 	runtimeVersion?: ProjectRuntimeVersionRecord | null;
 	upgradeState?: UpgradeStatusReport["state"] | null;
 	migrationStatus?: string | null;
+	skillRegistry?: SkillRegistryState | null;
 };
 
 export type RuntimeConnection = {

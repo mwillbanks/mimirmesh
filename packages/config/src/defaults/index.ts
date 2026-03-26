@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import { resolveRepositoryAdrDirectory } from "../adr";
 import { getMimirmeshDir, projectSlug, runtimeDir } from "../paths";
 import type { EngineConfig, MimirmeshConfig, MimirmeshGlobalConfig } from "../schema";
+import { createDefaultSkillsConfig } from "./skills";
 
 const DEFAULT_REDACT_PATTERNS = [
 	"(?i)apikey",
@@ -189,6 +190,7 @@ export const createDefaultConfig = (projectRoot: string): MimirmeshConfig => {
 				allowInvocationLazyLoad: true,
 			},
 		},
+		skills: createDefaultSkillsConfig(),
 		update: {
 			channel: "stable",
 			autoCheck: true,
@@ -210,3 +212,5 @@ export const createDefaultGlobalConfig = (): MimirmeshGlobalConfig => ({
 		},
 	},
 });
+
+export { createDefaultSkillsConfig } from "./skills";

@@ -14,15 +14,20 @@ import {
 	setConfigValue,
 	validateConfigFile,
 	writeConfig,
+	writeSkillsConfig,
 } from "@mimirmesh/config";
 import {
 	buildInstallChangeSummary,
 	checkForUpdates,
 	createInstallationStateSnapshot,
+	type EmbeddingsInstallConfig,
+	type InstallAreaId,
 	type InstallationPolicy,
 	type InstallationStateSnapshot,
 	type InstallChangeSummary,
+	type InstallPresetId,
 	installIdeConfig,
+	mergeSkillInstallConfig,
 	performUpdate,
 } from "@mimirmesh/installer";
 import { createProjectLogger, type ProjectLogger } from "@mimirmesh/logging";
@@ -33,7 +38,9 @@ import {
 	buildRuntimeHealth,
 	classifyUpgradeStatus,
 	detectDockerAvailability,
+	detectHostGpuCapability,
 	ensureProjectLayout,
+	ensureSkillRegistryState,
 	generateRuntimeFiles,
 	loadBootstrapState,
 	loadRoutingTable,
@@ -50,6 +57,7 @@ import {
 } from "@mimirmesh/runtime";
 import {
 	bundledSkillNames,
+	ensureManagedAgentsSection,
 	type InstalledBundledSkill,
 	installBundledSkills,
 	listInstalledBundledSkills,
@@ -553,6 +561,76 @@ export const applyUpdate = async (
 		channel: context.config.update.channel,
 	});
 
+type SkillMaintenanceResult = {
+	context: CliContext;
+	configPath: string;
+	guidance: Awaited<ReturnType<typeof ensureManagedAgentsSection>>;
+	registryReadiness: string;
+	registryStatePath: string;
+	selectedProviderType: string | null;
+	localRuntimeImage: string | null;
+};
+
+export const reconcileSkillMaintenanceState = async (
+	context: CliContext,
+	options: {
+		presetId?: InstallPresetId;
+		embeddings?: Partial<EmbeddingsInstallConfig>;
+		selectedAreas?: InstallAreaId[];
+	} = {},
+): Promise<SkillMaintenanceResult> => {
+	const nextSkillsConfig =
+		options.presetId || options.embeddings || options.selectedAreas
+			? mergeSkillInstallConfig(context.config.skills, {
+					presetId: options.presetId,
+					embeddings: options.embeddings,
+					selectedAreas: options.selectedAreas,
+				})
+			: context.config.skills;
+	const nextConfig = {
+		...context.config,
+		skills: nextSkillsConfig,
+	};
+
+	await writeSkillsConfig(context.projectRoot, context.config, nextSkillsConfig);
+
+	const nextLogger = await createProjectLogger({
+		projectRoot: context.projectRoot,
+		config: nextConfig,
+		sessionId: context.sessionId,
+	});
+	const nextContext = {
+		...context,
+		config: nextConfig,
+		logger: nextLogger,
+		router: makeRouter(context.projectRoot, nextConfig, nextLogger, context.sessionId),
+	};
+
+	const hostGpuCapability = await detectHostGpuCapability().catch(() => ({
+		nvidiaRuntimeAvailable: false,
+		reason: "GPU capability probe failed during skills maintenance sync.",
+		platform: process.platform,
+		arch: process.arch,
+		supportedRuntimePlatform: false,
+	}));
+	const skillRegistry = await ensureSkillRegistryState(context.projectRoot, nextConfig, {
+		hostGpuAvailable: hostGpuCapability.nvidiaRuntimeAvailable,
+	});
+	await generateRuntimeFiles(context.projectRoot, nextConfig);
+	await runtimeRefresh(context.projectRoot, nextConfig, nextLogger);
+	const guidance = await ensureManagedAgentsSection(context.projectRoot);
+
+	return {
+		context: nextContext,
+		configPath: getConfigPath(context.projectRoot),
+		guidance,
+		registryReadiness: skillRegistry.readiness.state,
+		registryStatePath: skillRegistry.readiness.statePath,
+		selectedProviderType: skillRegistry.providerSelection.selectedProviderType,
+		localRuntimeImage: skillRegistry.providerSelection.localRuntime?.image ?? null,
+	};
+};
+
 const resolveSkillInstallMode = async (): Promise<SkillInstallMode> => {
 	try {
 		const globalConfig = await readGlobalConfig({ createIfMissing: false });
@@ -579,10 +657,22 @@ export const listSkills = async (
 export const installSkills = async (
 	context: CliContext,
 	names: string[],
+	options: {
+		presetId?: InstallPresetId;
+		embeddings?: Partial<EmbeddingsInstallConfig>;
+		selectedAreas?: InstallAreaId[];
+	} = {},
 ): Promise<{
+	context: CliContext;
 	mode: SkillInstallMode;
 	installed: string[];
 	skipped: string[];
+	configPath: string;
+	guidance: Awaited<ReturnType<typeof ensureManagedAgentsSection>>;
+	registryReadiness: string;
+	registryStatePath: string;
+	selectedProviderType: string | null;
+	localRuntimeImage: string | null;
 }> => {
 	const mode = await resolveSkillInstallMode();
 	const result = await installBundledSkills({
@@ -590,11 +680,19 @@ export const installSkills = async (
 		names,
 		mode,
 	});
+	const maintenance = await reconcileSkillMaintenanceState(context, options);
 
 	return {
+		context: maintenance.context,
 		mode,
 		installed: result.installed,
 		skipped: result.skipped,
+		configPath: maintenance.configPath,
+		guidance: maintenance.guidance,
+		registryReadiness: maintenance.registryReadiness,
+		registryStatePath: maintenance.registryStatePath,
+		selectedProviderType: maintenance.selectedProviderType,
+		localRuntimeImage: maintenance.localRuntimeImage,
 	};
 };
 
@@ -602,10 +700,17 @@ export const updateSkills = async (
 	context: CliContext,
 	names?: string[],
 ): Promise<{
+	context: CliContext;
 	mode: SkillInstallMode;
 	updated: string[];
 	skipped: string[];
 	missing: string[];
+	configPath: string;
+	guidance: Awaited<ReturnType<typeof ensureManagedAgentsSection>>;
+	registryReadiness: string;
+	registryStatePath: string;
+	selectedProviderType: string | null;
+	localRuntimeImage: string | null;
 }> => {
 	const mode = await resolveSkillInstallMode();
 	const result = await updateBundledSkills({
@@ -613,12 +718,20 @@ export const updateSkills = async (
 		names,
 		mode,
 	});
+	const maintenance = await reconcileSkillMaintenanceState(context);
 
 	return {
+		context: maintenance.context,
 		mode,
 		updated: result.updated,
 		skipped: result.skipped,
 		missing: result.missing,
+		configPath: maintenance.configPath,
+		guidance: maintenance.guidance,
+		registryReadiness: maintenance.registryReadiness,
+		registryStatePath: maintenance.registryStatePath,
+		selectedProviderType: maintenance.selectedProviderType,
+		localRuntimeImage: maintenance.localRuntimeImage,
 	};
 };
 
@@ -711,6 +824,11 @@ const installManagedPaths = (projectRoot: string) => ({
 		codex: join(projectRoot, ".codex", "mcp.json"),
 	},
 	skillsRoot: join(projectRoot, ".agents", "skills"),
+	skillsManaged: [
+		getConfigPath(projectRoot),
+		join(projectRoot, "AGENTS.md"),
+		join(projectRoot, ".mimirmesh", "runtime", "skills-registry.json"),
+	],
 });
 
 const classifyInstallArea = (options: {
@@ -896,6 +1014,14 @@ export const detectInstallState = async (
 					: undefined,
 		requiresConfirmation: true,
 	}));
+	const skillManagedArtifacts = await Promise.all(
+		paths.skillsManaged.map(async (path) => ({
+			areaId: "skills" as const,
+			path,
+			status: (await pathExists(path)) ? ("present" as const) : ("missing" as const),
+			requiresConfirmation: true,
+		})),
+	);
 	const skillsState = classifyInstallArea({
 		started: skillStatuses.some((status) => status.installed),
 		allReady:
@@ -921,7 +1047,12 @@ export const detectInstallState = async (
 			...(ideState === "pending" ? (["ide"] as const) : []),
 			...(skillsState === "pending" ? (["skills"] as const) : []),
 		],
-		detectedArtifacts: [...coreArtifactStatuses, ...ideArtifacts, ...skillArtifacts],
+		detectedArtifacts: [
+			...coreArtifactStatuses,
+			...ideArtifacts,
+			...skillArtifacts,
+			...skillManagedArtifacts,
+		],
 		specKitStatus: {
 			ready: specKit.ready,
 			details: specKit.ready ? "Spec Kit ready." : "Spec Kit bootstrap still required.",

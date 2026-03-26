@@ -1,9 +1,18 @@
 export { runBootstrap } from "./bootstrap/run";
+export {
+	createSkillRegistryState,
+	ensureSkillRegistryState,
+} from "./bootstrap/skills";
 export { generateRuntimeFiles } from "./compose/generate";
 export { renderCompose } from "./compose/render";
+export { resolveSkillProviderSelection } from "./compose/skills-provider";
 export { discoverEngineCapability } from "./discovery/discover";
 export { parseComposePs } from "./health/compose";
 export { detectDockerAvailability } from "./health/docker";
+export {
+	buildSkillRegistryHealthEvidence,
+	classifySkillRegistryReadiness,
+} from "./health/skills";
 export { buildRuntimeHealth, inferRuntimeState } from "./health/state";
 export { engineCommand } from "./images/engine-images";
 export {
@@ -45,6 +54,11 @@ export {
 	runtimeStatus,
 	runtimeStop,
 } from "./services/runtime-lifecycle";
+export {
+	loadSkillRegistrySnapshot,
+	refreshSkillRegistryStore,
+	resolveSkillRegistryEmbeddingMatches,
+} from "./services/skill-registry-store";
 export {
 	hashString,
 	hashValue,
@@ -108,6 +122,21 @@ export {
 	upgradeMetadataPath,
 	versionPath,
 } from "./state/paths";
+export {
+	loadSkillRegistryState,
+	persistSkillRegistryState,
+	type SkillProviderSelection,
+	type SkillRegistryBootstrapState,
+	type SkillRegistryReadinessState,
+	type SkillRegistryState,
+	skillRegistryStatePath,
+} from "./state/skills";
+export {
+	ensureSkillRegistrySchema,
+	openSkillRegistryDatabase,
+	resolveSkillRegistryDatabaseUrl,
+	type SkillRegistrySqlClient,
+} from "./state/skills-migrations";
 export type {
 	BootstrapEngineState,
 	BootstrapStateFile,

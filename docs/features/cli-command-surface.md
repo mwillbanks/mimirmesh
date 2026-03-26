@@ -67,6 +67,15 @@ output preserves:
 - terminal outcome semantics
 - the command-specific machine payload nested under `outcome.payload`
 
+Skill registry machine-readable output is available for:
+
+- `mimirmesh skills find`
+- `mimirmesh skills read <skill-name>`
+- `mimirmesh skills resolve <prompt>`
+- `mimirmesh skills refresh`
+- `mimirmesh skills create`
+- `mimirmesh skills update <skill-name>`
+
 All runtime and MCP behavior claims in feature documentation are expected to be
 derived from live runtime execution, including prerequisite configuration,
 bootstrap/indexing status, and degraded-mode diagnostics.
@@ -78,6 +87,7 @@ Spec Kit behavior is upstream-backed, not synthetic:
 - `mimirmesh speckit status` reports readiness from actual `.specify/` state
 - `mimirmesh speckit doctor` flags partial states such as prompt files without `.specify/`
 - `mimirmesh install` runs the same Spec Kit initialization flow automatically when `metadata.specKitExpected` is true and the repo is not Spec Kit-ready
+- `mimirmesh skills update <skill-name>` switches to the guided authoring surface when the target is not one of the bundled MímirMesh skills; otherwise it keeps the bundled maintenance flow
 
 The umbrella install workflow is now the canonical onboarding surface:
 
@@ -86,6 +96,8 @@ The umbrella install workflow is now the canonical onboarding surface:
 - the core install area covers docs scaffolding, runtime files, report generation, repository analysis, Spec Kit bootstrap, and readiness validation
 - optional install areas currently include IDE integration and bundled skills
 - interactive IDE review allows multiple targets in one run, and non-interactive IDE review accepts comma-separated `--ide` targets such as `vscode,cursor`
+- when bundled skills are selected, install now treats embeddings setup as a first-class step and supports `disabled`, `docker-llama-cpp`, `existing-lm-studio`, `existing-openai-compatible`, and `openai`
+- existing-runtime embeddings modes do not force a Docker-managed local runtime; instead the installer prompts for and persists the required endpoint, model, and API key settings for the chosen mode
 - reruns detect current install state and surface install-managed updates for confirmation before applying them
 - non-interactive reruns can pass `--yes` to auto-confirm install-managed updates in CI or other unattended flows
 - `--non-interactive` requires an explicit preset or explicit install-area selections and fails safely when they are missing
@@ -99,6 +111,15 @@ Bundled skill commands:
 - `mimirmesh skills update [skill-name]`
 - `mimirmesh skills remove [skill-name]`
 
+Deterministic skill registry commands:
+
+- `mimirmesh skills find`
+- `mimirmesh skills read <skill-name>`
+- `mimirmesh skills resolve <prompt>`
+- `mimirmesh skills refresh`
+- `mimirmesh skills create`
+- `mimirmesh skills update <skill-name>`
+
 Bundled skill workflows install into `.agents/skills/` and use the same prompt discipline as other mutating flows:
 
 - interactive `install` shows all bundled skills and defaults all to selected
@@ -106,6 +127,17 @@ Bundled skill workflows install into `.agents/skills/` and use the same prompt d
 - interactive `remove` shows installed skills and defaults none to selected
 - `--non-interactive` install and update use the documented all-target safe path
 - `--non-interactive` remove requires an explicit `skill-name`
+
+The deterministic skill registry commands follow the six-tool MCP contract:
+
+- `find` returns minimal discovery results by default
+- `read` defaults to the compressed `memory` read shape and omits asset indexes unless they are explicitly requested
+- `resolve` uses prompt text plus repository-local config, optional task metadata, and persisted repository embeddings when that index has been built
+- `refresh` is the sole mutation path for the repository-scoped skill index, PostgreSQL-backed cache state, and embedding refresh behavior
+- `create` and `update` provide guided authoring with validation and deterministic defaults
+- `skills update` without a non-bundled skill target remains the bundled maintenance surface
+
+When local embeddings hosting is selected, the runtime no longer relies on a host-native llama.cpp assumption. Install writes a Docker-managed `llama_cpp` provider profile, and runtime rendering materializes the bundled `docker/images/llama-cpp/Dockerfile` asset into `.mimirmesh/runtime/images/llama-cpp/Dockerfile` before Compose builds a project-scoped image around an official `ghcr.io/ggml-org/llama.cpp` base image.
 
 Install mode defaults to symbolic links and can be overridden through the optional global config file `~/.mimirmesh/config.yml` with `skills.install.symbolic: false`.
 

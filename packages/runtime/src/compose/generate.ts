@@ -6,6 +6,7 @@ import {
 	type RuntimeAdapterContext,
 	translateAllEngineConfigs,
 } from "@mimirmesh/mcp-adapters";
+import { ensureSkillRegistryState } from "../bootstrap/skills";
 import { materializeRuntimeImages } from "../images/materialize";
 import { resolveRuntimeAdapterContext } from "../services/gpu-policy";
 import {
@@ -30,6 +31,7 @@ import { createUpgradeCheckpoint } from "../upgrade/checkpoints";
 import { createRuntimeUpgradeMetadata } from "../upgrade/metadata";
 import { createTargetVersionRecord } from "../upgrade/versioning";
 import { renderCompose } from "./render";
+import { listSkillProviderServiceNames } from "./skills-provider";
 
 const bootstrapModeForEngine = (engineId: string): "tool" | "command" | "none" => {
 	const adapter = allEngineAdapters.find((entry) => entry.id === engineId);
@@ -83,6 +85,9 @@ export const generateRuntimeFiles = async (
 		},
 		services: [
 			"mm-postgres",
+			...listSkillProviderServiceNames(projectRoot, config, {
+				hostGpuAvailable: adapterContext.gpuResolutions?.srclight?.hostNvidiaAvailable ?? false,
+			}),
 			...translated
 				.filter((engine) => config.engines[engine.contract.id].enabled)
 				.map((engine) => engine.contract.serviceName),
@@ -113,10 +118,13 @@ export const generateRuntimeFiles = async (
 		updatedAt: new Date().toISOString(),
 		engines: translated.map((engine) => {
 			const engineId = engine.contract.id;
+			const bootstrap = allEngineAdapters.find((entry) => entry.id === engineId)?.bootstrap;
 			const bootstrapMode = bootstrapModeForEngine(engineId);
 			const existing = existingBootstrapByEngine.get(engineId);
 			const enabled = Boolean(config.engines[engineId].enabled);
 			const completedByDefault = !enabled || bootstrapMode === "none";
+			const bootstrapArgs =
+				bootstrap?.mode === "command" ? bootstrap.args(projectRoot, config) : undefined;
 
 			return {
 				engine: engineId,
@@ -132,8 +140,16 @@ export const generateRuntimeFiles = async (
 					existing?.lastCompletedAt ?? (completedByDefault ? new Date().toISOString() : null),
 				failureReason: existing?.failureReason ?? null,
 				retryCount: existing?.retryCount ?? 0,
-				...(existing?.command ? { command: existing.command } : {}),
-				...(existing?.args ? { args: existing.args } : {}),
+				...(existing?.command
+					? { command: existing.command }
+					: bootstrap?.mode === "command"
+						? { command: bootstrap.command }
+						: {}),
+				...(existing?.args
+					? { args: existing.args }
+					: bootstrapArgs
+						? { args: bootstrapArgs }
+						: {}),
 			};
 		}),
 	});
@@ -210,6 +226,10 @@ export const generateRuntimeFiles = async (
 		root: backupSnapshotRoot(projectRoot, "initial-runtime-state"),
 		createdAt: new Date().toISOString(),
 		artifacts: [],
+	});
+	await ensureSkillRegistryState(projectRoot, config, {
+		hostGpuAvailable:
+			options.adapterContext?.gpuResolutions?.srclight?.hostNvidiaAvailable ?? false,
 	});
 
 	return {

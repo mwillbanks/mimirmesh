@@ -1,4 +1,8 @@
-import type { InstallAreaId, InstallationPolicy } from "./install-policy";
+import {
+	describeEmbeddingsInstallConfig,
+	type InstallAreaId,
+	type InstallationPolicy,
+} from "./install-policy";
 
 export type DetectedInstallArtifact = {
 	areaId: InstallAreaId;
@@ -70,6 +74,10 @@ export const buildInstallChangeSummary = (
 		if (artifact.detail) {
 			warnings.push(artifact.detail);
 		}
+	}
+
+	if (selectedAreas.includes("skills")) {
+		warnings.push(describeEmbeddingsInstallConfig(policy.embeddings));
 	}
 
 	return {

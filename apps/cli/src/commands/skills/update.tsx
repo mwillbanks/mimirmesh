@@ -2,16 +2,74 @@ import { GuidedMultiSelect, type PresentationProfile, type WorkflowRunState } fr
 import { Box, Text } from "ink";
 import { useEffect, useState } from "react";
 import type zod from "zod/v4";
+import z from "zod/v4";
 
+import { type CommandHelpDefinition, CommandHelpView } from "../../lib/command-help";
 import { CommandRunner } from "../../lib/command-runner";
 import { createGuardedWorkflow } from "../../lib/guarded-workflow";
 import { getPromptGuardError } from "../../lib/non-interactive";
 import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
-import { createSkillsUpdateWorkflow } from "../../workflows/skills";
-import { isKnownBundledSkill, loadSkillSelectionModel, skillNameArgs } from "./shared";
+import {
+	createSkillsAuthoringUpdateWorkflow,
+	createSkillsUpdateWorkflow,
+} from "../../workflows/skills";
+import {
+	buildSkillAuthoringPrompt,
+	loadSkillSelectionModel,
+	resolveSkillUpdateInvocationMode,
+	skillNameArgs,
+} from "./shared";
 
 export const args = skillNameArgs;
-export const options = withPresentationOptions({}, { allowNonInteractive: true });
+export const options = withPresentationOptions(
+	{
+		prompt: z.string().optional().describe("Authoring prompt for non-bundled skill updates"),
+		targetPath: z.string().optional().describe("Optional update target path"),
+		template: z.string().optional().describe("Optional template name or path"),
+		mode: z
+			.enum(["analyze", "patchPlan", "write"])
+			.optional()
+			.describe("Authoring mode for existing-skill updates"),
+		includeRecommendations: z.boolean().optional(),
+		includeGapAnalysis: z.boolean().optional(),
+		includeCompletenessAnalysis: z.boolean().optional(),
+		includeConsistencyAnalysis: z.boolean().optional(),
+		validateBeforeWrite: z.boolean().optional(),
+		validateAfterWrite: z.boolean().optional(),
+	},
+	{ allowNonInteractive: true },
+);
+
+export const help: CommandHelpDefinition = {
+	title: "mimirmesh skills update",
+	usage: "mimirmesh skills update [skill-name] [flags]",
+	flags: [
+		{ flag: "--prompt <text>", description: "Authoring prompt for update mode." },
+		{ flag: "--target-path <path>", description: "Optional update target path." },
+		{ flag: "--template <name>", description: "Template or template path to reuse." },
+		{ flag: "--mode <analyze|patchPlan|write>", description: "Authoring mode." },
+		{ flag: "--include-recommendations", description: "Request recommendations." },
+		{ flag: "--include-gap-analysis", description: "Request gap analysis." },
+		{ flag: "--include-completeness-analysis", description: "Request completeness analysis." },
+		{ flag: "--include-consistency-analysis", description: "Request consistency analysis." },
+		{ flag: "--validate-before-write", description: "Validate before writing." },
+		{ flag: "--validate-after-write", description: "Validate after writing." },
+		{ flag: "--json", description: "Emit machine-readable output." },
+	],
+	sections: [
+		{
+			title: "Modes",
+			lines: [
+				"`mimirmesh skills update` keeps the bundled-skill maintenance flow.",
+				"`mimirmesh skills update <skill-name>` switches to the authoring surface when the name is not a bundled skill.",
+			],
+		},
+	],
+	examples: [
+		"mimirmesh skills update",
+		'mimirmesh skills update mimirmesh-code-navigation --prompt "Refine the code navigation skill for new discovery rules."',
+	],
+};
 
 type Props = {
 	args?: zod.infer<typeof args>;
@@ -30,7 +88,23 @@ export default function SkillsUpdateCommand({
 }: Props) {
 	const resolvedPresentation = presentation ?? resolvePresentationProfile(options);
 	const selectedSkill = args[0];
-	const baseDefinition = createSkillsUpdateWorkflow(selectedSkill ? [selectedSkill] : undefined);
+	const updateMode = resolveSkillUpdateInvocationMode(selectedSkill);
+	const baseDefinition =
+		updateMode.mode === "authoring" && updateMode.skillName
+			? createSkillsAuthoringUpdateWorkflow({
+					name: updateMode.skillName,
+					prompt: options.prompt ?? buildSkillAuthoringPrompt("update", updateMode.skillName),
+					targetPath: options.targetPath,
+					template: options.template,
+					mode: options.mode,
+					includeRecommendations: options.includeRecommendations,
+					includeGapAnalysis: options.includeGapAnalysis,
+					includeCompletenessAnalysis: options.includeCompletenessAnalysis,
+					includeConsistencyAnalysis: options.includeConsistencyAnalysis,
+					validateBeforeWrite: options.validateBeforeWrite,
+					validateAfterWrite: options.validateAfterWrite,
+				})
+			: createSkillsUpdateWorkflow(selectedSkill ? [selectedSkill] : undefined);
 	const promptError = getPromptGuardError({
 		command: "`mimirmesh skills update [skill-name]`",
 		presentation: resolvedPresentation,
@@ -44,7 +118,7 @@ export default function SkillsUpdateCommand({
 	const [selectionError, setSelectionError] = useState<string | null>(null);
 
 	useEffect(() => {
-		if (selectedSkill || !resolvedPresentation.interactive) {
+		if (selectedSkill || !resolvedPresentation.interactive || updateMode.mode === "authoring") {
 			return;
 		}
 
@@ -64,18 +138,16 @@ export default function SkillsUpdateCommand({
 		return () => {
 			cancelled = true;
 		};
-	}, [resolvedPresentation.interactive, selectedSkill]);
+	}, [resolvedPresentation.interactive, selectedSkill, updateMode.mode]);
 
-	if (selectedSkill && !isKnownBundledSkill(selectedSkill)) {
+	if (options.help) {
+		return <CommandHelpView definition={help} />;
+	}
+
+	if (updateMode.mode === "authoring" && updateMode.skillName) {
 		return (
 			<CommandRunner
-				definition={createGuardedWorkflow(
-					baseDefinition,
-					`Unknown bundled skill: ${selectedSkill}.`,
-					"No skills were updated.",
-					[],
-					"Run `mimirmesh skills update` to choose from the installed bundled skills interactively.",
-				)}
+				definition={baseDefinition}
 				presentation={resolvedPresentation}
 				exitOnComplete={exitOnComplete}
 				onComplete={onComplete}

@@ -31,6 +31,8 @@ export type InstallResult = {
 };
 
 export type {
+	EmbeddingsInstallConfig,
+	EmbeddingsInstallMode,
 	InstallAreaId,
 	InstallAreaKind,
 	InstallationArea,
@@ -42,13 +44,28 @@ export type {
 	InstallTarget,
 } from "./install-policy";
 export {
+	createDefaultEmbeddingsInstallConfig,
+	createEmbeddingsSkillConfig,
 	createInstallationAreas,
 	createInstallationPolicy,
+	createSkillInstallConfig,
+	createSkillProviderDefaults,
+	defaultDockerLlamaCppBaseUrl,
+	defaultDockerLlamaCppModel,
+	defaultLmStudioBaseUrl,
+	defaultLmStudioModel,
+	defaultOpenAIBaseUrl,
+	defaultOpenAIModel,
+	describeEmbeddingsInstallConfig,
+	embeddingsInstallModeCatalog,
 	installAreaCatalog,
 	installPresetCatalog,
 	installTargetCatalog,
+	isEmbeddingsInstallMode,
 	isInstallAreaId,
 	isInstallPresetId,
+	mergeSkillInstallConfig,
+	resolveEmbeddingsInstallConfig,
 	resolveInstallAreas,
 	resolveInstallPreset,
 	validateInstallationPolicy,

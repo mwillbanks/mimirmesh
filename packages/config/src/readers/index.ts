@@ -20,6 +20,7 @@ import {
 	migrateCodebaseMemoryConfigValue,
 	persistMigratedCodebaseMemoryConfig,
 } from "./migrate-codebase-memory";
+import { migrateSkillsConfigValue } from "./migrate-skills-config";
 
 export const ensureConfigParent = async (projectRoot: string): Promise<void> => {
 	await mkdir(getMimirmeshDir(projectRoot), { recursive: true });
@@ -41,10 +42,11 @@ export const readConfig = async (
 	try {
 		const raw = await readFile(configPath, "utf8");
 		const parsedYaml = parse(raw);
-		const migration = migrateCodebaseMemoryConfigValue(parsedYaml);
-		const validation = validateConfigValue(migration.value);
+		const legacyMigration = migrateCodebaseMemoryConfigValue(parsedYaml);
+		const skillsMigration = migrateSkillsConfigValue(legacyMigration.value);
+		const validation = validateConfigValue(skillsMigration.value);
 		if (!validation.ok || !validation.config) {
-			if (migration.changed) {
+			if (legacyMigration.changed || skillsMigration.changed) {
 				throw new Error(
 					[
 						`Legacy codebase-memory config migration failed for ${configPath}.`,
@@ -55,7 +57,7 @@ export const readConfig = async (
 			}
 			throw new Error(`Invalid config at ${configPath}\n${validation.errors.join("\n")}`);
 		}
-		if (migration.changed) {
+		if (legacyMigration.changed || skillsMigration.changed) {
 			await persistMigratedCodebaseMemoryConfig(configPath, validation.config);
 		}
 		return validation.config;

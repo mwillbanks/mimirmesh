@@ -1,6 +1,6 @@
 import { z } from "zod";
-
 import type { UnifiedToolName } from "../types";
+import { skillsToolDescriptions, skillsToolInputSchemas } from "./skills-tools";
 
 type UnifiedToolSchema = Record<string, z.ZodTypeAny>;
 
@@ -21,16 +21,39 @@ const humanQuerySchema = {
 };
 
 export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefinition> = {
+	"skills.find": {
+		description: skillsToolDescriptions["skills.find"],
+		inputSchema: skillsToolInputSchemas["skills.find"],
+	},
+	"skills.read": {
+		description: skillsToolDescriptions["skills.read"],
+		inputSchema: skillsToolInputSchemas["skills.read"],
+	},
+	"skills.resolve": {
+		description: skillsToolDescriptions["skills.resolve"],
+		inputSchema: skillsToolInputSchemas["skills.resolve"],
+	},
+	"skills.refresh": {
+		description: skillsToolDescriptions["skills.refresh"],
+		inputSchema: skillsToolInputSchemas["skills.refresh"],
+	},
+	"skills.create": {
+		description: skillsToolDescriptions["skills.create"],
+		inputSchema: skillsToolInputSchemas["skills.create"],
+	},
+	"skills.update": {
+		description: skillsToolDescriptions["skills.update"],
+		inputSchema: skillsToolInputSchemas["skills.update"],
+	},
 	explain_project: {
-		description:
-			"Summarize repository architecture, key boundaries, and operating model. Start here for broad repository orientation before deeper subsystem or architecture work.",
+		description: "Summarize repository architecture, boundaries, and operating model.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional repository path or module path to focus the summary."),
 		},
 	},
 	explain_subsystem: {
-		description: "Explain the design and responsibilities of a project subsystem.",
+		description: "Explain a subsystem's design and responsibilities.",
 		inputSchema: {
 			subsystem: optionalText("Subsystem, package, module, or component name."),
 			path: optionalText("Optional file or directory path for the subsystem."),
@@ -39,8 +62,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	find_symbol: {
-		description:
-			"Locate named symbols, declarations, and signatures across source files. Use when you already know the API, type, function, command, or identifier name.",
+		description: "Locate a named symbol, declaration, or signature in source files.",
 		inputSchema: {
 			query: optionalText("Symbol name, identifier, or code reference to locate."),
 			path: optionalText("Optional file or directory path to narrow the search."),
@@ -48,8 +70,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	find_tests: {
-		description:
-			"Find tests related to a symbol or behavior after you have localized the implementation target.",
+		description: "Find tests related to a symbol or behavior.",
 		inputSchema: {
 			query: optionalText("Symbol name to find tests for."),
 			path: optionalText("Optional file or directory path to narrow the search."),
@@ -80,8 +101,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	search_code: {
-		description:
-			"Search for exact or pattern-based implementations in source code. Use for code snippets, imports, error strings, or when the stable symbol name is unknown.",
+		description: "Search source code by text, snippet, import, or pattern.",
 		inputSchema: {
 			query: optionalText("Text, identifier, or phrase to search for."),
 			path: optionalText("Optional file path or glob-like scope hint."),
@@ -92,8 +112,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	search_docs: {
-		description:
-			"Search repository documentation, ADRs, specifications, and runbooks before generating new docs or architectural artifacts.",
+		description: "Search repository docs, ADRs, specs, and runbooks.",
 		inputSchema: {
 			query: optionalText("Documentation topic, phrase, or question."),
 			scope: optionalText("Optional scope such as documents or chunks."),
@@ -101,8 +120,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	trace_dependency: {
-		description:
-			"Trace callers, callees, or dependents for a symbol or module to understand impact and ownership.",
+		description: "Trace callers, callees, or dependents for a symbol or module.",
 		inputSchema: {
 			query: optionalText("Symbol, function, or module to trace."),
 			path: optionalText("Optional file or module path to scope the trace."),
@@ -114,8 +132,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	trace_integration: {
-		description:
-			"Trace integrations, deployment topology, CI/CD flows, and external system touch points.",
+		description: "Trace integrations, deployment topology, CI/CD, and external systems.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional file or directory path to scope the analysis."),
@@ -123,8 +140,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	investigate_issue: {
-		description:
-			"Start bug, regression, or failure analysis with routed evidence before escalating to history or systemic architecture analysis.",
+		description: "Investigate a bug, regression, or failure with routed evidence.",
 		inputSchema: {
 			query: optionalText("Issue description, symptom, or failure message."),
 			path: optionalText("Optional file or directory path to scope the investigation."),
@@ -132,16 +148,14 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	evaluate_codebase: {
-		description:
-			"Assess maintainability, architectural quality, and systemic risk after retrieval or issue localization shows broader analysis is justified.",
+		description: "Assess maintainability, architectural quality, and systemic risk.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional file or directory path to focus the evaluation."),
 		},
 	},
 	generate_adr: {
-		description:
-			"Generate ADR-oriented decision analysis for a concrete architecture choice or PRD after retrieving existing architectural context.",
+		description: "Generate ADR analysis for an architecture decision or PRD.",
 		inputSchema: {
 			...humanQuerySchema,
 			decision: optionalText(
@@ -159,8 +173,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	document_architecture: {
-		description:
-			"Retrieve or synthesize architecture documentation from project context. Prefer after repository or subsystem context has been retrieved.",
+		description: "Retrieve or synthesize architecture documentation from project context.",
 		inputSchema: {
 			...humanQuerySchema,
 			path: optionalText("Optional architecture file or directory path."),
@@ -192,8 +205,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	load_deferred_tools: {
-		description:
-			"Load a deferred engine group into the current MCP session and refresh the visible tool surface.",
+		description: "Load a deferred engine group into the current MCP session.",
 		inputSchema: {
 			engine: z
 				.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"])
@@ -201,8 +213,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	refresh_tool_surface: {
-		description:
-			"Refresh already-loaded deferred engine groups so the current session picks up live policy or discovery changes.",
+		description: "Refresh loaded deferred engine groups in the current MCP session.",
 		inputSchema: {
 			engine: z
 				.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"])
@@ -211,8 +222,7 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 		},
 	},
 	inspect_tool_schema: {
-		description:
-			"Inspect compressed or fuller schema detail for a visible tool without introducing a custom MCP protocol.",
+		description: "Inspect compressed or full schema detail for a visible tool.",
 		inputSchema: {
 			toolName: z.string().trim().min(1).describe("Visible tool name to inspect."),
 			view: z

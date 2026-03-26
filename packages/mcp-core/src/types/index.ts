@@ -2,6 +2,12 @@ import type { EngineId, MimirmeshConfig } from "@mimirmesh/config";
 import type { LogChannel } from "@mimirmesh/logging";
 
 export type UnifiedToolName =
+	| "skills.find"
+	| "skills.read"
+	| "skills.resolve"
+	| "skills.refresh"
+	| "skills.create"
+	| "skills.update"
 	| "explain_project"
 	| "explain_subsystem"
 	| "find_symbol"

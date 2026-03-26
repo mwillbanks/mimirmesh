@@ -22,7 +22,7 @@ describe("integration interactive cli entry", () => {
 				[
 					"sh",
 					"-lc",
-					`(sleep 1; printf q; sleep 2; printf q) | script -q /dev/null sh -lc "stty cols 140 rows 40; exec ${distBinary}"`,
+					`(for _ in 1 2 3 4 5 6 7 8 9 10; do sleep 2; printf q; done) | script -q /dev/null sh -lc "stty cols 140 rows 40; exec ${distBinary}"`,
 				],
 				repo,
 				{

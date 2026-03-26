@@ -1,13 +1,21 @@
 import {
+	createDefaultEmbeddingsInstallConfig,
 	createInstallationAreas,
 	createInstallationPolicy,
+	defaultDockerLlamaCppModel,
+	defaultLmStudioBaseUrl,
+	defaultLmStudioModel,
+	defaultOpenAIModel,
+	type EmbeddingsInstallMode,
 	type InstallAreaId,
 	type InstallPresetId,
 	type InstallTarget,
 	installPresetCatalog,
 	installTargetCatalog,
+	isEmbeddingsInstallMode,
 	isInstallAreaId,
 	isInstallPresetId,
+	resolveEmbeddingsInstallConfig,
 	resolveInstallAreas,
 	validateInstallationPolicy,
 } from "@mimirmesh/installer";
@@ -15,6 +23,7 @@ import { bundledSkillNames } from "@mimirmesh/skills";
 import {
 	GuidedMultiSelect,
 	GuidedSelect,
+	GuidedTextInput,
 	type PresentationProfile,
 	type WorkflowDefinition,
 	type WorkflowRunState,
@@ -39,6 +48,15 @@ export const options = withPresentationOptions(
 		areas: zod.string().optional().describe("Comma-separated install areas"),
 		ide: zod.string().optional().describe("Comma-separated IDE targets"),
 		skills: zod.string().optional().describe("Comma-separated bundled skill names or `all`"),
+		embeddings: zod
+			.string()
+			.optional()
+			.describe(
+				"Embeddings setup strategy: disabled, docker-llama-cpp, existing-lm-studio, existing-openai-compatible, openai",
+			),
+		embeddingsBaseUrl: zod.string().optional().describe("Embeddings runtime base URL"),
+		embeddingsModel: zod.string().optional().describe("Embeddings model identifier"),
+		embeddingsApiKey: zod.string().optional().describe("Embeddings provider API key"),
 		yes: zod.boolean().optional().describe("Auto-confirm install-managed updates"),
 	},
 	{ allowNonInteractive: true },
@@ -93,6 +111,43 @@ const installPresetChoices = installPresetCatalog.map((preset) => ({
 	recommended: preset.recommended,
 }));
 
+const embeddingsModeChoices: Array<{
+	label: string;
+	value: EmbeddingsInstallMode;
+	description: string;
+	recommended?: boolean;
+}> = [
+	{
+		label: "Docker-managed llama.cpp",
+		value: "docker-llama-cpp",
+		description:
+			"Build and run a repository-scoped llama.cpp embeddings service through Docker Compose.",
+		recommended: true,
+	},
+	{
+		label: "Existing LM Studio runtime",
+		value: "existing-lm-studio",
+		description:
+			"Use an already running LM Studio OpenAI-compatible embeddings endpoint instead of Docker-managed llama.cpp.",
+	},
+	{
+		label: "Existing OpenAI-compatible runtime",
+		value: "existing-openai-compatible",
+		description:
+			"Use an already running OpenAI-compatible embeddings endpoint that is managed outside MímirMesh.",
+	},
+	{
+		label: "OpenAI API",
+		value: "openai",
+		description: "Use the hosted OpenAI embeddings API with a supplied API key.",
+	},
+	{
+		label: "Disabled",
+		value: "disabled",
+		description: "Skip embeddings setup and keep deterministic lexical and explicit matching only.",
+	},
+];
+
 export const help = installCommandHelp;
 
 export default function InstallCommand({
@@ -127,6 +182,8 @@ export default function InstallCommand({
 			),
 		[requestedSkills],
 	);
+	const invalidEmbeddingsMode =
+		options.embeddings && !isEmbeddingsInstallMode(options.embeddings) ? options.embeddings : null;
 	const promptError = getPromptGuardError({
 		command: "`mimirmesh install`",
 		presentation: resolvedPresentation,
@@ -151,6 +208,8 @@ export default function InstallCommand({
 					),
 		[requestedSkills],
 	);
+	const explicitEmbeddingsMode =
+		options.embeddings && isEmbeddingsInstallMode(options.embeddings) ? options.embeddings : null;
 
 	const [selectedPreset, setSelectedPreset] = useState<InstallPresetId | null>(
 		options.preset && isInstallPresetId(options.preset) ? options.preset : null,
@@ -163,6 +222,17 @@ export default function InstallCommand({
 	);
 	const [selectedSkills, setSelectedSkills] = useState<string[] | null>(
 		explicitSkills.length > 0 ? explicitSkills : null,
+	);
+	const [selectedEmbeddingsMode, setSelectedEmbeddingsMode] =
+		useState<EmbeddingsInstallMode | null>(explicitEmbeddingsMode);
+	const [selectedEmbeddingsModel, setSelectedEmbeddingsModel] = useState<string | null>(
+		options.embeddingsModel ?? null,
+	);
+	const [selectedEmbeddingsBaseUrl, setSelectedEmbeddingsBaseUrl] = useState<string | null>(
+		options.embeddingsBaseUrl ?? null,
+	);
+	const [selectedEmbeddingsApiKey, setSelectedEmbeddingsApiKey] = useState<string | null>(
+		options.embeddingsApiKey ?? null,
 	);
 	const [preview, setPreview] = useState<Awaited<
 		ReturnType<typeof previewInstallExecution>
@@ -189,6 +259,32 @@ export default function InstallCommand({
 		() => (explicitSkills.length ? explicitSkills : (selectedSkills ?? [])),
 		[explicitSkills, selectedSkills],
 	);
+	const effectiveEmbeddings = useMemo(
+		() =>
+			resolveEmbeddingsInstallConfig({
+				presetId: effectivePreset ?? undefined,
+				selectedAreas: effectiveAreas ?? [],
+				embeddings: {
+					mode: explicitEmbeddingsMode ?? selectedEmbeddingsMode ?? undefined,
+					model: options.embeddingsModel ?? selectedEmbeddingsModel ?? undefined,
+					baseUrl: options.embeddingsBaseUrl ?? selectedEmbeddingsBaseUrl ?? undefined,
+					apiKey: options.embeddingsApiKey ?? selectedEmbeddingsApiKey ?? undefined,
+					fallbackOnFailure: true,
+				},
+			}),
+		[
+			effectiveAreas,
+			effectivePreset,
+			explicitEmbeddingsMode,
+			options.embeddingsApiKey,
+			options.embeddingsBaseUrl,
+			options.embeddingsModel,
+			selectedEmbeddingsApiKey,
+			selectedEmbeddingsBaseUrl,
+			selectedEmbeddingsMode,
+			selectedEmbeddingsModel,
+		],
+	);
 
 	const installPolicy = useMemo(() => {
 		if (!effectiveAreas || (!effectivePreset && effectiveAreas.length === 0)) {
@@ -201,8 +297,10 @@ export default function InstallCommand({
 			mode: options.nonInteractive ? "non-interactive" : "interactive",
 			ideTargets: effectiveIdeTargets,
 			selectedSkills: effectiveSkills,
+			embeddings: effectiveEmbeddings,
 		});
 	}, [
+		effectiveEmbeddings,
 		effectiveAreas,
 		effectiveIdeTargets,
 		effectivePreset,
@@ -299,6 +397,21 @@ export default function InstallCommand({
 					`Unknown bundled skill(s): ${invalidSkills.join(", ")}.`,
 					"Install did not begin because one or more requested bundled skills are unsupported.",
 					"Re-run `mimirmesh install --skills all` or choose valid bundled skill names.",
+				)}
+				presentation={resolvedPresentation}
+				exitOnComplete={exitOnComplete}
+				onComplete={onComplete}
+			/>
+		);
+	}
+
+	if (invalidEmbeddingsMode) {
+		return (
+			<CommandRunner
+				definition={blockedInstallDefinition(
+					`Unknown embeddings strategy: ${invalidEmbeddingsMode}.`,
+					"Install did not begin because the requested embeddings setup strategy is unsupported.",
+					"Re-run `mimirmesh install --embeddings disabled|docker-llama-cpp|existing-lm-studio|existing-openai-compatible|openai`.",
 				)}
 				presentation={resolvedPresentation}
 				exitOnComplete={exitOnComplete}
@@ -451,6 +564,253 @@ export default function InstallCommand({
 					defaultValues={[...bundledSkillNames]}
 					onSubmit={(values) => {
 						setSelectedSkills(values);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		(effectiveAreas?.includes("skills") ?? false) &&
+		!explicitEmbeddingsMode &&
+		selectedEmbeddingsMode === null &&
+		resolvedPresentation.interactive
+	) {
+		const defaultEmbeddingsMode = createDefaultEmbeddingsInstallConfig(
+			effectivePreset ?? undefined,
+		).mode;
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Choose an embeddings setup strategy</Text>
+				<GuidedSelect
+					title="Select embeddings setup"
+					reason="Embeddings setup is a first-class installer decision because some repositories want Docker-managed local hosting while others already have a compatible runtime available."
+					consequence="The selected strategy determines whether install writes a Docker-managed llama.cpp provider, an external runtime endpoint, a hosted API configuration, or keeps embeddings disabled."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings docker-llama-cpp"
+					choices={embeddingsModeChoices}
+					defaultValue={defaultEmbeddingsMode}
+					onSubmit={(value) => {
+						if (isEmbeddingsInstallMode(value)) {
+							setSelectedEmbeddingsMode(value);
+						}
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "docker-llama-cpp" &&
+		options.embeddingsModel === undefined &&
+		selectedEmbeddingsModel === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Configure Docker-managed llama.cpp embeddings</Text>
+				<GuidedTextInput
+					title="Choose the llama.cpp embedding model"
+					reason="Docker-managed llama.cpp still needs a concrete embedding model so the generated runtime can start in a usable state immediately after install."
+					consequence="The selected model is persisted into `.mimirmesh/config.yml` and used when the Compose-managed embeddings runtime is rendered."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings docker-llama-cpp --embeddings-model Qwen/Qwen3-Embedding-0.6B-GGUF"
+					label="Embedding model"
+					initialValue={defaultDockerLlamaCppModel}
+					onSubmit={(value) => {
+						setSelectedEmbeddingsModel(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "existing-lm-studio" &&
+		options.embeddingsBaseUrl === undefined &&
+		selectedEmbeddingsBaseUrl === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Configure the LM Studio embeddings endpoint</Text>
+				<GuidedTextInput
+					title="Enter the LM Studio base URL"
+					reason="MímirMesh needs the exact OpenAI-compatible endpoint for the existing LM Studio runtime so install does not force a Docker-managed deployment."
+					consequence="The base URL is persisted into `.mimirmesh/config.yml` and used directly during refresh and resolve embedding calls."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-lm-studio --embeddings-base-url http://localhost:1234/v1"
+					label="LM Studio base URL"
+					initialValue={defaultLmStudioBaseUrl}
+					onSubmit={(value) => {
+						setSelectedEmbeddingsBaseUrl(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "existing-lm-studio" &&
+		options.embeddingsModel === undefined &&
+		selectedEmbeddingsModel === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Choose the LM Studio embeddings model</Text>
+				<GuidedTextInput
+					title="Enter the LM Studio embeddings model"
+					reason="The installer must persist the model name for an existing compatible runtime so embeddings can be used immediately after install."
+					consequence="The selected model is written into `.mimirmesh/config.yml` for the LM Studio provider."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-lm-studio --embeddings-model text-embedding-nomic-embed-text-v1.5"
+					label="LM Studio model"
+					initialValue={defaultLmStudioModel}
+					onSubmit={(value) => {
+						setSelectedEmbeddingsModel(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "existing-lm-studio" &&
+		options.embeddingsApiKey === undefined &&
+		selectedEmbeddingsApiKey === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Optional LM Studio API key</Text>
+				<GuidedTextInput
+					title="Enter an LM Studio API key if the server requires one"
+					reason="Some LM Studio setups now enforce bearer auth, so install needs a way to persist that value without forcing it for every local runtime."
+					consequence="Leaving this blank keeps the provider unauthenticated. Supplying a value persists it into `.mimirmesh/config.yml`."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-lm-studio --embeddings-api-key <token>"
+					label="LM Studio API key"
+					placeholder="Leave blank if not required"
+					mask
+					allowEmpty
+					onSubmit={(value) => {
+						setSelectedEmbeddingsApiKey(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "existing-openai-compatible" &&
+		options.embeddingsBaseUrl === undefined &&
+		selectedEmbeddingsBaseUrl === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Configure the existing OpenAI-compatible embeddings endpoint</Text>
+				<GuidedTextInput
+					title="Enter the embeddings base URL"
+					reason="External OpenAI-compatible runtimes are supported, but the installer has to persist the exact endpoint instead of assuming Docker-managed hosting."
+					consequence="The base URL is written into `.mimirmesh/config.yml` for the external embeddings provider."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-openai-compatible --embeddings-base-url https://example.invalid/v1"
+					label="Embeddings base URL"
+					placeholder="https://example.invalid/v1"
+					onSubmit={(value) => {
+						setSelectedEmbeddingsBaseUrl(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "existing-openai-compatible" &&
+		options.embeddingsModel === undefined &&
+		selectedEmbeddingsModel === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Choose the external embeddings model</Text>
+				<GuidedTextInput
+					title="Enter the embeddings model"
+					reason="An existing OpenAI-compatible runtime still needs an explicit model name so the configured provider can be used immediately after install."
+					consequence="The model is written into `.mimirmesh/config.yml` for the external embeddings provider."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-openai-compatible --embeddings-model text-embedding-model"
+					label="Embeddings model"
+					placeholder="text-embedding-model"
+					onSubmit={(value) => {
+						setSelectedEmbeddingsModel(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "existing-openai-compatible" &&
+		options.embeddingsApiKey === undefined &&
+		selectedEmbeddingsApiKey === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Enter the external embeddings API key</Text>
+				<GuidedTextInput
+					title="Enter the API key"
+					reason="OpenAI-compatible remote runtimes require a persisted API key so the configured embeddings provider is usable immediately after install."
+					consequence="The API key is written into `.mimirmesh/config.yml` for the external embeddings provider."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-openai-compatible --embeddings-api-key <token>"
+					label="Embeddings API key"
+					mask
+					onSubmit={(value) => {
+						setSelectedEmbeddingsApiKey(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "openai" &&
+		options.embeddingsModel === undefined &&
+		selectedEmbeddingsModel === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Choose the OpenAI embeddings model</Text>
+				<GuidedTextInput
+					title="Enter the OpenAI embeddings model"
+					reason="Hosted OpenAI embeddings still need an explicit model selection so the configured provider is deterministic and reviewable."
+					consequence="The selected model is written into `.mimirmesh/config.yml` for the OpenAI provider."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings openai --embeddings-model text-embedding-3-small --embeddings-api-key <token>"
+					label="OpenAI embeddings model"
+					initialValue={defaultOpenAIModel}
+					onSubmit={(value) => {
+						setSelectedEmbeddingsModel(value);
+					}}
+				/>
+			</Box>
+		);
+	}
+
+	if (
+		effectiveEmbeddings.mode === "openai" &&
+		options.embeddingsApiKey === undefined &&
+		selectedEmbeddingsApiKey === null &&
+		resolvedPresentation.interactive
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Enter the OpenAI API key</Text>
+				<GuidedTextInput
+					title="Enter the OpenAI API key"
+					reason="The OpenAI provider cannot be used after install unless the API key is collected and persisted with the provider configuration."
+					consequence="The API key is written into `.mimirmesh/config.yml` for the OpenAI embeddings provider."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings openai --embeddings-api-key <token>"
+					label="OpenAI API key"
+					mask
+					onSubmit={(value) => {
+						setSelectedEmbeddingsApiKey(value);
 					}}
 				/>
 			</Box>

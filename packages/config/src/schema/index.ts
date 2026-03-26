@@ -94,6 +94,172 @@ export const mcpCompressionLevelSchema = z.enum(["minimal", "balanced", "aggress
 export const mcpDeferredVisibilitySchema = z.enum(["summary", "hidden"]);
 export const mcpRefreshPolicySchema = z.enum(["explicit", "automatic"]);
 
+export const skillResolvePrecedenceStepSchema = z.enum([
+	"alwaysLoad",
+	"explicitName",
+	"aliasOrTrigger",
+	"lexical",
+	"embeddings",
+	"mcpEngineContext",
+]);
+export const skillReadModeSchema = z.enum(["memory", "instructions", "assets", "full"]);
+export const skillReadProgressiveDisclosureSchema = z.enum(["strict"]);
+export const skillCompressionAlgorithmSchema = z.enum(["zstd", "gzip"]);
+export const skillCompressionProfileSchema = z.enum(["strict"]);
+export const skillEmbeddingProviderTypeSchema = z.enum([
+	"llama_cpp",
+	"lm_studio",
+	"openai",
+	"openai_compatible_remote",
+]);
+
+const defaultSkillResolvePrecedence = [
+	"alwaysLoad",
+	"explicitName",
+	"aliasOrTrigger",
+	"lexical",
+	"embeddings",
+	"mcpEngineContext",
+] as const;
+
+const defaultSkillsConfig = {
+	alwaysLoad: [] as string[],
+	resolve: {
+		precedence: [...defaultSkillResolvePrecedence],
+		limit: 10,
+	},
+	read: {
+		defaultMode: "memory" as const,
+		progressiveDisclosure: "strict" as const,
+	},
+	cache: {
+		negativeCache: {
+			enabled: true,
+			ttlSeconds: 900,
+		},
+	},
+	compression: {
+		enabled: true,
+		algorithm: "zstd" as const,
+		fallbackAlgorithm: "gzip" as const,
+		profile: "strict" as const,
+	},
+	embeddings: {
+		enabled: false,
+		fallbackOnFailure: true,
+		providers: [] as Array<{
+			type: z.infer<typeof skillEmbeddingProviderTypeSchema>;
+			model: string;
+			baseUrl: string;
+			apiKey?: string;
+			timeoutMs: number;
+			maxRetries: number;
+		}>,
+	},
+} as const;
+
+export const skillEmbeddingProviderSchema = z
+	.object({
+		type: skillEmbeddingProviderTypeSchema,
+		model: z.string().min(1),
+		baseUrl: z.string().min(1),
+		apiKey: z.string().min(1).optional(),
+		timeoutMs: z.number().int().positive().default(30_000),
+		maxRetries: z.number().int().nonnegative().default(2),
+	})
+	.superRefine((value, context) => {
+		if (
+			(value.type === "openai" || value.type === "openai_compatible_remote") &&
+			!value.apiKey?.trim()
+		) {
+			context.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["apiKey"],
+				message: `${value.type === "openai" ? "OpenAI" : "OpenAI-compatible remote"} providers require an apiKey value.`,
+			});
+		}
+	});
+
+export const skillsConfigSchema = z
+	.object({
+		alwaysLoad: z.array(z.string()).default(defaultSkillsConfig.alwaysLoad),
+		resolve: z
+			.object({
+				precedence: z
+					.array(skillResolvePrecedenceStepSchema)
+					.default([...defaultSkillResolvePrecedence]),
+				limit: z.number().int().positive().default(defaultSkillsConfig.resolve.limit),
+			})
+			.superRefine((value, context) => {
+				if (new Set(value.precedence).size !== value.precedence.length) {
+					context.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["precedence"],
+						message: "Skill resolve precedence entries must be unique.",
+					});
+				}
+			}),
+		read: z.object({
+			defaultMode: skillReadModeSchema.default(defaultSkillsConfig.read.defaultMode),
+			progressiveDisclosure: skillReadProgressiveDisclosureSchema.default(
+				defaultSkillsConfig.read.progressiveDisclosure,
+			),
+		}),
+		cache: z.object({
+			negativeCache: z.object({
+				enabled: z.boolean().default(defaultSkillsConfig.cache.negativeCache.enabled),
+				ttlSeconds: z
+					.number()
+					.int()
+					.positive()
+					.default(defaultSkillsConfig.cache.negativeCache.ttlSeconds),
+			}),
+		}),
+		compression: z.object({
+			enabled: z.boolean().default(defaultSkillsConfig.compression.enabled),
+			algorithm: skillCompressionAlgorithmSchema.default(defaultSkillsConfig.compression.algorithm),
+			fallbackAlgorithm: skillCompressionAlgorithmSchema.default(
+				defaultSkillsConfig.compression.fallbackAlgorithm,
+			),
+			profile: skillCompressionProfileSchema.default(defaultSkillsConfig.compression.profile),
+		}),
+		embeddings: z
+			.object({
+				enabled: z.boolean().default(defaultSkillsConfig.embeddings.enabled),
+				fallbackOnFailure: z.boolean().default(defaultSkillsConfig.embeddings.fallbackOnFailure),
+				providers: z
+					.array(skillEmbeddingProviderSchema)
+					.default(defaultSkillsConfig.embeddings.providers),
+			})
+			.superRefine((value, context) => {
+				if (value.enabled && value.providers.length === 0) {
+					context.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["providers"],
+						message: "Embeddings must define at least one provider when enabled.",
+					});
+				}
+
+				const providerTypes = value.providers.map((provider) => provider.type);
+				if (new Set(providerTypes).size !== providerTypes.length) {
+					context.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["providers"],
+						message: "Embedding provider types must be unique and deterministic.",
+					});
+				}
+			}),
+	})
+	.superRefine((value, context) => {
+		if (new Set(value.alwaysLoad).size !== value.alwaysLoad.length) {
+			context.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["alwaysLoad"],
+				message: "Always-load skill names must be unique.",
+			});
+		}
+	});
+
 export const engineBridgeSchema = z.object({
 	containerPort: z.number().int().positive().default(4701),
 	healthPath: z.string().default("/health"),
@@ -235,6 +401,7 @@ export const configSchema = z.object({
 		"document-mcp": documentEngineConfigSchema,
 		"mcp-adr-analysis-server": adrEngineConfigSchema,
 	}),
+	skills: skillsConfigSchema,
 	runtime: runtimeConfigSchema,
 	logging: z.object({
 		level: logLevelSchema,
@@ -381,6 +548,14 @@ export type GpuMode = z.infer<typeof gpuModeSchema>;
 export type McpCompressionLevel = z.infer<typeof mcpCompressionLevelSchema>;
 export type McpDeferredVisibility = z.infer<typeof mcpDeferredVisibilitySchema>;
 export type McpRefreshPolicy = z.infer<typeof mcpRefreshPolicySchema>;
+export type SkillResolvePrecedenceStep = z.infer<typeof skillResolvePrecedenceStepSchema>;
+export type SkillReadMode = z.infer<typeof skillReadModeSchema>;
+export type SkillReadProgressiveDisclosure = z.infer<typeof skillReadProgressiveDisclosureSchema>;
+export type SkillCompressionAlgorithm = z.infer<typeof skillCompressionAlgorithmSchema>;
+export type SkillCompressionProfile = z.infer<typeof skillCompressionProfileSchema>;
+export type SkillEmbeddingProviderType = z.infer<typeof skillEmbeddingProviderTypeSchema>;
+export type SkillEmbeddingProvider = z.infer<typeof skillEmbeddingProviderSchema>;
+export type SkillsConfig = z.infer<typeof skillsConfigSchema>;
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
 export type McpToolSurfacePolicy = z.infer<typeof mcpToolSurfacePolicySchema>;
 export type McpConfig = z.infer<typeof mcpConfigSchema>;

@@ -6,13 +6,14 @@ import { fileURLToPath } from "node:url";
 const runtimeImagesRoot = (projectRoot: string): string =>
 	join(projectRoot, ".mimirmesh", "runtime", "images");
 
-const assetRoots = ["common", "srclight", "document-mcp", "adr-analysis"];
+const assetRoots = ["common", "srclight", "document-mcp", "adr-analysis", "llama-cpp"];
 const requiredAssetFiles = [
 	"common/engine-bridge.mjs",
 	"srclight/Dockerfile",
 	"srclight/Dockerfile.cpu",
 	"document-mcp/Dockerfile",
 	"adr-analysis/Dockerfile",
+	"llama-cpp/Dockerfile",
 ];
 
 const sourceCheckoutAssetsRoot = resolve(

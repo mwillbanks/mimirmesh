@@ -15,9 +15,27 @@ import {
 	classifyUpgradeStatus,
 	detectMcpServerStaleness,
 	loadEngineState,
+	loadSkillRegistrySnapshot,
 	persistMcpToolSurfaceSession,
+	refreshSkillRegistryStore,
+	resolveSkillRegistryEmbeddingMatches,
 	runtimeStatus,
 } from "@mimirmesh/runtime";
+import {
+	buildReadSignature,
+	createSkillPackage,
+	findSkills,
+	readSkill,
+	resolveSkills,
+	type SkillReadRequest,
+	type SkillResolvePolicy,
+	type SkillsCreateRequest,
+	type SkillsFindRequest,
+	type SkillsRefreshRequest,
+	type SkillsResolveRequest,
+	type SkillsUpdateRequest,
+	updateSkillPackage,
+} from "@mimirmesh/skills";
 import { loadRepositoryIgnoreMatcher } from "@mimirmesh/workspace";
 
 import {
@@ -56,6 +74,20 @@ import {
 
 const nowId = (prefix: string): string =>
 	`${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+const buildSkillResultItem = (
+	id: string,
+	title: string,
+	content: string,
+	score: number,
+	metadata: Record<string, unknown> = {},
+): ToolResultItem => ({
+	id,
+	title,
+	content,
+	score,
+	metadata,
+});
 const managementToolNames = new Set<UnifiedToolName>([
 	"load_deferred_tools",
 	"refresh_tool_surface",
@@ -273,15 +305,17 @@ const optionalFieldsForSchema = (inputSchema: Record<string, unknown> | undefine
 };
 
 const formatArgumentHints = (inputSchema: Record<string, unknown> | undefined): string[] => {
-	const required = requiredFieldsForSchema(inputSchema).map((field) => `required:${field}`);
-	const optional = optionalFieldsForSchema(inputSchema).map((field) => `optional:${field}`);
+	const required = requiredFieldsForSchema(inputSchema).map((field) => `req:${field}`);
+	const optional = optionalFieldsForSchema(inputSchema).map((field) => `opt:${field}`);
 	return [...required, ...optional];
 };
 
-const summarizeArgumentHints = (inputSchema: Record<string, unknown> | undefined): string => {
+const summarizeArgumentHints = (
+	inputSchema: Record<string, unknown> | undefined,
+): string | undefined => {
 	const hints = formatArgumentHints(inputSchema);
 	if (hints.length === 0) {
-		return "no args";
+		return undefined;
 	}
 	return hints.join(", ");
 };
@@ -296,6 +330,9 @@ const compressDescription = (
 		return summary;
 	}
 	const hints = summarizeArgumentHints(inputSchema);
+	if (!hints) {
+		return summary;
+	}
 	if (level === "balanced") {
 		return `${summary} Args: ${hints}.`;
 	}
@@ -503,6 +540,7 @@ export class ToolRouter {
 		sessionState: NonNullable<ToolDefinition["sessionState"]>;
 		inputSchema?: Record<string, unknown>;
 	}): ToolDefinition {
+		const argumentHints = formatArgumentHints(options.inputSchema);
 		return {
 			name: options.name,
 			description: compressDescription(
@@ -513,10 +551,13 @@ export class ToolRouter {
 			type: options.type,
 			originEngine: options.originEngine ?? "mimirmesh",
 			sessionState: options.sessionState,
-			compressionLevel: this.config.mcp.toolSurface.compressionLevel,
-			argumentHints: formatArgumentHints(options.inputSchema),
+			compressionLevel:
+				options.type === "passthrough" ? this.config.mcp.toolSurface.compressionLevel : undefined,
+			argumentHints: argumentHints.length > 0 ? argumentHints : undefined,
 			inputSchema: options.inputSchema,
-			fullSchemaAvailable: this.config.mcp.toolSurface.fullSchemaAccess,
+			fullSchemaAvailable: options.inputSchema
+				? this.config.mcp.toolSurface.fullSchemaAccess
+				: undefined,
 		};
 	}
 
@@ -812,9 +853,10 @@ export class ToolRouter {
 				type: managementToolNames.has(tool.name) ? "management" : "unified",
 				originEngine: "mimirmesh",
 				sessionState: "core",
-				inputSchema: isUnifiedTool(tool.name)
-					? unifiedShapeToJsonSchema(unifiedToolInputSchemas[tool.name])
-					: undefined,
+				inputSchema:
+					isUnifiedTool(tool.name) && !tool.name.startsWith("skills.")
+						? unifiedShapeToJsonSchema(unifiedToolInputSchemas[tool.name])
+						: undefined,
 			}),
 		);
 
@@ -842,6 +884,215 @@ export class ToolRouter {
 		toolName: UnifiedToolName,
 		input: ToolInput,
 	): Promise<NormalizedToolResult> {
+		const skillPolicy = (
+			this.config as MimirmeshConfig & {
+				skills?: SkillResolvePolicy & {
+					read?: { defaultMode?: "memory" | "instructions" | "assets" | "full" };
+				};
+			}
+		).skills;
+		if (toolName === "skills.find") {
+			const skillRegistry = await loadSkillRegistrySnapshot(this.projectRoot, this.config);
+			const result = await findSkills(
+				this.projectRoot,
+				input as SkillsFindRequest,
+				skillRegistry.skills,
+			);
+			const registryReady =
+				skillRegistry.readiness.state === "ready" && skillRegistry.lastIndexedAt;
+			const nextAction = registryReady
+				? undefined
+				: "Run `skills.refresh` after the runtime is available to build the repository skill index.";
+			return {
+				tool: toolName,
+				success: true,
+				message: `Found ${result.total} skill(s).`,
+				items: result.results.map((entry) =>
+					buildSkillResultItem(entry.cacheKey, entry.name, entry.shortDescription, 100),
+				),
+				provenance: [{ engine: "mimirmesh", tool: "skills.find", latencyMs: 0, health: "healthy" }],
+				degraded: !registryReady,
+				warnings: registryReady ? [] : skillRegistry.readiness.reasons,
+				warningCodes: [],
+				nextAction,
+				raw: result,
+			};
+		}
+
+		if (toolName === "skills.read") {
+			const request = input as SkillReadRequest;
+			const skillRegistry = await loadSkillRegistrySnapshot(this.projectRoot, this.config);
+			const resolvedRequest = {
+				...request,
+				mode: request.mode ?? skillPolicy?.read?.defaultMode ?? "memory",
+			} satisfies SkillReadRequest;
+			if (!skillRegistry.lastIndexedAt) {
+				throw new Error(
+					"Skill registry has not been indexed for this repository. Run `skills.refresh` first.",
+				);
+			}
+			const record = skillRegistry.skills.find((entry) => entry.name === resolvedRequest.name);
+			if (!record) {
+				throw new Error(`Skill not found: ${resolvedRequest.name}`);
+			}
+			const readSignature = buildReadSignature(resolvedRequest);
+			const cached = skillRegistry.positiveCache.find(
+				(entry) =>
+					entry.skillName === resolvedRequest.name &&
+					entry.readSignature === readSignature &&
+					entry.contentHash === record.contentHash,
+			);
+			const result = cached
+				? (cached.payload as Awaited<ReturnType<typeof readSkill>>)
+				: await readSkill(this.projectRoot, resolvedRequest, skillRegistry.skills);
+			return {
+				tool: toolName,
+				success: true,
+				message: `Read skill ${result.name} in ${result.mode} mode.`,
+				items: [
+					buildSkillResultItem(
+						result.readSignature,
+						result.name,
+						result.mode === "memory"
+							? "Returned the minimal memory projection."
+							: `Returned the ${result.mode} projection.`,
+						100,
+					),
+				],
+				provenance: [{ engine: "mimirmesh", tool: "skills.read", latencyMs: 0, health: "healthy" }],
+				degraded: skillRegistry.readiness.state !== "ready",
+				warnings: skillRegistry.readiness.state === "ready" ? [] : skillRegistry.readiness.reasons,
+				warningCodes: [],
+				raw: result,
+			};
+		}
+
+		if (toolName === "skills.resolve") {
+			const skillRegistry = await loadSkillRegistrySnapshot(this.projectRoot, this.config);
+			const embeddingMatches = await resolveSkillRegistryEmbeddingMatches(
+				this.projectRoot,
+				this.config,
+				{
+					prompt: String((input as SkillsResolveRequest).prompt ?? ""),
+					limit: (input as SkillsResolveRequest).limit,
+				},
+			);
+			const result = await resolveSkills(
+				this.projectRoot,
+				input as SkillsResolveRequest,
+				skillPolicy,
+				skillRegistry.skills,
+				{
+					embeddingMatches: embeddingMatches.matches,
+				},
+			);
+			const registryReady =
+				skillRegistry.readiness.state === "ready" && skillRegistry.lastIndexedAt;
+			return {
+				tool: toolName,
+				success: true,
+				message: `Resolved ${result.total} skill(s).`,
+				items: result.results.map((entry) =>
+					buildSkillResultItem(
+						entry.cacheKey,
+						entry.name,
+						entry.shortDescription,
+						Math.round(entry.score ?? 100),
+					),
+				),
+				provenance: [
+					{ engine: "mimirmesh", tool: "skills.resolve", latencyMs: 0, health: "healthy" },
+				],
+				degraded: !registryReady || embeddingMatches.diagnostics.length > 0,
+				warnings: [
+					...(registryReady ? [] : skillRegistry.readiness.reasons),
+					...embeddingMatches.diagnostics,
+				],
+				warningCodes: [],
+				nextAction: registryReady
+					? undefined
+					: "Run `skills.refresh` after the runtime is available to build the repository skill index.",
+				raw: result,
+			};
+		}
+
+		if (toolName === "skills.refresh") {
+			const { response: result } = await refreshSkillRegistryStore(
+				this.projectRoot,
+				this.config,
+				input as SkillsRefreshRequest,
+			);
+			return {
+				tool: toolName,
+				success: true,
+				message: `Refreshed ${result.refreshedSkills.length} skill(s).`,
+				items: result.refreshedSkills.map((name, index) =>
+					buildSkillResultItem(`skills-refresh-${index}`, name, "refreshed", 100),
+				),
+				provenance: [
+					{ engine: "mimirmesh", tool: "skills.refresh", latencyMs: 0, health: "healthy" },
+				],
+				degraded: result.runtimeReadiness.healthClassification !== "healthy",
+				warnings: result.diagnostics ?? [],
+				warningCodes: [],
+				nextAction: result.runtimeReadiness.ready
+					? undefined
+					: "Start the runtime or repair the embedding provider, then rerun `skills.refresh`.",
+				raw: result,
+			};
+		}
+
+		if (toolName === "skills.create") {
+			const result = await createSkillPackage(this.projectRoot, input as SkillsCreateRequest);
+			return {
+				tool: toolName,
+				success: result.validation.status !== "failed",
+				message: `Create workflow completed in ${result.mode} mode.`,
+				items: [
+					{
+						id: result.generatedSkillName ?? "skills-create",
+						title: result.generatedSkillName ?? "generated-skill",
+						content: JSON.stringify(result, null, 2),
+						score: 100,
+						metadata: result,
+					},
+				],
+				provenance: [
+					{ engine: "mimirmesh", tool: "skills.create", latencyMs: 0, health: "healthy" },
+				],
+				degraded: result.validation.status === "failed",
+				warnings: result.validation.findings,
+				warningCodes: [],
+				raw: result,
+			};
+		}
+
+		if (toolName === "skills.update") {
+			const request = input as SkillsUpdateRequest;
+			const result = await updateSkillPackage(this.projectRoot, request);
+			return {
+				tool: toolName,
+				success: result.validation.status !== "failed",
+				message: `Update workflow completed in ${result.mode} mode.`,
+				items: [
+					{
+						id: result.name,
+						title: result.name,
+						content: JSON.stringify(result, null, 2),
+						score: 100,
+						metadata: result,
+					},
+				],
+				provenance: [
+					{ engine: "mimirmesh", tool: "skills.update", latencyMs: 0, health: "healthy" },
+				],
+				degraded: result.validation.status === "failed",
+				warnings: result.validation.findings,
+				warningCodes: [],
+				raw: result,
+			};
+		}
+
 		if (toolName === "runtime_status") {
 			const status = await runtimeStatus(this.projectRoot, this.config);
 			return {

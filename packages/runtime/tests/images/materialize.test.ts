@@ -18,6 +18,7 @@ describe("materializeRuntimeImages", () => {
 				["srclight", "Dockerfile.cpu", "FROM scratch\n"],
 				["document-mcp", "Dockerfile", "FROM scratch\n"],
 				["adr-analysis", "Dockerfile", "FROM scratch\n"],
+				["llama-cpp", "Dockerfile", "FROM scratch\n"],
 			] as const;
 
 			for (const [directory, fileName, content] of assetFiles) {

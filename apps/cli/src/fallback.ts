@@ -47,6 +47,11 @@ const commandModules: Record<string, () => Promise<CommandModule>> = {
 	"report/generate": asCommandModule(() => import("./commands/report/generate")),
 	"report/show": asCommandModule(() => import("./commands/report/show")),
 	"install/ide": asCommandModule(() => import("./commands/install/ide")),
+	"skills/find": asCommandModule(() => import("./commands/skills/find")),
+	"skills/read": asCommandModule(() => import("./commands/skills/read")),
+	"skills/resolve": asCommandModule(() => import("./commands/skills/resolve")),
+	"skills/refresh": asCommandModule(() => import("./commands/skills/refresh")),
+	"skills/create": asCommandModule(() => import("./commands/skills/create")),
 	"skills/install": asCommandModule(() => import("./commands/skills/install")),
 	"skills/update": asCommandModule(() => import("./commands/skills/update")),
 	"skills/remove": asCommandModule(() => import("./commands/skills/remove")),
@@ -82,6 +87,7 @@ const printUsage = (): void => {
 	print("  mimirmesh mcp tool <tool> [json] [--non-interactive] [--json]");
 	print("  mimirmesh mcp tool-schema <tool> [--view compressed|full|debug] [--json]");
 	print("  mimirmesh install ide [--target <target>] [--non-interactive] [--json]");
+	print("  mimirmesh skills find|read|resolve|refresh|create|update [flags] [--json]");
 	print("  mimirmesh skills install|update|remove [skill-name] [--non-interactive] [--json]");
 	print("");
 	print("Command-first workflows:");

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { access, rm } from "node:fs/promises";
+import { access, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createInstallationPolicy } from "@mimirmesh/installer";
@@ -70,12 +70,32 @@ describe("install workflow", () => {
 				expect(await exists(join(repo, ".mimirmesh", "config.yml"))).toBe(true);
 				expect(await exists(join(repo, ".mimirmesh", "reports", "project-summary.md"))).toBe(true);
 				expect(await exists(join(repo, ".specify", "scripts", "bash", "common.sh"))).toBe(true);
+				expect(await exists(join(repo, "AGENTS.md"))).toBe(true);
+				expect(await exists(join(repo, ".mimirmesh", "runtime", "skills-registry.json"))).toBe(
+					true,
+				);
 				expect(
 					await exists(join(repo, ".agents", "skills", bundledSkillNames[0], "SKILL.md")),
 				).toBe(true);
+				expect(await readFile(join(repo, ".mimirmesh", "config.yml"), "utf8")).toContain("skills:");
+				expect(await readFile(join(repo, ".mimirmesh", "config.yml"), "utf8")).toContain(
+					"type: llama_cpp",
+				);
+				expect(await readFile(join(repo, "AGENTS.md"), "utf8")).toContain(
+					"BEGIN MIMIRMESH SKILLS SECTION",
+				);
 				expect(finalState.outcome?.evidence?.some((row) => row.label === "Selected preset")).toBe(
 					true,
 				);
+				expect(finalState.outcome?.machineReadablePayload).toMatchObject({
+					embeddings: {
+						mode: "docker-llama-cpp",
+					},
+					skillsMaintenance: {
+						guidanceOutcome: expect.any(String),
+						registryReadiness: expect.any(String),
+					},
+				});
 			} finally {
 				const context = await loadCliContext(repo);
 				await runtimeStop(repo, context.config, context.logger);

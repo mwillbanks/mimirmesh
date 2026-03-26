@@ -19,6 +19,7 @@ export {
 	unifiedToolInputSchemas,
 	unifiedTools,
 } from "./registry/router";
+export { skillsToolDescriptions, skillsToolInputSchemas } from "./registry/skills-tools";
 export { isUnifiedTool, unifiedToolList } from "./registry/unified";
 export { passthroughRouteFor, unifiedRoutesFor } from "./routing/table";
 export { bridgeUrlForEngine, invokeEngineTool } from "./transport/bridge";

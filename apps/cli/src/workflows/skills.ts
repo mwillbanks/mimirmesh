@@ -1,12 +1,15 @@
 import type { WorkflowDefinition } from "@mimirmesh/ui";
-
+import { buildSkillAuthoringPrompt } from "../commands/skills/shared";
 import {
 	installSkills,
 	listSkills,
 	loadCliContext,
+	mcpCallTool,
+	reconcileSkillMaintenanceState,
 	removeSkills,
 	updateSkills,
 } from "../lib/context";
+import { createContextWorkflow } from "../lib/context-workflow";
 
 export const createSkillsInstallWorkflow = (names?: string[]): WorkflowDefinition => ({
 	id: "skills-install",
@@ -58,6 +61,9 @@ export const createSkillsInstallWorkflow = (names?: string[]): WorkflowDefinitio
 			evidence: [
 				{ label: "Install mode", value: result.mode },
 				{ label: "Installed", value: String(result.installed.length) },
+				{ label: "AGENTS.md", value: result.guidance.outcome },
+				{ label: "Skills config", value: result.configPath },
+				{ label: "Registry readiness", value: result.registryReadiness },
 			],
 		});
 
@@ -74,12 +80,18 @@ export const createSkillsInstallWorkflow = (names?: string[]): WorkflowDefinitio
 				"Run `mimirmesh skills update` after future MímirMesh upgrades if you use copied skills.",
 			evidence: [
 				{ label: "Mode", value: result.mode },
+				{ label: "AGENTS.md", value: result.guidance.outcome },
+				{ label: "Skills config", value: result.configPath },
+				{ label: "Registry readiness", value: result.registryReadiness },
 				...result.installed.map((name, index) => ({
 					label: `Installed ${index + 1}`,
 					value: name,
 				})),
 			],
-			machineReadablePayload: result,
+			machineReadablePayload: {
+				...result,
+				guidanceOutcome: result.guidance.outcome,
+			},
 		};
 	},
 });
@@ -120,16 +132,32 @@ export const createSkillsUpdateWorkflow = (names?: string[]): WorkflowDefinition
 		});
 
 		if (selectedNames.length === 0) {
+			const maintenance = await reconcileSkillMaintenanceState(context);
 			controller.skipStep("update-skills", "No installed bundled skills require an update.");
 			return {
 				kind: "success",
-				message: "No installed bundled skills require an update.",
+				message:
+					"No installed bundled skills require an update; repository skill guidance is current.",
 				impact: "The repository skill surface is already current.",
-				completedWork: ["Loaded installed skill inventory"],
+				completedWork: [
+					"Loaded installed skill inventory",
+					"Reconciled skills config and managed guidance state",
+				],
 				blockedCapabilities: [],
 				nextAction:
 					"Run `mimirmesh skills install` if this repository has not installed the bundled skills yet.",
-				machineReadablePayload: { selectedNames, inventory },
+				evidence: [
+					{ label: "AGENTS.md", value: maintenance.guidance.outcome },
+					{ label: "Skills config", value: maintenance.configPath },
+					{ label: "Registry readiness", value: maintenance.registryReadiness },
+				],
+				machineReadablePayload: {
+					selectedNames,
+					inventory,
+					guidanceOutcome: maintenance.guidance.outcome,
+					configPath: maintenance.configPath,
+					registryReadiness: maintenance.registryReadiness,
+				},
 			};
 		}
 
@@ -139,6 +167,8 @@ export const createSkillsUpdateWorkflow = (names?: string[]): WorkflowDefinition
 			evidence: [
 				{ label: "Updated", value: String(result.updated.length) },
 				{ label: "Skipped", value: String(result.skipped.length) },
+				{ label: "AGENTS.md", value: result.guidance.outcome },
+				{ label: "Registry readiness", value: result.registryReadiness },
 			],
 		});
 
@@ -161,6 +191,9 @@ export const createSkillsUpdateWorkflow = (names?: string[]): WorkflowDefinition
 				: "Use `mimirmesh skills remove` to detach bundled skills you no longer want in this repository.",
 			evidence: [
 				{ label: "Mode", value: result.mode },
+				{ label: "AGENTS.md", value: result.guidance.outcome },
+				{ label: "Skills config", value: result.configPath },
+				{ label: "Registry readiness", value: result.registryReadiness },
 				...result.updated.map((name, index) => ({
 					label: `Updated ${index + 1}`,
 					value: name,
@@ -170,7 +203,10 @@ export const createSkillsUpdateWorkflow = (names?: string[]): WorkflowDefinition
 					value: name,
 				})),
 			],
-			machineReadablePayload: result,
+			machineReadablePayload: {
+				...result,
+				guidanceOutcome: result.guidance.outcome,
+			},
 		};
 	},
 });
@@ -252,3 +288,373 @@ export const createSkillsRemoveWorkflow = (names: string[]): WorkflowDefinition 
 		};
 	},
 });
+
+type SkillToolWorkflowConfig = {
+	id: string;
+	title: string;
+	description: string;
+	toolName: string;
+	stepLabel: string;
+	stepKind:
+		| "validation"
+		| "generation"
+		| "runtime-action"
+		| "discovery"
+		| "bootstrap"
+		| "prompt"
+		| "reporting"
+		| "finalization";
+	interactivePolicy: "default-interactive" | "default-non-interactive" | "explicit-choice";
+	recommendedNextActions: string[];
+	request: (context: Awaited<ReturnType<typeof loadCliContext>>) => Record<string, unknown>;
+	defaultNextAction: string;
+	machineReadablePayload: (
+		request: Record<string, unknown>,
+		result: Awaited<ReturnType<typeof mcpCallTool>>,
+	) => Record<string, unknown>;
+	loadContext?: typeof loadCliContext;
+	callTool?: typeof mcpCallTool;
+};
+
+const createSkillToolWorkflow = ({
+	id,
+	title,
+	description,
+	toolName,
+	stepLabel,
+	stepKind,
+	interactivePolicy,
+	recommendedNextActions,
+	request,
+	defaultNextAction,
+	machineReadablePayload,
+	loadContext = loadCliContext,
+	callTool = mcpCallTool,
+}: SkillToolWorkflowConfig): WorkflowDefinition =>
+	createContextWorkflow({
+		id,
+		title,
+		description,
+		category: "configuration",
+		interactivePolicy,
+		recommendedNextActions,
+		stepLabel,
+		stepKind,
+		loadContext,
+		run: async (context) => {
+			const toolRequest = request(context);
+			try {
+				const result = await callTool(context, toolName, toolRequest);
+				const hasWarnings = result.warnings.length > 0 || result.warningCodes.length > 0;
+				const status = result.success
+					? hasWarnings || result.degraded
+						? "degraded"
+						: "success"
+					: "failed";
+				return {
+					kind: status,
+					message: result.message,
+					impact: result.success
+						? `The ${toolName} skill workflow returned structured results.`
+						: `The ${toolName} skill workflow did not complete successfully.`,
+					completedWork: [stepLabel],
+					blockedCapabilities: result.success ? [] : [toolName],
+					nextAction: result.nextAction ?? defaultNextAction,
+					evidence: [
+						{ label: "Tool", value: toolName },
+						{ label: "Request", value: JSON.stringify(toolRequest) },
+						{ label: "Items", value: String(result.items.length) },
+					],
+					warnings: result.warnings,
+					machineReadablePayload: machineReadablePayload(toolRequest, result),
+				};
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return {
+					kind: "failed",
+					message,
+					impact: `The ${toolName} skill workflow could not be invoked.`,
+					completedWork: [],
+					blockedCapabilities: [toolName],
+					nextAction: defaultNextAction,
+					evidence: [
+						{ label: "Tool", value: toolName },
+						{ label: "Request", value: JSON.stringify(toolRequest) },
+					],
+					warnings: [message],
+					machineReadablePayload: {
+						tool: toolName,
+						request: toolRequest,
+						error: message,
+					},
+				};
+			}
+		},
+	});
+
+export const createSkillsFindWorkflow = (
+	requestInput: {
+		query?: string;
+		names?: string[];
+		include?: string[];
+		limit?: number;
+		offset?: number;
+	},
+	dependencies?: { loadContext?: typeof loadCliContext; callTool?: typeof mcpCallTool },
+): WorkflowDefinition =>
+	createSkillToolWorkflow({
+		id: "skills-find",
+		title: "Find Skills",
+		description:
+			"Discover installed skills with the deterministic skill registry discovery contract.",
+		toolName: "skills.find",
+		stepLabel: "Discover matching skills",
+		stepKind: "discovery",
+		interactivePolicy: "default-non-interactive",
+		recommendedNextActions: ["skills-read", "skills-resolve", "skills-refresh"],
+		request: () => ({
+			...(requestInput.query ? { query: requestInput.query } : {}),
+			...(requestInput.names && requestInput.names.length > 0 ? { names: requestInput.names } : {}),
+			...(requestInput.include && requestInput.include.length > 0
+				? { include: requestInput.include }
+				: {}),
+			...(typeof requestInput.limit === "number" ? { limit: requestInput.limit } : {}),
+			...(typeof requestInput.offset === "number" ? { offset: requestInput.offset } : {}),
+		}),
+		defaultNextAction:
+			"Run `mimirmesh skills read <skill-name>` to inspect the smallest useful payload for one skill.",
+		machineReadablePayload: (request, result) => ({
+			tool: "skills.find",
+			request,
+			result,
+		}),
+		...dependencies,
+	});
+
+export const createSkillsReadWorkflow = (
+	requestInput: {
+		name: string;
+		mode?: "memory" | "instructions" | "assets" | "full";
+		include?: string[];
+		select?: Record<string, string[]>;
+	},
+	dependencies?: { loadContext?: typeof loadCliContext; callTool?: typeof mcpCallTool },
+): WorkflowDefinition =>
+	createSkillToolWorkflow({
+		id: "skills-read",
+		title: `Read Skill (${requestInput.name})`,
+		description: "Read the smallest useful skill payload with progressive disclosure.",
+		toolName: "skills.read",
+		stepLabel: "Read the selected skill",
+		stepKind: "discovery",
+		interactivePolicy: "default-non-interactive",
+		recommendedNextActions: ["skills-find", "skills-resolve", "skills-refresh"],
+		request: () => ({
+			name: requestInput.name,
+			...(requestInput.mode ? { mode: requestInput.mode } : {}),
+			...(requestInput.include && requestInput.include.length > 0
+				? { include: requestInput.include }
+				: {}),
+			...(requestInput.select ? { select: requestInput.select } : {}),
+		}),
+		defaultNextAction:
+			"Run `mimirmesh skills find` or `mimirmesh skills resolve <prompt>` to choose the next skill to inspect.",
+		machineReadablePayload: (request, result) => ({
+			tool: "skills.read",
+			request,
+			result,
+		}),
+		...dependencies,
+	});
+
+export const createSkillsResolveWorkflow = (
+	requestInput: {
+		prompt: string;
+		taskMetadata?: Record<string, unknown>;
+		mcpEngineContext?: Record<string, unknown>;
+		include?: string[];
+		limit?: number;
+	},
+	dependencies?: { loadContext?: typeof loadCliContext; callTool?: typeof mcpCallTool },
+): WorkflowDefinition =>
+	createSkillToolWorkflow({
+		id: "skills-resolve",
+		title: "Resolve Skills",
+		description:
+			"Rank relevant skills for a prompt using deterministic repository-aware precedence.",
+		toolName: "skills.resolve",
+		stepLabel: "Resolve matching skills",
+		stepKind: "discovery",
+		interactivePolicy: "default-non-interactive",
+		recommendedNextActions: ["skills-find", "skills-read", "skills-refresh"],
+		request: () => ({
+			prompt: requestInput.prompt,
+			...(requestInput.taskMetadata ? { taskMetadata: requestInput.taskMetadata } : {}),
+			...(requestInput.mcpEngineContext ? { mcpEngineContext: requestInput.mcpEngineContext } : {}),
+			...(requestInput.include && requestInput.include.length > 0
+				? { include: requestInput.include }
+				: {}),
+			...(typeof requestInput.limit === "number" ? { limit: requestInput.limit } : {}),
+		}),
+		defaultNextAction: "Run `mimirmesh skills read <skill-name>` on the highest-ranked result.",
+		machineReadablePayload: (request, result) => ({
+			tool: "skills.resolve",
+			request,
+			result,
+		}),
+		...dependencies,
+	});
+
+export const createSkillsRefreshWorkflow = (
+	requestInput: {
+		names?: string[];
+		scope?: "repo" | "all";
+		invalidateNotFound?: boolean;
+		reindexEmbeddings?: boolean;
+	},
+	dependencies?: { loadContext?: typeof loadCliContext; callTool?: typeof mcpCallTool },
+): WorkflowDefinition =>
+	createSkillToolWorkflow({
+		id: "skills-refresh",
+		title: "Refresh Skills",
+		description:
+			"Refresh repository-scoped skill state, invalidate stale cache assumptions, and reindex when requested.",
+		toolName: "skills.refresh",
+		stepLabel: "Refresh skill registry state",
+		stepKind: "runtime-action",
+		interactivePolicy: "default-non-interactive",
+		recommendedNextActions: ["skills-find", "skills-resolve", "runtime-status"],
+		request: () => ({
+			...(requestInput.names && requestInput.names.length > 0 ? { names: requestInput.names } : {}),
+			...(requestInput.scope ? { scope: requestInput.scope } : {}),
+			...(typeof requestInput.invalidateNotFound === "boolean"
+				? { invalidateNotFound: requestInput.invalidateNotFound }
+				: {}),
+			...(typeof requestInput.reindexEmbeddings === "boolean"
+				? { reindexEmbeddings: requestInput.reindexEmbeddings }
+				: {}),
+		}),
+		defaultNextAction: "Run `mimirmesh skills find` again to inspect the refreshed registry state.",
+		machineReadablePayload: (request, result) => ({
+			tool: "skills.refresh",
+			request,
+			result,
+		}),
+		...dependencies,
+	});
+
+export const createSkillsCreateWorkflow = (
+	requestInput: {
+		prompt?: string;
+		targetPath?: string;
+		template?: string;
+		mode?: "analyze" | "generate" | "write";
+		includeRecommendations?: boolean;
+		includeGapAnalysis?: boolean;
+		includeCompletenessAnalysis?: boolean;
+		includeConsistencyAnalysis?: boolean;
+		validateBeforeWrite?: boolean;
+	},
+	dependencies?: { loadContext?: typeof loadCliContext; callTool?: typeof mcpCallTool },
+): WorkflowDefinition =>
+	createSkillToolWorkflow({
+		id: "skills-create",
+		title: "Create Skill",
+		description:
+			"Guide new skill authoring with deterministic prompts, templates, validation, and optional writes.",
+		toolName: "skills.create",
+		stepLabel: "Generate the new skill package",
+		stepKind: "generation",
+		interactivePolicy: "default-interactive",
+		recommendedNextActions: ["skills-update", "skills-find"],
+		request: () => ({
+			prompt: requestInput.prompt ?? buildSkillAuthoringPrompt("create"),
+			...(requestInput.targetPath ? { targetPath: requestInput.targetPath } : {}),
+			...(requestInput.template ? { template: requestInput.template } : {}),
+			...(requestInput.mode ? { mode: requestInput.mode } : { mode: "generate" }),
+			...(typeof requestInput.includeRecommendations === "boolean"
+				? { includeRecommendations: requestInput.includeRecommendations }
+				: { includeRecommendations: true }),
+			...(typeof requestInput.includeGapAnalysis === "boolean"
+				? { includeGapAnalysis: requestInput.includeGapAnalysis }
+				: { includeGapAnalysis: true }),
+			...(typeof requestInput.includeCompletenessAnalysis === "boolean"
+				? { includeCompletenessAnalysis: requestInput.includeCompletenessAnalysis }
+				: { includeCompletenessAnalysis: true }),
+			...(typeof requestInput.includeConsistencyAnalysis === "boolean"
+				? { includeConsistencyAnalysis: requestInput.includeConsistencyAnalysis }
+				: { includeConsistencyAnalysis: true }),
+			...(typeof requestInput.validateBeforeWrite === "boolean"
+				? { validateBeforeWrite: requestInput.validateBeforeWrite }
+				: { validateBeforeWrite: true }),
+		}),
+		defaultNextAction:
+			"Run `mimirmesh skills update <skill-name>` to refine an existing skill package.",
+		machineReadablePayload: (request, result) => ({
+			tool: "skills.create",
+			request,
+			result,
+		}),
+		...dependencies,
+	});
+
+export const createSkillsAuthoringUpdateWorkflow = (
+	requestInput: {
+		name: string;
+		prompt?: string;
+		targetPath?: string;
+		template?: string;
+		mode?: "analyze" | "patchPlan" | "write";
+		includeRecommendations?: boolean;
+		includeGapAnalysis?: boolean;
+		includeCompletenessAnalysis?: boolean;
+		includeConsistencyAnalysis?: boolean;
+		validateBeforeWrite?: boolean;
+		validateAfterWrite?: boolean;
+	},
+	dependencies?: { loadContext?: typeof loadCliContext; callTool?: typeof mcpCallTool },
+): WorkflowDefinition =>
+	createSkillToolWorkflow({
+		id: "skills-authoring-update",
+		title: `Update Skill (${requestInput.name})`,
+		description:
+			"Guide deterministic updates to an existing skill package while preserving full fidelity.",
+		toolName: "skills.update",
+		stepLabel: "Generate the skill update plan",
+		stepKind: "generation",
+		interactivePolicy: "default-interactive",
+		recommendedNextActions: ["skills-find", "skills-read", "skills-create"],
+		request: () => ({
+			name: requestInput.name,
+			prompt: requestInput.prompt ?? buildSkillAuthoringPrompt("update", requestInput.name),
+			...(requestInput.targetPath ? { targetPath: requestInput.targetPath } : {}),
+			...(requestInput.template ? { template: requestInput.template } : {}),
+			...(requestInput.mode ? { mode: requestInput.mode } : { mode: "patchPlan" }),
+			...(typeof requestInput.includeRecommendations === "boolean"
+				? { includeRecommendations: requestInput.includeRecommendations }
+				: { includeRecommendations: true }),
+			...(typeof requestInput.includeGapAnalysis === "boolean"
+				? { includeGapAnalysis: requestInput.includeGapAnalysis }
+				: { includeGapAnalysis: true }),
+			...(typeof requestInput.includeCompletenessAnalysis === "boolean"
+				? { includeCompletenessAnalysis: requestInput.includeCompletenessAnalysis }
+				: { includeCompletenessAnalysis: true }),
+			...(typeof requestInput.includeConsistencyAnalysis === "boolean"
+				? { includeConsistencyAnalysis: requestInput.includeConsistencyAnalysis }
+				: { includeConsistencyAnalysis: true }),
+			...(typeof requestInput.validateBeforeWrite === "boolean"
+				? { validateBeforeWrite: requestInput.validateBeforeWrite }
+				: { validateBeforeWrite: true }),
+			...(typeof requestInput.validateAfterWrite === "boolean"
+				? { validateAfterWrite: requestInput.validateAfterWrite }
+				: { validateAfterWrite: true }),
+		}),
+		defaultNextAction:
+			"Run `mimirmesh skills read <skill-name>` to inspect the updated package details.",
+		machineReadablePayload: (request, result) => ({
+			tool: "skills.update",
+			request,
+			result,
+		}),
+		...dependencies,
+	});

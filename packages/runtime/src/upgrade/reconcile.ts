@@ -4,6 +4,7 @@ import type { RuntimeAdapterContext } from "@mimirmesh/mcp-adapters";
 
 import { runBootstrap } from "../bootstrap/run";
 import { generateRuntimeFiles } from "../compose/generate";
+import { listSkillProviderServiceNames } from "../compose/skills-provider";
 import { discoverEngineCapability } from "../discovery/discover";
 import { detectDockerAvailability } from "../health/docker";
 import { runCompose } from "../services/compose";
@@ -49,6 +50,7 @@ export const reconcileRuntime = async (
 		.map((decision) => config.engines[decision.engine].serviceName);
 	const servicesToRefresh = unique([
 		...servicesToRecreate,
+		...listSkillProviderServiceNames(projectRoot, config),
 		...engineDecisions
 			.filter(
 				(decision) =>
@@ -68,8 +70,14 @@ export const reconcileRuntime = async (
 		}
 	}
 
-	if (servicesToRefresh.length > 0) {
-		const up = await runCompose(config, ["up", "-d", "mm-postgres", ...servicesToRefresh]);
+	if (servicesToRefresh.length > 0 || connection?.startedAt) {
+		const up = await runCompose(config, [
+			"up",
+			"-d",
+			"--remove-orphans",
+			"mm-postgres",
+			...servicesToRefresh,
+		]);
 		if (up.exitCode !== 0) {
 			await logger?.log(
 				"runtime",

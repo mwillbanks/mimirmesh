@@ -16,6 +16,8 @@ export const CompactShell = ({ columns, rows, presentation }: CompactShellProps)
 			"mimirmesh runtime status",
 			"mimirmesh runtime upgrade status",
 			"mimirmesh mcp list-tools",
+			"mimirmesh skills find",
+			'mimirmesh skills resolve "update the skill authoring flow"',
 			"mimirmesh install ide",
 		]}
 	/>

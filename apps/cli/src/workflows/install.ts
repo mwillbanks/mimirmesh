@@ -103,7 +103,7 @@ export const createInstallWorkflow = ({
 			"load-context",
 			"Loading project-local config, runtime paths, and repository context.",
 		);
-		const context = await loadCliContext();
+		let context = await loadCliContext();
 		controller.completeStep("load-context", {
 			evidence: [{ label: "Project root", value: context.projectRoot }],
 		});
@@ -119,6 +119,7 @@ export const createInstallWorkflow = ({
 			evidence: [
 				{ label: "Preset", value: selectedPreset.id },
 				{ label: "Selected areas", value: policy.selectedAreas.join(", ") },
+				{ label: "Embeddings strategy", value: policy.embeddings.mode },
 				{ label: "Created paths", value: String(preview.summary.createdFiles.length) },
 				{ label: "Updated paths", value: String(preview.summary.updatedFiles.length) },
 			],
@@ -214,18 +215,33 @@ export const createInstallWorkflow = ({
 		let skillsResult: Awaited<ReturnType<typeof installSkills>> | null = null;
 		if (policy.selectedAreas.includes("skills")) {
 			controller.startStep("install-skills", "Installing the selected bundled skills.");
-			skillsResult = await installSkills(context, selectedSkills);
+			skillsResult = await installSkills(context, selectedSkills, {
+				presetId: policy.presetId as InstallPresetId | undefined,
+				embeddings: policy.embeddings,
+				selectedAreas: policy.selectedAreas,
+			});
+			context = skillsResult.context;
 			if (skillsResult.skipped.length > 0) {
 				controller.degradeStep("install-skills", {
 					summary: "Bundled skill installation completed with skips.",
 					evidence: [
 						{ label: "Installed", value: String(skillsResult.installed.length) },
 						{ label: "Skipped", value: String(skillsResult.skipped.length) },
+						{ label: "Embeddings strategy", value: policy.embeddings.mode },
+						{ label: "Embedding provider", value: skillsResult.selectedProviderType ?? "none" },
+						{ label: "AGENTS.md", value: skillsResult.guidance.outcome },
+						{ label: "Registry readiness", value: skillsResult.registryReadiness },
 					],
 				});
 			} else {
 				controller.completeStep("install-skills", {
-					evidence: [{ label: "Installed", value: String(skillsResult.installed.length) }],
+					evidence: [
+						{ label: "Installed", value: String(skillsResult.installed.length) },
+						{ label: "Embeddings strategy", value: policy.embeddings.mode },
+						{ label: "Embedding provider", value: skillsResult.selectedProviderType ?? "none" },
+						{ label: "AGENTS.md", value: skillsResult.guidance.outcome },
+						{ label: "Registry readiness", value: skillsResult.registryReadiness },
+					],
 				});
 			}
 		} else {
@@ -316,18 +332,37 @@ export const createInstallWorkflow = ({
 			evidence: [
 				{ label: "Selected preset", value: selectedPreset.id },
 				{ label: "Selected areas", value: policy.selectedAreas.join(", ") },
+				{ label: "Embeddings strategy", value: policy.embeddings.mode },
 				{ label: "Completed areas", value: completedAreas.join(", ") || "None" },
 				{ label: "Skipped areas", value: skippedAreas.join(", ") || "None" },
+				...(skillsResult
+					? [
+							{ label: "AGENTS.md", value: skillsResult.guidance.outcome },
+							{ label: "Skills config", value: skillsResult.configPath },
+							{ label: "Registry readiness", value: skillsResult.registryReadiness },
+						]
+					: []),
 				...verificationEvidence,
 			],
 			machineReadablePayload: {
 				selectedPreset: selectedPreset.id,
 				selectedAreas: policy.selectedAreas,
 				selectedIdeTargets: policy.ideTargets,
+				embeddings: policy.embeddings,
 				completedAreas,
 				skippedAreas,
 				degradedAreas,
 				updatedFiles: preview.summary.updatedFiles,
+				skillsMaintenance: skillsResult
+					? {
+							guidanceOutcome: skillsResult.guidance.outcome,
+							configPath: skillsResult.configPath,
+							registryReadiness: skillsResult.registryReadiness,
+							registryStatePath: skillsResult.registryStatePath,
+							selectedProviderType: skillsResult.selectedProviderType,
+							localRuntimeImage: skillsResult.localRuntimeImage,
+						}
+					: null,
 				runtimeStatus: runtime.health,
 				summary: preview.summary,
 			},

@@ -52,7 +52,7 @@ An agent determines it needs a capability from a specific engine (e.g., `srcligh
 
 ### User Story 3 - Client Receives Compressed Tool Schemas (Priority: P1)
 
-The MCP server exposes a schema compression layer that reduces tool description and parameter schema verbosity. Tool descriptions are deduplicated, abbreviated summaries are offered, and redundant schema details are removed. Clients receive the compressed payload, reducing token overhead during tool listing and discovery phases.
+The MCP server exposes a schema compression layer that reduces tool description and parameter schema verbosity. Tool descriptions remain present as abbreviated summaries, synonymous text is deduplicated, and redundant schema details are removed. Clients receive the compressed payload, reducing token overhead during tool listing and discovery phases.
 
 **Why this priority**: Direct token reduction mechanism. Schema descriptions often account for 40-50% of tool metadata overhead. Compression across all tools (core and lazy) provides immediate per-session savings regardless of whether passthrough tools are loaded.
 
@@ -119,7 +119,7 @@ An operator managing a MímirMesh instance can configure which tools are core (a
 - **FR-001**: System MUST expose a core set of unified routed tools plus any required management tools on MCP server startup, without loading engine passthrough tool groups.
 - **FR-002**: System MUST defer engine-specific passthrough tool groups and load them only when explicitly requested by name or invocation.
 - **FR-003**: Upon lazy load request, system MUST discover all tools available in the requested engine group and register them in the MCP tool registry without restarting the server.
-- **FR-004**: System MUST apply schema compression to tool metadata by default while preserving the standard MCP tool contract and SDK compatibility for all clients.
+- **FR-004**: System MUST apply schema compression to tool metadata by default while preserving the standard MCP tool contract and SDK compatibility for all clients, including a concise description for every published tool.
 - **FR-005**: Compressed schemas MUST retain sufficient detail for agents to determine tool purpose, required parameters, and return type without external documentation, and the system MUST provide an MCP-compatible on-demand path to retrieve fuller per-tool schema detail when needed.
 - **FR-006**: System MUST track which tool groups have been lazily loaded and MUST NOT re-discover or re-load already-loaded groups unless explicitly refreshed.
 - **FR-007**: System MUST provide machine-readable tool metadata that distinguishes core tools from deferred tools and includes indicators of deferred group membership.
@@ -165,7 +165,7 @@ An operator managing a MímirMesh instance can configure which tools are core (a
 
 ### Key Entities
 
-- **Tool Metadata**: Schema, description, parameters, return type, namespace/origin. Compressed version strips verbose descriptions and deduplicates redundant details while remaining representable through standard MCP-compatible tool metadata and retrieval flows.
+- **Tool Metadata**: Schema, description, parameters, return type, namespace/origin. Compressed version keeps a concise description, deduplicates redundant details, and remains representable through standard MCP-compatible tool metadata and retrieval flows.
 - **Engine Group**: Logical grouping of tools from a single MCP engine (e.g., Srclight, document-mcp, custom user servers). Can be core or deferred.
 - **Compression Policy**: Configuration controlling what kinds of descriptions are abbreviated, how aggressively deduplication is applied, and whether compression is enabled per-tool or globally.
 - **Lazy Load Context**: Tracks which engine groups have been loaded in current session, timestamp of last load, and health status of each group.

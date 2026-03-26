@@ -27,6 +27,8 @@ export const engineStatePath = (projectRoot: string, engine: string): string =>
 	join(enginesStateDir(projectRoot), `${engine}.json`);
 export const mcpServerStatePath = (projectRoot: string): string =>
 	join(runtimeRoot(projectRoot), "mcp-server.json");
+export const skillRegistryStatePath = (projectRoot: string): string =>
+	join(runtimeRoot(projectRoot), "skills-registry.json");
 const sanitizeSessionId = (sessionId: string): string =>
 	sessionId.replace(/[^a-zA-Z0-9._-]+/g, "_");
 export const mcpSessionStateDir = (projectRoot: string): string =>

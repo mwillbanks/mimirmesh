@@ -34,3 +34,5 @@ export const writeGlobalConfig = async (
 	}
 	await writeFile(configPath, stringify(validation.config), "utf8");
 };
+
+export { writeSkillsConfig } from "./skills";

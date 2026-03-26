@@ -14,7 +14,11 @@
 12. If upgrade status is degraded, run `mimirmesh runtime doctor` and then `mimirmesh runtime upgrade repair`
 13. Configure IDE MCP via `mimirmesh install ide` if you skipped IDE integration during the umbrella install flow
 14. Attach repository-local bundled skills via `mimirmesh skills install` if you skipped skills during the umbrella install flow
-15. If you prefer copied skill installs, set `skills.install.symbolic: false` in `~/.mimirmesh/config.yml` before installing or updating skills
-16. If MCP config was generated before upgrading, rerun `mimirmesh install ide` to refresh target-specific schema and server command wiring
-17. After upgrading MímirMesh, run `mimirmesh skills update` in repositories that use copied or broken-link skill installs
-18. If the IDE still reports invalid tool names, run `mimirmesh update` (or local dev fallback: rebuild with `bun run build` and reinstall with `bun run scripts/install.ts`) so `mimirmesh-server` is updated
+15. If bundled skills are included during `mimirmesh install`, choose an embeddings setup strategy when prompted. Supported modes are `disabled`, Docker-managed `llama_cpp`, existing LM Studio, existing OpenAI-compatible runtime, and OpenAI. Non-interactive installs can pass `--embeddings`, `--embeddings-model`, `--embeddings-base-url`, and `--embeddings-api-key`.
+16. When Docker-managed `llama_cpp` is selected, MímirMesh renders a project-scoped Compose service that materializes `docker/images/llama-cpp/Dockerfile` into `.mimirmesh/runtime/images/llama-cpp/Dockerfile` and builds from that runtime path around an official `ghcr.io/ggml-org/llama.cpp` base image instead of relying on host-native llama.cpp execution.
+17. Use `mimirmesh skills find`, `mimirmesh skills read <skill-name>`, `mimirmesh skills resolve <prompt>`, and `mimirmesh skills refresh` to inspect the deterministic skill registry after installation
+18. If you want to author a new skill package, use `mimirmesh skills create`; if you want to update an existing non-bundled skill package, use `mimirmesh skills update <skill-name>`
+19. If you prefer copied skill installs, set `skills.install.symbolic: false` in `~/.mimirmesh/config.yml` before installing or updating skills
+20. If MCP config was generated before upgrading, rerun `mimirmesh install ide` to refresh target-specific schema and server command wiring
+21. After upgrading MímirMesh, run `mimirmesh skills update` in repositories that use copied or broken-link skill installs
+22. If the IDE still reports invalid tool names, run `mimirmesh update` (or local dev fallback: rebuild with `bun run build` and reinstall with `bun run scripts/install.ts`) so `mimirmesh-server` is updated

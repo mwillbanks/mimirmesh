@@ -18,6 +18,22 @@ export const installHelpRows = [
 		description: "Choose bundled skills to install when `skills` is selected.",
 	},
 	{
+		flag: "--embeddings <disabled|docker-llama-cpp|existing-lm-studio|existing-openai-compatible|openai>",
+		description: "Choose how embeddings should be configured when `skills` is selected.",
+	},
+	{
+		flag: "--embeddings-model <value>",
+		description: "Override the embeddings model for the selected embeddings strategy.",
+	},
+	{
+		flag: "--embeddings-base-url <value>",
+		description: "Override the base URL for an existing embeddings runtime.",
+	},
+	{
+		flag: "--embeddings-api-key <value>",
+		description: "Persist the API key required by an authenticated embeddings provider.",
+	},
+	{
 		flag: "--yes",
 		description: "Auto-confirm install-managed updates in non-interactive mode.",
 	},
@@ -38,8 +54,8 @@ export const installHelpRows = [
 export const installHelpExamples = [
 	"mimirmesh install --non-interactive --preset recommended",
 	"mimirmesh install --non-interactive --areas core,ide --ide vscode,cursor",
-	"mimirmesh install --non-interactive --areas core,skills --skills all",
-	"mimirmesh install --non-interactive --preset full --ide vscode --skills all --yes",
+	"mimirmesh install --non-interactive --areas core,skills --skills all --embeddings existing-lm-studio --embeddings-base-url http://localhost:1234/v1 --embeddings-model text-embedding-nomic-embed-text-v1.5",
+	"mimirmesh install --non-interactive --preset full --ide vscode --skills all --embeddings docker-llama-cpp --embeddings-model Qwen/Qwen3-Embedding-0.6B-GGUF --yes",
 ] as const;
 
 export const installCommandHelp: CommandHelpDefinition = {
@@ -52,7 +68,7 @@ export const installCommandHelp: CommandHelpDefinition = {
 			lines: [
 				"Pass --preset or --areas to resolve the install plan without prompts.",
 				"If the plan includes ide, also pass --ide with one or more targets.",
-				"If the plan includes skills, optionally pass --skills to avoid the bundled-skill selector.",
+				"If the plan includes skills, optionally pass --skills to avoid the bundled-skill selector and pass --embeddings plus any required provider flags to avoid the embeddings prompts.",
 				"Use --yes to auto-confirm install-managed updates during a non-interactive rerun.",
 			],
 		},

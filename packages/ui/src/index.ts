@@ -4,6 +4,7 @@ export { CompactTerminalNotice } from "./components/compact-terminal-notice";
 export { GuidedConfirm } from "./components/guided-confirm";
 export { GuidedMultiSelect } from "./components/guided-multi-select";
 export { GuidedSelect } from "./components/guided-select";
+export { GuidedTextInput } from "./components/guided-text-input";
 export { PromptReason } from "./components/prompt-reason";
 export { ShellFrame } from "./components/shell-frame";
 export { SpinnerLine } from "./components/spinner-line";

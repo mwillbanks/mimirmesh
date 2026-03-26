@@ -26,7 +26,6 @@ import type {
 } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { CallToolRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-
 import { toTransportToolName } from "../middleware/tool-name";
 import { filterPassthroughTools } from "../tools/passthrough";
 import { filterUnifiedTools } from "../tools/unified";
@@ -71,11 +70,143 @@ type TransportToolResult = {
 		type: "text";
 		text: string;
 	}>;
-	structuredContent?: {
-		result: unknown;
-	};
+	structuredContent?: Record<string, unknown>;
 	isError?: boolean;
 };
+
+const leanSkillsTransportSchemas = {
+	"skills.find": z.object({
+		query: z.string().trim().min(1).optional(),
+		names: z.array(z.string().trim().min(1)).optional(),
+		include: z
+			.array(
+				z.enum([
+					"description",
+					"contentHash",
+					"capabilities",
+					"assetCounts",
+					"compatibility",
+					"summary",
+					"matchReason",
+				]),
+			)
+			.optional(),
+		limit: z.number().int().positive().optional(),
+		offset: z.number().int().min(0).optional(),
+	}),
+	"skills.read": z.object({
+		name: z.string().trim().min(1),
+		mode: z.enum(["memory", "instructions", "assets", "full"]).optional(),
+		include: z
+			.array(
+				z.enum([
+					"description",
+					"metadata",
+					"instructions",
+					"sectionIndex",
+					"referencesIndex",
+					"scriptsIndex",
+					"templatesIndex",
+					"examplesIndex",
+					"auxiliaryIndex",
+					"references",
+					"scripts",
+					"templates",
+					"examples",
+					"auxiliary",
+					"fullText",
+				]),
+			)
+			.optional(),
+		select: z
+			.object({
+				sections: z.array(z.string()).optional(),
+				references: z.array(z.string()).optional(),
+				scripts: z.array(z.string()).optional(),
+				templates: z.array(z.string()).optional(),
+				examples: z.array(z.string()).optional(),
+				auxiliary: z.array(z.string()).optional(),
+			})
+			.optional(),
+	}),
+	"skills.resolve": z.object({
+		prompt: z.string().trim().min(1),
+		taskMetadata: z.record(z.string(), z.unknown()).optional(),
+		mcpEngineContext: z.record(z.string(), z.unknown()).optional(),
+		include: z.array(z.enum(["matchReason", "score", "configInfluence", "readHint"])).optional(),
+		limit: z.number().int().positive().optional(),
+	}),
+	"skills.refresh": z.object({
+		names: z.array(z.string().trim().min(1)).optional(),
+		scope: z.enum(["repo", "all"]).optional(),
+		invalidateNotFound: z.boolean().optional(),
+		reindexEmbeddings: z.boolean().optional(),
+	}),
+	"skills.create": z.object({
+		prompt: z.string().trim().min(1),
+		targetPath: z.string().trim().min(1).optional(),
+		template: z.string().trim().min(1).optional(),
+		mode: z.enum(["analyze", "generate", "write"]).optional(),
+		includeRecommendations: z.boolean().optional(),
+		includeGapAnalysis: z.boolean().optional(),
+		includeCompletenessAnalysis: z.boolean().optional(),
+		includeConsistencyAnalysis: z.boolean().optional(),
+		validateBeforeWrite: z.boolean().optional(),
+	}),
+	"skills.update": z.object({
+		name: z.string().trim().min(1),
+		prompt: z.string().trim().min(1),
+		mode: z.enum(["analyze", "patchPlan", "write"]).optional(),
+		includeRecommendations: z.boolean().optional(),
+		includeGapAnalysis: z.boolean().optional(),
+		includeCompletenessAnalysis: z.boolean().optional(),
+		includeConsistencyAnalysis: z.boolean().optional(),
+		validateBeforeWrite: z.boolean().optional(),
+		validateAfterWrite: z.boolean().optional(),
+	}),
+} as const;
+
+const resolveTransportInputSchema = (
+	toolName: ToolName,
+	passthroughSchema: McpAnySchema | z.ZodTypeAny,
+): McpAnySchema | ZodRawShapeCompat => {
+	if (!isUnifiedTool(toolName)) {
+		return passthroughSchema as McpAnySchema;
+	}
+
+	if (toolName in leanSkillsTransportSchemas) {
+		return leanSkillsTransportSchemas[toolName as keyof typeof leanSkillsTransportSchemas]
+			.shape as unknown as ZodRawShapeCompat;
+	}
+
+	return unifiedToolInputSchemas[toolName] as unknown as ZodRawShapeCompat;
+};
+
+const buildTransportStructuredContent = (
+	toolName: string,
+	result: {
+		tool: string;
+		success: boolean;
+		degraded: boolean;
+		warnings: string[];
+		warningCodes: string[];
+		nextAction?: string;
+		raw?: Record<string, unknown>;
+	},
+): Record<string, unknown> =>
+	toolName.startsWith("skills.")
+		? {
+				tool: result.tool,
+				success: result.success,
+				degraded: result.degraded,
+				warnings: result.warnings,
+				warningCodes: result.warningCodes,
+				...(result.nextAction ? { nextAction: result.nextAction } : {}),
+				data: result.raw ?? {},
+			}
+		: {
+				result,
+			};
 
 export const startMcpServer = async (projectRootInput?: string): Promise<void> => {
 	const projectRoot = projectRootInput ?? process.env.MIMIRMESH_PROJECT_ROOT ?? process.cwd();
@@ -194,19 +325,13 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 
 	for (const tool of toolDefinitions) {
 		const transportToolName = toTransportToolName(tool.name);
-		const description =
-			transportToolName === tool.name
-				? tool.description
-				: `${tool.description} (alias: ${tool.name})`;
-		const inputSchema: McpAnySchema | ZodRawShapeCompat = isUnifiedTool(tool.name)
-			? (unifiedToolInputSchemas[tool.name] as unknown as ZodRawShapeCompat)
-			: (passthroughSchema as unknown as McpAnySchema);
+		const inputSchema = resolveTransportInputSchema(tool.name as ToolName, passthroughSchema);
 
 		registerTransportTool(
 			transportToolName,
 			{
 				title: transportToolName,
-				description,
+				description: tool.description,
 				inputSchema,
 			},
 			async (input: ToolInput) => {
@@ -226,9 +351,7 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 							text: result.message,
 						},
 					],
-					structuredContent: {
-						result,
-					},
+					structuredContent: buildTransportStructuredContent(tool.name, result),
 					isError: !result.success,
 				};
 			},

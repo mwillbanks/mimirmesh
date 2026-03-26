@@ -12,6 +12,7 @@ When a client starts a new MCP session:
 
 - `listTools()` returns only core unified tools plus required management tools used to inspect deferred groups, load groups explicitly, or request fuller schema detail
 - returned tool metadata is compressed according to the configured policy
+- each published tool definition retains a concise description field; compression may shorten it, but descriptions are not omitted
 - deferred engine groups are advertised as deferred capability, not as already loaded passthrough tools
 - startup readiness is not reported healthy until core discoverability validation succeeds
 

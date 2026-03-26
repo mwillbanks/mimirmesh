@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { bundledSkillsInstallDir, installBundledSkills } from "@mimirmesh/skills";
-import { loadSkillSelectionModel } from "../../../src/commands/skills/shared";
+import {
+	buildSkillAuthoringPrompt,
+	loadSkillSelectionModel,
+	resolveSkillUpdateInvocationMode,
+} from "../../../src/commands/skills/shared";
 
 const withProjectRoot = async <T>(projectRoot: string, run: () => Promise<T>): Promise<T> => {
 	const originalProjectRoot = process.env.MIMIRMESH_PROJECT_ROOT;
@@ -66,5 +70,17 @@ describe("skills selection model", () => {
 
 		expect(model.choices.map((choice) => choice.value)).toEqual(["mimirmesh-agent-router"]);
 		expect(model.defaultValues).toEqual([]);
+	});
+
+	test("update dispatches maintenance and authoring modes deterministically", () => {
+		expect(resolveSkillUpdateInvocationMode("mimirmesh-code-navigation")).toEqual({
+			mode: "maintenance",
+			skillName: "mimirmesh-code-navigation",
+		});
+		expect(resolveSkillUpdateInvocationMode("custom-skill")).toEqual({
+			mode: "authoring",
+			skillName: "custom-skill",
+		});
+		expect(buildSkillAuthoringPrompt("update", "custom-skill")).toContain("custom-skill");
 	});
 });

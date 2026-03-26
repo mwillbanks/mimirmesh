@@ -30,6 +30,7 @@ type ContextWorkflowConfig = {
 	stepLabel: string;
 	stepKind: WorkflowStepKind;
 	machineReadableSupported?: boolean;
+	loadContext?: typeof loadCliContext;
 	run: (context: Awaited<ReturnType<typeof loadCliContext>>) => Promise<ContextWorkflowResult>;
 };
 
@@ -43,6 +44,7 @@ export const createContextWorkflow = ({
 	stepLabel,
 	stepKind,
 	machineReadableSupported = true,
+	loadContext = loadCliContext,
 	run,
 }: ContextWorkflowConfig): WorkflowDefinition => ({
 	id,
@@ -63,7 +65,7 @@ export const createContextWorkflow = ({
 			"load-context",
 			"Loading project-local config, logger, and runtime paths.",
 		);
-		const context = await loadCliContext();
+		const context = await loadContext();
 		controller.completeStep("load-context", {
 			evidence: [{ label: "Project root", value: context.projectRoot }],
 		});

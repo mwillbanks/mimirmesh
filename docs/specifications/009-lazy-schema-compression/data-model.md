@@ -42,7 +42,7 @@
   - `compressionProfile`: profile used to produce the summary
   - `sessionState`: `core`, `loaded`, or `deferred-indicator`
 - **Validation Rules**:
-  - `summary` must remain MCP-compatible string metadata
+  - `summary` must remain MCP-compatible string metadata and must be present for each published tool
   - `argumentHints` must preserve enough information for tool selection without becoming a full schema dump
   - `deferred-indicator` descriptors must not be invocable as passthrough tools unless they are management tools by design
 

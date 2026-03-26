@@ -268,3 +268,13 @@ Agents must prioritize:
 * full test coverage
 
 The repository must remain understandable and stable for future contributors and coding agents.
+
+<!-- BEGIN MIMIRMESH SKILLS SECTION -->
+## MimirMesh Skill Workflows
+
+- Use `skills.find` before loading local skill content broadly.
+- Use `skills.read` with default `memory` mode and targeted selections before broader reads.
+- Use `skills.resolve` and `skills.refresh` for deterministic repository-aware skill selection and cache refresh.
+- Use `skills.create` and `skills.update` for guided skill authoring and maintenance.
+- Do not treat this `AGENTS.md` section as a runtime ranking source; runtime resolution comes from the MimirMesh skill subsystem and `.mimirmesh/config.yml`.
+<!-- END MIMIRMESH SKILLS SECTION -->

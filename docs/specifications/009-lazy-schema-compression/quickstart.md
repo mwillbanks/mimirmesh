@@ -40,7 +40,7 @@ bun run apps/server/src/index.ts
 Manual checks with an MCP client:
 
 - initial `listTools()` shows only core unified tools plus required management tools
-- tool descriptions are visibly compressed
+- tool descriptions are visibly compressed but still present for every published tool
 - deferred engine groups are indicated without exposing their passthrough tools as already loaded
 
 ## 3. Validate explicit deferred-group load and notification refresh

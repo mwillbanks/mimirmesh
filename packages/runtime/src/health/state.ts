@@ -4,6 +4,7 @@ import type {
 	UpgradeStatusReport,
 } from "@mimirmesh/config";
 
+import type { SkillRegistryState } from "../state/skills";
 import type {
 	BootstrapStateFile,
 	EngineRuntimeState,
@@ -190,6 +191,7 @@ export const buildRuntimeHealth = (options: {
 	runtimeVersion?: ProjectRuntimeVersionRecord | null;
 	upgradeState?: UpgradeStatusReport["state"] | null;
 	migrationStatus?: string | null;
+	skillRegistry?: SkillRegistryState | null;
 }): RuntimeHealth => ({
 	timestamp: new Date().toISOString(),
 	state: options.state,
@@ -203,4 +205,5 @@ export const buildRuntimeHealth = (options: {
 	runtimeVersion: options.runtimeVersion ?? null,
 	upgradeState: options.upgradeState ?? null,
 	migrationStatus: options.migrationStatus ?? null,
+	skillRegistry: options.skillRegistry ?? null,
 });

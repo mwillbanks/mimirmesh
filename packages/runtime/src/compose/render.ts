@@ -4,6 +4,7 @@ import type { MimirmeshConfig } from "@mimirmesh/config";
 import { type RuntimeAdapterContext, translateAllEngineConfigs } from "@mimirmesh/mcp-adapters";
 
 import { engineCommand } from "../images/engine-images";
+import { resolveSkillProviderSelection } from "./skills-provider";
 
 const yamlQuote = (value: string): string => {
 	const escaped = value.replaceAll("'", "''");
@@ -16,6 +17,9 @@ const envLines = (env: Record<string, string>): string[] => {
 		.map(([key, value]) => `      ${key}: ${yamlQuote(value)}`);
 };
 
+const listLines = (items: string[], indent = 6): string[] =>
+	items.map((item) => `${" ".repeat(indent)}- ${yamlQuote(item)}`);
+
 export const renderCompose = (
 	projectRoot: string,
 	config: MimirmeshConfig,
@@ -27,6 +31,11 @@ export const renderCompose = (
 	const mmMountHost = resolve(runtimeRoot);
 
 	const translated = translateAllEngineConfigs(projectRoot, config, options.adapterContext);
+	const hostGpuAvailable =
+		options.adapterContext?.gpuResolutions?.srclight?.hostNvidiaAvailable ?? false;
+	const skillProviderSelection = resolveSkillProviderSelection(projectRoot, config, {
+		hostGpuAvailable,
+	});
 
 	const services: string[] = [];
 
@@ -39,11 +48,73 @@ export const renderCompose = (
       POSTGRES_PASSWORD: mimirmesh
     volumes:
       - ${yamlQuote(`${postgresData}:/var/lib/postgresql/data`)}
+    ports:
+      - target: 5432
+        published: 0
+        protocol: tcp
+        host_ip: 127.0.0.1
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mimirmesh"]
       interval: 10s
       timeout: 5s
       retries: 10`);
+
+	const localSkillRuntime = skillProviderSelection.localRuntime;
+	const selectedSkillProvider =
+		typeof skillProviderSelection.selectedProviderIndex === "number"
+			? skillProviderSelection.providers[skillProviderSelection.selectedProviderIndex]
+			: null;
+	if (localSkillRuntime && selectedSkillProvider) {
+		const skillRuntimeContext = resolve(localSkillRuntime.buildContext);
+		const skillRuntimeDockerfile = resolve(localSkillRuntime.dockerfile);
+		const gpuReservation =
+			localSkillRuntime.variant === "server-cuda"
+				? `
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]`
+				: "";
+
+		services.push(`  ${localSkillRuntime.serviceName}:
+    build:
+      context: ${yamlQuote(skillRuntimeContext)}
+      dockerfile: ${yamlQuote(skillRuntimeDockerfile)}
+      args:
+        LLAMA_CPP_BASE_IMAGE: ${yamlQuote(localSkillRuntime.baseImage)}
+    image: ${yamlQuote(localSkillRuntime.image)}
+    restart: unless-stopped
+    environment:
+${envLines({
+	LLAMA_CACHE: "/models",
+	MIMIRMESH_SKILLS_MODEL: selectedSkillProvider.model,
+	MIMIRMESH_SKILLS_PROVIDER: selectedSkillProvider.type,
+}).join("\n")}
+    command:
+${listLines([
+	"--hf",
+	selectedSkillProvider.model,
+	"--host",
+	"0.0.0.0",
+	"--port",
+	String(localSkillRuntime.port),
+	"--embeddings",
+]).join("\n")}
+    volumes:
+      - ${yamlQuote(`${resolve(localSkillRuntime.modelStoragePath)}:/models`)}
+    ports:
+      - target: ${localSkillRuntime.port}
+        published: 0
+        protocol: tcp
+        host_ip: 127.0.0.1${gpuReservation}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${localSkillRuntime.port}${localSkillRuntime.healthPath}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12`);
+	}
 
 	for (const engine of translated) {
 		const command = engineCommand(engine.contract.id, engine.contract);

@@ -65,7 +65,10 @@ describe("install rerun workflow", () => {
 					}),
 					presentation,
 				);
-				expect(["success", "degraded"]).toContain(confirmed.outcome?.kind ?? "");
+				expect(confirmed.outcome?.message).not.toContain("interactive confirmation");
+				expect(confirmed.steps.find((step) => step.id === "detect-install-state")?.status).toBe(
+					"completed",
+				);
 			} finally {
 				const context = await loadCliContext(repo);
 				await runtimeStop(repo, context.config, context.logger);

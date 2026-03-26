@@ -27,6 +27,18 @@ surface:
 - `refresh_tool_surface`
 - `inspect_tool_schema`
 
+When the live router advertises the deterministic skill registry tools, the
+server publishes them through the same registration path as every other unified
+tool. The CLI mirrors that contract with direct `mimirmesh skills find|read|resolve|refresh|create|update` commands, so server and CLI surfaces stay aligned even when the underlying skill backend evolves.
+
+For the six `skills.*` tools specifically, the startup surface now preserves a
+concise `description` field for every published tool definition. The transport
+surface for those tools is also intentionally lean: the human-facing message is
+returned as plain text content, while the structured payload carries one compact
+object with `tool`, `success`, `degraded`, warnings, optional `nextAction`, and
+the tool-specific `data` body. The server no longer duplicates the same skill
+payload into item content, item metadata, and a second transport envelope.
+
 ## Tool Naming
 
 Internal routing entries can remain dotted legacy identifiers such as `mimirmesh.srclight.search_symbols`, but the public MCP surface now publishes engine-native passthrough names such as `srclight_search_symbols`.
@@ -69,6 +81,22 @@ Required runtime artifacts:
 - `.mimirmesh/runtime/mcp-sessions/*.json`
 
 If Docker or Compose is unavailable, the server still starts, but runtime-backed tools reflect that failed or degraded state instead of inventing readiness.
+
+The deterministic skill registry also depends on the runtime PostgreSQL service
+for repository-scoped indexed state. `skills.find`, `skills.read`, and
+`skills.resolve` operate from the persisted skill registry snapshot, and
+`skills.refresh` is the only path that mutates or rebuilds that state. Before a
+repository has been indexed, the skills tools report degraded readiness with an
+explicit refresh action instead of silently reparsing the filesystem on every
+call.
+
+When the selected embeddings provider is local `llama_cpp`, runtime rendering
+materializes the bundled `docker/images/llama-cpp/Dockerfile` asset into the
+project-scoped `.mimirmesh/runtime/images/llama-cpp/Dockerfile` path and uses
+that Dockerfile to build a Compose image around an official
+`ghcr.io/ggml-org/llama.cpp` base image. This replaces the fragile host-native
+llama.cpp assumption in installer-managed flows, which is especially important
+on macOS.
 
 ## Srclight Runtime Path
 

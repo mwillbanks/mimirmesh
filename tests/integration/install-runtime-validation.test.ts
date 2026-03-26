@@ -45,7 +45,9 @@ describe("integration install runtime validation", () => {
 			expect(["ready", "degraded", "bootstrapping", "failed"]).toContain(runtime.health.state);
 
 			const tools = await mcpListTools(context);
-			expect(tools.every((tool) => !tool.name.includes("."))).toBe(true);
+			expect(
+				tools.every((tool) => tool.name.startsWith("skills.") || !tool.name.includes(".")),
+			).toBe(true);
 		} finally {
 			const context = await loadCliContext(repo);
 			await runtimeStop(repo, context.config, context.logger);

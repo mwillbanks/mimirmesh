@@ -8,6 +8,7 @@
 		"@mimirmesh/config": "workspace:*",
 		"@mimirmesh/logging": "workspace:*",
 		"@mimirmesh/mcp-adapters": "workspace:*",
+		"@mimirmesh/skills": "workspace:*",
 		"@mimirmesh/workspace": "workspace:*",
 		"yaml": "^2.8.1",
 		"zod": "^4.3.6"
