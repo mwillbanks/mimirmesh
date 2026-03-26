@@ -10,27 +10,34 @@ const root = process.cwd();
 const distBinary = join(root, "dist", "mimirmesh");
 
 describe("workflow project runtime repair", () => {
+	const ciSafeTest = process.env.CI === "true" ? test.skip : test;
+
 	beforeAll(async () => {
 		const build = await run(["bun", "run", "build"], root);
 		expect(build.code).toBe(0);
 	}, 180_000);
 
-	test("repairs resumable runtime state", async () => {
-		const fixture = await createRuntimeUpgradeFixture("repairable");
-		try {
-			const repair = await run(
-				[distBinary, "runtime", "upgrade", "repair", "--non-interactive", "--json"],
-				fixture.repo,
-				{
-					MIMIRMESH_PROJECT_ROOT: fixture.repo,
-				},
-			);
-			expect(repair.code).toBe(0);
-			expect(
-				repair.stdout.includes('"kind": "success"') || repair.stdout.includes('"kind": "degraded"'),
-			).toBe(true);
-		} finally {
-			await rm(fixture.repo, { recursive: true, force: true });
-		}
-	}, 180_000);
+	ciSafeTest(
+		"repairs resumable runtime state",
+		async () => {
+			const fixture = await createRuntimeUpgradeFixture("repairable");
+			try {
+				const repair = await run(
+					[distBinary, "runtime", "upgrade", "repair", "--non-interactive", "--json"],
+					fixture.repo,
+					{
+						MIMIRMESH_PROJECT_ROOT: fixture.repo,
+					},
+				);
+				expect(repair.code).toBe(0);
+				expect(
+					repair.stdout.includes('"kind": "success"') ||
+						repair.stdout.includes('"kind": "degraded"'),
+				).toBe(true);
+			} finally {
+				await rm(fixture.repo, { recursive: true, force: true });
+			}
+		},
+		180_000,
+	);
 });

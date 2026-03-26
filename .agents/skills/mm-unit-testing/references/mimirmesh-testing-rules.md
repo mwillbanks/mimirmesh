@@ -8,6 +8,7 @@ This reference defines the concrete rules for writing tests in this repository w
 - `.github/workflows/ci.yml` sets `MIMIRMESH_RUN_INTEGRATION_TESTS: "false"`.
 - `packages/testing/src/integration/manager.ts` treats `false`, `0`, and `no` as disabled values for `MIMIRMESH_RUN_INTEGRATION_TESTS`.
 - `scripts/run-integration-tests.ts` is the repository entrypoint for runtime-heavy integration execution.
+- `bun run test` also executes `bun run test:workflow`, so tests under `tests/workflow/` must be CI-safe too.
 
 ## What commonly breaks CI
 
@@ -115,6 +116,7 @@ Typical examples:
 - Keep parser, gating, and option-selection behavior in regular unit tests.
 - If a workflow test launches real install/runtime orchestration and already has integration coverage elsewhere, prefer a CI skip or move it to the integration suite instead of forcing it through `bun test apps`.
 - If a pseudo-terminal smoke test is only validating shell launch behavior and is flaky or slow on hosted runners, gate it on `CI=true` or move the assertion into a lighter deterministic test.
+- Apply the same rule to `tests/workflow/*` when those files shell out to built binaries, mutate temp repositories, or rely on runtime repair/upgrade side effects.
 - When a file mixes both concerns, split the tests rather than letting ordinary test runs trigger runtime dependencies.
 
 ## Review checklist
