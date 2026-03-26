@@ -1,5 +1,5 @@
 import { Box, Text, useInput } from "ink";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { PromptChoice } from "../workflow/types";
 import { PromptReason } from "./prompt-reason";
@@ -34,6 +34,12 @@ export const GuidedSelect = ({
 	);
 	const [focusedIndex, setFocusedIndex] = useState(initialIndex);
 	const [selectedValue, setSelectedValue] = useState(defaultValue ?? choices[0]?.value ?? "");
+	const focusedIndexRef = useRef(initialIndex);
+
+	const setFocusedChoiceIndex = (nextIndex: number) => {
+		focusedIndexRef.current = nextIndex;
+		setFocusedIndex(nextIndex);
+	};
 
 	const focusedChoice = choices[focusedIndex] ?? choices[0];
 	const selectedChoice = useMemo(
@@ -47,17 +53,21 @@ export const GuidedSelect = ({
 		}
 
 		if (key.upArrow) {
-			setFocusedIndex((current) => (current === 0 ? choices.length - 1 : current - 1));
+			const nextIndex =
+				focusedIndexRef.current === 0 ? choices.length - 1 : focusedIndexRef.current - 1;
+			setFocusedChoiceIndex(nextIndex);
 			return;
 		}
 
 		if (key.downArrow) {
-			setFocusedIndex((current) => (current + 1) % choices.length);
+			const nextIndex = (focusedIndexRef.current + 1) % choices.length;
+			setFocusedChoiceIndex(nextIndex);
 			return;
 		}
 
 		if (key.return) {
-			const nextValue = focusedChoice?.value ?? selectedValue;
+			const nextValue =
+				choices[focusedIndexRef.current]?.value ?? focusedChoice?.value ?? selectedValue;
 			if (nextValue) {
 				setSelectedValue(nextValue);
 				onSubmit(nextValue);

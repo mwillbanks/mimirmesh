@@ -177,7 +177,9 @@ export const discoverEngineCapability = async (options: {
 			});
 		}
 
-		unified.push(...adapter.resolveUnifiedRoutes(discoveredTools));
+		if (typeof adapter.resolveUnifiedRoutes === "function") {
+			unified.push(...adapter.resolveUnifiedRoutes(discoveredTools));
+		}
 	}
 
 	const dedupUnified = unified

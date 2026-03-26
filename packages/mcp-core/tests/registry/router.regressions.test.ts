@@ -434,6 +434,86 @@ describe("mcp tool router regressions", () => {
 		});
 	});
 
+	test("treats adapters without unified route resolvers as passthrough-only during deferred discovery", async () => {
+		const createToolRouter = await loadCreateToolRouter();
+		const repo = await createFixtureCopy("single-ts");
+		const config = createDefaultConfig(repo);
+
+		await persistConnection(repo, {
+			projectName: config.runtime.projectName,
+			composeFile: config.runtime.composeFile,
+			updatedAt: new Date().toISOString(),
+			startedAt: new Date().toISOString(),
+			mounts: {
+				repository: repo,
+				mimirmesh: `${repo}/.mimirmesh`,
+			},
+			services: ["mm-srclight"],
+			bridgePorts: {
+				srclight: 65530,
+			},
+		});
+		await persistRoutingTable(repo, {
+			generatedAt: new Date().toISOString(),
+			passthrough: [],
+			unified: [],
+		});
+
+		getAdapterMock.mockImplementation((engine: string) => {
+			if (engine === "srclight") {
+				return {
+					namespace: "mimirmesh.srclight",
+					passthroughPublication: {
+						canonicalId: "srclight",
+						eligibleForPublication: true,
+					},
+					translateConfig: () => translateConfigStub(engine),
+				};
+			}
+
+			return {
+				namespace: engine === "document-mcp" ? "mimirmesh.docs" : "mimirmesh.adr",
+				translateConfig: () => translateConfigStub(engine),
+			};
+		});
+
+		const originalFetch = globalThis.fetch;
+		const fetchStub = (async () =>
+			Response.json({
+				ok: true,
+				tools: [
+					{
+						name: "search_symbols",
+						description: "Search symbols",
+						inputSchema: {
+							type: "object",
+							properties: {
+								query: {
+									type: "string",
+								},
+							},
+						},
+					},
+				],
+			})) as unknown as typeof globalThis.fetch;
+		globalThis.fetch = fetchStub;
+
+		try {
+			const router = createToolRouter({
+				projectRoot: repo,
+				config,
+			});
+
+			const surface = await router.loadDeferredToolGroup("srclight");
+
+			expect(surface.loadedEngineGroups).toContain("srclight");
+			const tools = await router.listTools();
+			expect(tools.some((tool) => tool.name === "srclight_search_symbols")).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	test("fails fast with a validation error when passthrough input misses required fields", async () => {
 		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");

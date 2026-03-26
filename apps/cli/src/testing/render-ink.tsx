@@ -119,8 +119,9 @@ export const renderInkInteraction = async (
 	await interact({ stdin, wait });
 	await wait(options.waitMs ?? 80);
 
+	stdin.end();
 	app.unmount();
-	await wait(20);
+	await app.waitUntilExit();
 
 	return stripAnsi(output);
 };

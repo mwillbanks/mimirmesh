@@ -81,7 +81,8 @@ const mergeEngineRoutes = (
 				: undefined,
 		};
 	});
-	const unifiedRoutes = adapter.resolveUnifiedRoutes(tools);
+	const unifiedRoutes =
+		typeof adapter.resolveUnifiedRoutes === "function" ? adapter.resolveUnifiedRoutes(tools) : [];
 
 	return {
 		generatedAt: new Date().toISOString(),
