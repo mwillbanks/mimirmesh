@@ -1,11 +1,26 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseIntegrationCliOptions } from "../../src/integration/manager";
+import {
+	parseIntegrationCliOptions,
+	shouldRunIntegrationTests,
+} from "../../src/integration/manager";
 
 describe("Integration CLI options parser", () => {
 	test("disables integration when flag passed", () => {
 		const options = parseIntegrationCliOptions(["--no-integration"], {});
 		expect(options.shouldRunIntegration).toBe(false);
+	});
+
+	test("disables integration when environment opt-out is set", () => {
+		expect(
+			shouldRunIntegrationTests({
+				MIMIRMESH_RUN_INTEGRATION_TESTS: "false",
+			}),
+		).toBe(false);
+	});
+
+	test("enables integration by default when no opt-out is present", () => {
+		expect(shouldRunIntegrationTests({})).toBe(true);
 	});
 
 	test("skips prebuild when flag supplied", () => {

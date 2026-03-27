@@ -16,5 +16,9 @@ export {
 export { copyWorkspaceTo } from "./harness/fs";
 export { runProcess } from "./harness/process";
 export { createSpecifyStub } from "./harness/specify-stub";
-export { createIntegrationFixture } from "./integration";
+export {
+	createIntegrationFixture,
+	parseIntegrationCliOptions,
+	shouldRunIntegrationTests,
+} from "./integration";
 export { pathExists } from "./workflow";

@@ -67,17 +67,20 @@ export type IntegrationCliOptions = {
 	shouldPruneCache: boolean;
 };
 
+export const shouldRunIntegrationTests = (env: NodeJS.ProcessEnv, argv: string[] = []): boolean => {
+	const args = new Set(argv);
+	const envValue = (env.MIMIRMESH_RUN_INTEGRATION_TESTS ?? "true").trim().toLowerCase();
+	const skipFromEnv = ["false", "0", "no"].includes(envValue);
+
+	return !(skipFromEnv || SKIP_INTEGRATION_FLAGS.some((flag) => args.has(flag)));
+};
+
 export const parseIntegrationCliOptions = (
 	argv: string[],
 	env: NodeJS.ProcessEnv,
 ): IntegrationCliOptions => {
 	const args = new Set(argv);
-	const envValue = (env.MIMIRMESH_RUN_INTEGRATION_TESTS ?? "true").trim().toLowerCase();
-	const skipFromEnv = ["false", "0", "no"].includes(envValue);
-
-	const shouldRunIntegration = !(
-		skipFromEnv || SKIP_INTEGRATION_FLAGS.some((flag) => args.has(flag))
-	);
+	const shouldRunIntegration = shouldRunIntegrationTests(env, argv);
 	const shouldPrebuild = !SKIP_PREBUILD_FLAGS.some((flag) => args.has(flag));
 	const shouldWarmContainers = !WARM_CONTAINER_FLAGS.some((flag) => args.has(flag));
 	const keepWarmContainers = KEEP_WARM_CONTAINER_FLAGS.some((flag) => args.has(flag));

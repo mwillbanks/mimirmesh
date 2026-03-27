@@ -10,6 +10,7 @@ import {
 	openSkillRegistryDatabase,
 	runCompose,
 } from "@mimirmesh/runtime";
+import { shouldRunIntegrationTests } from "@mimirmesh/testing";
 
 const createTestComposeFile = async (): Promise<{ composeFile: string; root: string }> => {
 	const root = await mkdtemp(join(tmpdir(), "mimirmesh-skill-postgres-"));
@@ -44,6 +45,13 @@ export const startSkillRegistryRuntime = async (
 	_projectRoot: string,
 	config: MimirmeshConfig,
 ): Promise<{ available: boolean; stop: () => Promise<void> }> => {
+	if (!shouldRunIntegrationTests(process.env)) {
+		return {
+			available: false,
+			stop: async () => {},
+		};
+	}
+
 	const docker = await detectDockerAvailability();
 	if (!docker.dockerInstalled || !docker.dockerDaemonRunning || !docker.composeAvailable) {
 		return {
