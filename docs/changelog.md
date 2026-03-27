@@ -1,5 +1,18 @@
 # Changelog
 
+# [0.3.0](https://github.com/mwillbanks/mimirmesh/compare/0.2.0...0.3.0) (2026-03-27)
+
+
+### Bug Fixes
+
+* ci test, GuidedSelect race condition ([fcd4a82](https://github.com/mwillbanks/mimirmesh/commit/fcd4a823edc086149e88c9aaf99dc2483ea1f61b))
+* **ci:** skip docker tests ([87d04ed](https://github.com/mwillbanks/mimirmesh/commit/87d04ed8bea178d605556fc47b1c202f7c4e4db9))
+
+
+### Features
+
+* **010:** deterministic skill registry ([96927d6](https://github.com/mwillbanks/mimirmesh/commit/96927d6a6e9d472cf1bbb07f23f193848836b364))
+
 # [0.2.0](https://github.com/mwillbanks/mimirmesh/compare/0.1.0...0.2.0) (2026-03-26)
 
 
