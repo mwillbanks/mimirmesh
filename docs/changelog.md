@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/mwillbanks/mimirmesh/compare/0.3.1...0.3.2) (2026-03-27)
+
+
+### Bug Fixes
+
+* installer metadata version handling ([4010398](https://github.com/mwillbanks/mimirmesh/commit/4010398b6a6e490e45fcb13791662dbad0d4740b))
+
 ## [0.3.1](https://github.com/mwillbanks/mimirmesh/compare/0.3.0...0.3.1) (2026-03-27)
 
 # [0.3.0](https://github.com/mwillbanks/mimirmesh/compare/0.2.0...0.3.0) (2026-03-27)
