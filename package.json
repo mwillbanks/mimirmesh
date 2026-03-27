@@ -51,8 +51,9 @@
 	},
 	"release-it": {
 		"hooks": {
-			"before:init": "bun run test",
-			"before:github:release": "bun run build:release && bun run release:assets"
+			"after:github:release": "gh release edit v${version} --draft=false",
+			"before:github:release": "bun run build:release && bun run release:assets",
+			"before:init": "bun run test"
 		},
 		"git": {
 			"commitMessage": "chore: release v${version}",
@@ -61,14 +62,16 @@
 			"requireCommits": true
 		},
 		"github": {
-			"release": true,
 			"assets": [
 				"dist/releases/*.tar.gz",
 				"dist/releases/*.zip",
 				"dist/releases/install.sh",
 				"dist/releases/install.ps1",
 				"dist/releases/checksums.txt"
-			]
+			],
+			"draft": true,
+			"name": "v${version}",
+			"release": true
 		},
 		"npm": {
 			"publish": false
