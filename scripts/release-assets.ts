@@ -1,12 +1,41 @@
-import { chmod, copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import {
+	chmod,
+	copyFile,
+	cp,
+	mkdir,
+	readdir,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
+
+import {
+	findReleaseTarget,
+	getChannelArchiveName,
+	getReleaseBuildDirName,
+	getTargetArtifactNames,
+	getVersionedArchiveName,
+	RELEASE_TARGETS,
+} from "./lib/release-metadata";
 
 const projectRoot = process.cwd();
 const distDir = join(projectRoot, "dist");
 const releaseDir = join(distDir, "releases");
+const releaseBuildsDir = join(distDir, "release-builds");
 
-const run = async (cmd: string[]): Promise<{ code: number; stdout: string; stderr: string }> => {
-	const process = Bun.spawn({ cmd, cwd: projectRoot, stdout: "pipe", stderr: "pipe" });
+const run = async (
+	cmd: string[],
+	options?: { cwd?: string },
+): Promise<{ code: number; stdout: string; stderr: string }> => {
+	const process = Bun.spawn({
+		cmd,
+		cwd: options?.cwd ?? projectRoot,
+		stdout: "pipe",
+		stderr: "pipe",
+	});
 	const [stdout, stderr, code] = await Promise.all([
 		new Response(process.stdout).text(),
 		new Response(process.stderr).text(),
@@ -15,8 +44,11 @@ const run = async (cmd: string[]): Promise<{ code: number; stdout: string; stder
 	return { code, stdout, stderr };
 };
 
-const mustRun = async (cmd: string[]): Promise<{ stdout: string; stderr: string }> => {
-	const result = await run(cmd);
+const mustRun = async (
+	cmd: string[],
+	options?: { cwd?: string },
+): Promise<{ stdout: string; stderr: string }> => {
+	const result = await run(cmd, options);
 	if (result.code !== 0) {
 		throw new Error(`Command failed (${result.code}): ${cmd.join(" ")}\n${result.stderr}`);
 	}
@@ -87,57 +119,25 @@ const resolveRepository = async (): Promise<string> => {
 	);
 };
 
+const pathExists = async (path: string): Promise<boolean> => {
+	try {
+		await stat(path);
+		return true;
+	} catch {
+		return false;
+	}
+};
+
 const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")) as {
 	version?: string;
 };
 const version = packageJson.version ?? "0.0.0";
-const platform = mapPlatform(process.platform);
-const arch = mapArch(process.arch);
 const repository = await resolveRepository();
 
-const binaries = [
-	"mimirmesh",
-	"mm",
-	"mimirmesh-server",
-	"mimirmesh-client",
-	"manifest.json",
-] as const;
-for (const file of binaries) {
-	await Bun.file(join(distDir, file))
-		.exists()
-		.then((exists) => {
-			if (!exists) {
-				throw new Error(`Missing required artifact: dist/${file}. Run 'bun run build' first.`);
-			}
-		});
-}
-
-await rm(releaseDir, { recursive: true, force: true });
-await mkdir(releaseDir, { recursive: true });
-
-const stageDir = join(releaseDir, `mimirmesh-${version}-${platform}-${arch}`);
-await rm(stageDir, { recursive: true, force: true });
-await mkdir(stageDir, { recursive: true });
-
-for (const file of binaries) {
-	await copyFile(join(distDir, file), join(stageDir, file));
-}
-
-const assetsDir = join(distDir, "mimirmesh-assets");
-if (await Bun.file(assetsDir).exists()) {
-	await cp(assetsDir, join(stageDir, "mimirmesh-assets"), { recursive: true });
-}
-
-const versionedArchiveName = `mimirmesh-${version}-${platform}-${arch}.tar.gz`;
-const channelArchiveName = `mimirmesh-${platform}-${arch}.tar.gz`;
-
-await mustRun(["tar", "-czf", join(releaseDir, versionedArchiveName), "-C", stageDir, "."]);
-await copyFile(join(releaseDir, versionedArchiveName), join(releaseDir, channelArchiveName));
-
-const installScript = `#!/usr/bin/env bash
+const createBashInstallScript = (repo: string): string => `#!/usr/bin/env bash
 set -euo pipefail
 
-REPO="\${MIMIRMESH_GITHUB_REPOSITORY:-${repository}}"
+REPO="\${MIMIRMESH_GITHUB_REPOSITORY:-${repo}}"
 INSTALL_DIR="\${MIMIRMESH_INSTALL_DIR:-$HOME/.local/bin}"
 
 os="$(uname -s)"
@@ -207,27 +207,189 @@ echo "Installed MimirMesh to $INSTALL_DIR"
 "$INSTALL_DIR/mimirmesh" --version
 `;
 
-await writeFile(join(releaseDir, "install.sh"), installScript, "utf8");
-await chmod(join(releaseDir, "install.sh"), 0o755);
+const createPowerShellInstallScript = (repo: string): string => `#Requires -Version 5.1
+$ErrorActionPreference = "Stop"
 
-const checksumProcess = Bun.spawn({
-	cmd: ["shasum", "-a", "256", versionedArchiveName, channelArchiveName, "install.sh"],
-	cwd: releaseDir,
-	stdout: "pipe",
-	stderr: "pipe",
-});
-const [checksums, checksumStderr, checksumCode] = await Promise.all([
-	new Response(checksumProcess.stdout).text(),
-	new Response(checksumProcess.stderr).text(),
-	checksumProcess.exited,
-]);
-if (checksumCode !== 0) {
-	throw new Error(`Failed to compute checksums: ${checksumStderr || checksums}`);
+$repo = if ($env:MIMIRMESH_GITHUB_REPOSITORY) { $env:MIMIRMESH_GITHUB_REPOSITORY } else { "${repo}" }
+$installDir = if ($env:MIMIRMESH_INSTALL_DIR) {
+	$env:MIMIRMESH_INSTALL_DIR
+} elseif ($env:LOCALAPPDATA) {
+	Join-Path $env:LOCALAPPDATA "MimirMesh\\bin"
+} else {
+	Join-Path $HOME "AppData\\Local\\MimirMesh\\bin"
 }
-await writeFile(join(releaseDir, "checksums.txt"), checksums, "utf8");
 
-await rm(stageDir, { recursive: true, force: true });
+$arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()) {
+	"X64" { "x64" }
+	"Arm64" { "arm64" }
+	default { throw "Unsupported architecture: $($_)" }
+}
+
+$asset = "mimirmesh-windows-$arch.zip"
+$url = "https://github.com/$repo/releases/latest/download/$asset"
+$tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+$archivePath = Join-Path $tempDir $asset
+
+New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+
+try {
+	Invoke-WebRequest -Uri $url -OutFile $archivePath
+	Expand-Archive -Path $archivePath -DestinationPath $tempDir -Force
+
+	New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+
+	Copy-Item (Join-Path $tempDir "mimirmesh.exe") (Join-Path $installDir "mimirmesh.exe") -Force
+	Copy-Item (Join-Path $tempDir "mm.exe") (Join-Path $installDir "mm.exe") -Force
+
+	if (Test-Path (Join-Path $tempDir "mimirmesh-server.exe")) {
+		Copy-Item (Join-Path $tempDir "mimirmesh-server.exe") (Join-Path $installDir "mimirmesh-server.exe") -Force
+	}
+
+	if (Test-Path (Join-Path $tempDir "mimirmesh-client.exe")) {
+		Copy-Item (Join-Path $tempDir "mimirmesh-client.exe") (Join-Path $installDir "mimirmesh-client.exe") -Force
+	}
+
+	if (Test-Path (Join-Path $tempDir "manifest.json")) {
+		Copy-Item (Join-Path $tempDir "manifest.json") (Join-Path $installDir "manifest.json") -Force
+	}
+
+	if (Test-Path (Join-Path $tempDir "mimirmesh-assets")) {
+		$assetsTarget = Join-Path $installDir "mimirmesh-assets"
+		if (Test-Path $assetsTarget) {
+			Remove-Item $assetsTarget -Recurse -Force
+		}
+		Copy-Item (Join-Path $tempDir "mimirmesh-assets") $assetsTarget -Recurse -Force
+	}
+
+	Write-Host "Installed MimirMesh to $installDir"
+	& (Join-Path $installDir "mimirmesh.exe") --version
+} finally {
+	if (Test-Path $tempDir) {
+		Remove-Item $tempDir -Recurse -Force
+	}
+}
+`;
+
+const ensureArtifactsExist = async (
+	artifactRoot: string,
+	files: readonly string[],
+): Promise<void> => {
+	for (const file of files) {
+		const exists = await Bun.file(join(artifactRoot, file)).exists();
+		if (!exists) {
+			throw new Error(
+				`Missing required artifact: ${artifactRoot.replace(`${projectRoot}/`, "")}/${file}. Run the build step first.`,
+			);
+		}
+	}
+};
+
+type PackagingTarget = {
+	artifactRoot: string;
+	platform: "darwin" | "linux" | "windows";
+	arch: "x64" | "arm64";
+	archiveFormat: "tar.gz" | "zip";
+	executableExtension: "" | ".exe";
+};
+
+const resolvePackagingTargets = async (): Promise<PackagingTarget[]> => {
+	const hasReleaseBuilds = await pathExists(releaseBuildsDir);
+	if (!hasReleaseBuilds) {
+		const platform = mapPlatform(process.platform);
+		const arch = mapArch(process.arch);
+		const target = findReleaseTarget(platform, arch);
+		if (!target) {
+			throw new Error(`Unsupported host release target: ${platform}-${arch}`);
+		}
+		await ensureArtifactsExist(distDir, getTargetArtifactNames(target));
+		return [
+			{
+				artifactRoot: distDir,
+				platform: target.platform,
+				arch: target.arch,
+				archiveFormat: target.archiveFormat,
+				executableExtension: target.executableExtension,
+			},
+		];
+	}
+
+	const releaseBuildEntries = await readdir(releaseBuildsDir, { withFileTypes: true });
+	const releaseBuildDirNames = new Set(
+		releaseBuildEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+	);
+
+	for (const target of RELEASE_TARGETS) {
+		const dirName = getReleaseBuildDirName(target);
+		if (!releaseBuildDirNames.has(dirName)) {
+			throw new Error(`Missing release build target directory: dist/release-builds/${dirName}`);
+		}
+	}
+
+	const targets: PackagingTarget[] = [];
+	for (const target of RELEASE_TARGETS) {
+		const artifactRoot = join(releaseBuildsDir, getReleaseBuildDirName(target));
+		await ensureArtifactsExist(artifactRoot, getTargetArtifactNames(target));
+		targets.push({
+			artifactRoot,
+			platform: target.platform,
+			arch: target.arch,
+			archiveFormat: target.archiveFormat,
+			executableExtension: target.executableExtension,
+		});
+	}
+
+	return targets;
+};
+
+const writeChecksums = async (files: readonly string[]): Promise<void> => {
+	const checksums = await Promise.all(
+		files.map(async (file) => {
+			const contents = await readFile(join(releaseDir, file));
+			const digest = createHash("sha256").update(contents).digest("hex");
+			return `${digest}  ${file}`;
+		}),
+	);
+	await writeFile(join(releaseDir, "checksums.txt"), `${checksums.join("\n")}\n`, "utf8");
+};
+
+await rm(releaseDir, { recursive: true, force: true });
+await mkdir(releaseDir, { recursive: true });
+
+const packagingTargets = await resolvePackagingTargets();
+const releaseArtifacts: string[] = [];
+
+for (const target of packagingTargets) {
+	const stageDir = join(releaseDir, `mimirmesh-${version}-${target.platform}-${target.arch}`);
+	await rm(stageDir, { recursive: true, force: true });
+	await mkdir(stageDir, { recursive: true });
+
+	for (const file of getTargetArtifactNames(target)) {
+		await copyFile(join(target.artifactRoot, file), join(stageDir, file));
+	}
+
+	const assetsDir = join(distDir, "mimirmesh-assets");
+	if (await pathExists(assetsDir)) {
+		await cp(assetsDir, join(stageDir, "mimirmesh-assets"), { recursive: true });
+	}
+
+	const versionedArchiveName = getVersionedArchiveName(version, target);
+	const channelArchiveName = getChannelArchiveName(target);
+	if (target.archiveFormat === "tar.gz") {
+		await mustRun(["tar", "-czf", join(releaseDir, versionedArchiveName), "-C", stageDir, "."]);
+	} else {
+		await mustRun(["zip", "-qr", join(releaseDir, versionedArchiveName), "."], { cwd: stageDir });
+	}
+	await copyFile(join(releaseDir, versionedArchiveName), join(releaseDir, channelArchiveName));
+	releaseArtifacts.push(versionedArchiveName, channelArchiveName);
+
+	await rm(stageDir, { recursive: true, force: true });
+}
+
+await writeFile(join(releaseDir, "install.sh"), createBashInstallScript(repository), "utf8");
+await chmod(join(releaseDir, "install.sh"), 0o755);
+await writeFile(join(releaseDir, "install.ps1"), createPowerShellInstallScript(repository), "utf8");
+await writeChecksums([...releaseArtifacts, "install.sh", "install.ps1"]);
 
 process.stdout.write(
-	`Release assets prepared in ${releaseDir}\n- ${versionedArchiveName}\n- ${channelArchiveName}\n- install.sh\n- checksums.txt\nRepository: ${repository}\n`,
+	`Release assets prepared in ${releaseDir}\n- ${releaseArtifacts.join("\n- ")}\n- install.sh\n- install.ps1\n- checksums.txt\nRepository: ${repository}\n`,
 );

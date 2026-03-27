@@ -14,6 +14,7 @@
 		"check": "bunx @biomejs/biome check .",
 		"typecheck": "bunx tsc --noEmit",
 		"build": "bun run scripts/build.ts",
+		"build:release": "bun run scripts/build.ts --release",
 		"release:assets": "bun run scripts/release-assets.ts",
 		"release": "GITHUB_TOKEN=$(gh auth token) bunx release-it",
 		"test": "bun run test:packages && bun run test:apps",
@@ -51,7 +52,7 @@
 	"release-it": {
 		"hooks": {
 			"before:init": "bun run test",
-			"before:github:release": "bun run build && bun run release:assets"
+			"before:github:release": "bun run build:release && bun run release:assets"
 		},
 		"git": {
 			"commitMessage": "chore: release v${version}",
@@ -63,7 +64,9 @@
 			"release": true,
 			"assets": [
 				"dist/releases/*.tar.gz",
+				"dist/releases/*.zip",
 				"dist/releases/install.sh",
+				"dist/releases/install.ps1",
 				"dist/releases/checksums.txt"
 			]
 		},

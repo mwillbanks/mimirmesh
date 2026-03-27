@@ -2,9 +2,17 @@ import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { writeBundledSkillAssets } from "../packages/skills/src/index";
+import {
+	EXECUTABLE_ARTIFACT_BASENAMES,
+	getReleaseBuildDirName,
+	getTargetArtifactNames,
+	RELEASE_TARGETS,
+} from "./lib/release-metadata";
 
 const projectRoot = process.cwd();
 const distDir = join(projectRoot, "dist");
+const releaseBuildsDir = join(distDir, "release-builds");
+const isReleaseBuild = Bun.argv.includes("--release");
 
 const run = async (cmd: string[]): Promise<void> => {
 	const process = Bun.spawn({ cmd, cwd: projectRoot, stdout: "inherit", stderr: "inherit" });
@@ -48,49 +56,124 @@ const resolveRepository = async (): Promise<string | null> => {
 	return null;
 };
 
+const copyBundledAssets = async (targetRoot: string): Promise<void> => {
+	const runtimeAssetsSource = join(projectRoot, "docker", "images");
+	const runtimeAssetsTarget = join(targetRoot, "mimirmesh-assets", "docker", "images");
+	await rm(runtimeAssetsTarget, { recursive: true, force: true });
+	await mkdir(join(targetRoot, "mimirmesh-assets", "docker"), { recursive: true });
+	await cp(runtimeAssetsSource, runtimeAssetsTarget, { recursive: true });
+	await writeBundledSkillAssets(join(targetRoot, "mimirmesh-assets", "skills"));
+};
+
+const buildBinary = async (entrypoint: string, outfile: string, target?: string): Promise<void> => {
+	const cmd = ["bun", "build", entrypoint, "--compile"];
+	if (target) {
+		cmd.push("--target", target);
+	} else {
+		cmd.push("--target", "bun");
+	}
+	cmd.push("--outfile", outfile);
+	await run(cmd);
+};
+
+const writeManifest = async (
+	artifactRoot: string,
+	artifacts: readonly string[],
+	options: {
+		version: string;
+		repository: string | null;
+		builtAt: string;
+		buildId: string;
+		target?: { platform: string; arch: string; bunTarget: string };
+	},
+): Promise<void> => {
+	await writeFile(
+		join(artifactRoot, "manifest.json"),
+		`${JSON.stringify(
+			{
+				version: options.version,
+				repository: options.repository,
+				builtAt: options.builtAt,
+				buildId: options.buildId,
+				artifacts,
+				...(options.target ? { target: options.target } : {}),
+			},
+			null,
+			2,
+		)}\n`,
+		"utf8",
+	);
+};
+
+const buildHostArtifacts = async (
+	version: string,
+	repository: string | null,
+	builtAt: string,
+	buildId: string,
+): Promise<void> => {
+	await rm(releaseBuildsDir, { recursive: true, force: true });
+	await buildBinary("apps/cli/src/cli.ts", join(distDir, "mimirmesh"));
+	await buildBinary("apps/server/src/index.ts", join(distDir, "mimirmesh-server"));
+	await buildBinary("apps/client/src/index.ts", join(distDir, "mimirmesh-client"));
+	await copyFile(join(distDir, "mimirmesh"), join(distDir, "mm"));
+	await copyBundledAssets(distDir);
+	await writeManifest(distDir, [...EXECUTABLE_ARTIFACT_BASENAMES, "mimirmesh-assets"], {
+		version,
+		repository,
+		builtAt,
+		buildId,
+	});
+};
+
+const buildReleaseArtifacts = async (
+	version: string,
+	repository: string | null,
+	builtAt: string,
+	buildId: string,
+): Promise<void> => {
+	await rm(releaseBuildsDir, { recursive: true, force: true });
+	await mkdir(releaseBuildsDir, { recursive: true });
+	await copyBundledAssets(distDir);
+
+	for (const target of RELEASE_TARGETS) {
+		const targetDir = join(releaseBuildsDir, getReleaseBuildDirName(target));
+		await mkdir(targetDir, { recursive: true });
+
+		await buildBinary(
+			"apps/cli/src/cli.ts",
+			join(targetDir, `mimirmesh${target.executableExtension}`),
+			target.bunTarget,
+		);
+		await buildBinary(
+			"apps/server/src/index.ts",
+			join(targetDir, `mimirmesh-server${target.executableExtension}`),
+			target.bunTarget,
+		);
+		await buildBinary(
+			"apps/client/src/index.ts",
+			join(targetDir, `mimirmesh-client${target.executableExtension}`),
+			target.bunTarget,
+		);
+		await copyFile(
+			join(targetDir, `mimirmesh${target.executableExtension}`),
+			join(targetDir, `mm${target.executableExtension}`),
+		);
+
+		await writeManifest(targetDir, [...getTargetArtifactNames(target), "mimirmesh-assets"], {
+			version,
+			repository,
+			builtAt,
+			buildId,
+			target: {
+				platform: target.platform,
+				arch: target.arch,
+				bunTarget: target.bunTarget,
+			},
+		});
+	}
+};
+
 await mkdir(distDir, { recursive: true });
-
-await run([
-	"bun",
-	"build",
-	"apps/cli/src/cli.ts",
-	"--compile",
-	"--target",
-	"bun",
-	"--outfile",
-	join(distDir, "mimirmesh"),
-]);
-
-await run([
-	"bun",
-	"build",
-	"apps/server/src/index.ts",
-	"--compile",
-	"--target",
-	"bun",
-	"--outfile",
-	join(distDir, "mimirmesh-server"),
-]);
-
-await run([
-	"bun",
-	"build",
-	"apps/client/src/index.ts",
-	"--compile",
-	"--target",
-	"bun",
-	"--outfile",
-	join(distDir, "mimirmesh-client"),
-]);
-
-await copyFile(join(distDir, "mimirmesh"), join(distDir, "mm"));
-
-const runtimeAssetsSource = join(projectRoot, "docker", "images");
-const runtimeAssetsTarget = join(distDir, "mimirmesh-assets", "docker", "images");
-await rm(runtimeAssetsTarget, { recursive: true, force: true });
-await mkdir(join(distDir, "mimirmesh-assets", "docker"), { recursive: true });
-await cp(runtimeAssetsSource, runtimeAssetsTarget, { recursive: true });
-await writeBundledSkillAssets(join(distDir, "mimirmesh-assets", "skills"));
 
 const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")) as {
 	version?: string;
@@ -99,20 +182,10 @@ const repository = await resolveRepository();
 const builtAt = new Date().toISOString();
 const buildId = `${packageJson.version ?? "0.0.0"}+${builtAt}`;
 
-await writeFile(
-	join(distDir, "manifest.json"),
-	`${JSON.stringify(
-		{
-			version: packageJson.version ?? "0.0.0",
-			repository,
-			builtAt,
-			buildId,
-			artifacts: ["mimirmesh", "mm", "mimirmesh-server", "mimirmesh-client", "mimirmesh-assets"],
-		},
-		null,
-		2,
-	)}\n`,
-	"utf8",
-);
-
-process.stdout.write(`Build complete. Artifacts written to ${distDir}\n`);
+if (isReleaseBuild) {
+	await buildReleaseArtifacts(packageJson.version ?? "0.0.0", repository, builtAt, buildId);
+	process.stdout.write(`Release build complete. Artifacts written to ${releaseBuildsDir}\n`);
+} else {
+	await buildHostArtifacts(packageJson.version ?? "0.0.0", repository, builtAt, buildId);
+	process.stdout.write(`Build complete. Artifacts written to ${distDir}\n`);
+}

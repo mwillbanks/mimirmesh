@@ -27,7 +27,7 @@ Use [docs/roadmap.md](docs/roadmap.md) to see where the platform is heading.
 
 Required:
 
-- macOS or Linux
+- macOS, Linux, or Windows
 - [Bun](https://bun.sh/) 1.3+
 - Docker Engine with Docker Compose support
 - Git
@@ -47,11 +47,19 @@ Install the latest published release:
 curl -fsSL https://github.com/mwillbanks/mimirmesh/releases/latest/download/install.sh | bash
 ```
 
+Windows PowerShell:
+
+```powershell
+irm https://github.com/mwillbanks/mimirmesh/releases/latest/download/install.ps1 | iex
+```
+
 Default install path is `~/.local/bin`. Override with:
 
 ```bash
 MIMIRMESH_INSTALL_DIR="$HOME/.local/bin" curl -fsSL https://github.com/mwillbanks/mimirmesh/releases/latest/download/install.sh | bash
 ```
+
+On Windows, `MIMIRMESH_INSTALL_DIR` overrides the PowerShell installer target directory.
 
 ## Quick Start
 
@@ -164,6 +172,7 @@ MIMIRMESH_RUN_INTEGRATION_TESTS=false bun run scripts/run-integration-tests.ts
 ## CI/CD Notes
 
 GitHub Actions workflows in this repository run typecheck, tests, build, and Biome checks.
+Versioned release publishing is driven locally through `bun run release`, which builds multi-platform standalone artifacts and uploads them through `release-it`.
 Runtime-heavy live validation is not required on hosted runners and can be gated with `MIMIRMESH_RUN_INTEGRATION_TESTS=false`.
 
 ## Roadmap and Direction
