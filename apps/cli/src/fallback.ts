@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 import { render } from "ink";
 import React from "react";
 import type { ZodType } from "zod/v4";
@@ -67,6 +68,47 @@ const commandKeys = Object.keys(commandModules).sort(
 const print = (value: string): void => {
 	process.stdout.write(`${value}\n`);
 };
+
+const readVersionFromInstalledManifest = async (execPath: string): Promise<string | null> => {
+	const manifestFile = Bun.file(join(dirname(execPath), "manifest.json"));
+	if (!(await manifestFile.exists())) {
+		return null;
+	}
+
+	try {
+		const manifest = (await manifestFile.json()) as { version?: string };
+		if (manifest.version?.trim()) {
+			return manifest.version.trim();
+		}
+	} catch {
+		// Fall through to source metadata resolution.
+	}
+
+	return null;
+};
+
+const readVersionFromSourcePackage = async (): Promise<string | null> => {
+	const packageFile = Bun.file(new URL("../../../package.json", import.meta.url));
+	if (!(await packageFile.exists())) {
+		return null;
+	}
+
+	try {
+		const packageJson = (await packageFile.json()) as { version?: string };
+		if (packageJson.version?.trim()) {
+			return packageJson.version.trim();
+		}
+	} catch {
+		// Fall through to the final hard-coded fallback.
+	}
+
+	return null;
+};
+
+export const resolveCliVersion = async (execPath = process.execPath): Promise<string> =>
+	(await readVersionFromInstalledManifest(execPath)) ??
+	(await readVersionFromSourcePackage()) ??
+	"1.0.0";
 
 const printUsage = (): void => {
 	print("mimirmesh");
@@ -222,8 +264,7 @@ export const runFallbackCli = async (argv: string[]): Promise<number> => {
 		return 0;
 	}
 	if (first === "--version" || first === "-v") {
-		const packageJson = await Bun.file(new URL("../../package.json", import.meta.url)).json();
-		print((packageJson as { version?: string }).version ?? "1.0.0");
+		print(await resolveCliVersion());
 		return 0;
 	}
 	if (first === "server") {
