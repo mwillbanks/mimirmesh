@@ -9,7 +9,7 @@ Replace the optional `codebrain` runtime engine with a real Srclight workload an
 
 ## Technical Context
 
-**Language/Version**: TypeScript on Bun for MímirMesh packages and Python 3.12 for the Srclight container workload  
+**Language/Version**: TypeScript on Bun for MímirMesh packages and Python 3 for the Srclight container workload  
 **Primary Dependencies**: `@modelcontextprotocol/sdk`, Bun workspace packages, Docker Compose runtime, Srclight `0.12.x`, SQLite FTS5, tree-sitter, optional Ollama embeddings  
 **Storage**: Project-local runtime state under `.mimirmesh/runtime/*`, engine state JSON under `.mimirmesh/runtime/engines/*`, and native Srclight repo-local `.srclight/` index artifacts inside the mounted repository  
 **Testing**: `bun test` package-local tests, runtime integration tests in `packages/testing`, root workflow tests in `tests/workflow`, and doc/runtime validation flows  

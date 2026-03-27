@@ -7,7 +7,7 @@ Auto-generated from all feature plans. Last updated: 2026-03-13
 - Project-local `.mimirmesh/config.yml`, `.mimirmesh/runtime/*.json`, `.mimirmesh/runtime/engines/*.json`, `.mimirmesh/reports/*`, `.mimirmesh/logs/*`, `.mimirmesh/indexes/*`, `.mimirmesh/memory/*`, `.mimirmesh/cache/*`, and repo-local engine artifacts such as `.srclight/*` where applicable (002-safe-local-upgrade)
 - TypeScript 5.9 on Bun with React 19 for Ink-based terminal UI + `pastel`, `ink`, `@inkjs/ui`, `zod`, existing `@mimirmesh/ui`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/installer`, and `@mimirmesh/workspace` packages (003-interactive-cli-experience)
 - Project-local `.mimirmesh/*` runtime/config/reports/notes state, CLI command arguments, and machine-readable terminal output when explicitly requested (003-interactive-cli-experience)
-- TypeScript (Bun workspace) plus Python 3.12 in engine containers + `@modelcontextprotocol/sdk`, Docker Compose, Srclight (`srclight[all]`), Zod schemas in `packages/config` (004-srclight-full-capability)
+- TypeScript (Bun workspace) plus Python 3 in engine containers + `@modelcontextprotocol/sdk`, Docker Compose, Srclight (`srclight[all]`), Zod schemas in `packages/config` (004-srclight-full-capability)
 - Project-local runtime artifacts in `.mimirmesh/runtime/*`; repo-local Srclight state in `.srclight/*` (004-srclight-full-capability)
 - TypeScript 5.9 on Bun workspace + Bun, Zod (`@mimirmesh/config`), MCP SDK (`@modelcontextprotocol/sdk`), Ink/Pastel for CLI surfaces (005-remove-codebase-memory)
 - Project YAML config (`.mimirmesh/config.yml`) and runtime state files under `.mimirmesh/runtime/` (005-remove-codebase-memory)
@@ -24,7 +24,7 @@ Auto-generated from all feature plans. Last updated: 2026-03-13
 - TypeScript 6.0.2 on Bun 1.3.x + `@modelcontextprotocol/sdk` 1.27.1, `openai`, `pgvector-node`, Zod 4.3.x, YAML 2.8.x, Pastel 4, Ink 6, `@inkjs/ui` 2, existing workspace packages `@mimirmesh/skills`, `@mimirmesh/mcp-core`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/installer`, `@mimirmesh/ui`, Bun built-in SQL access to the runtime PostgreSQL service, and Bun built-in compression or UUID APIs (`Bun.randomUUIDv7`, `Bun.zstdCompress`, `Bun.zstdDecompress`, `Bun.gzipSync`, `Bun.gunzipSync`) (010-deterministic-skill-registry)
 - Runtime-managed PostgreSQL with pgvector-backed vector columns for indexed skill metadata, repository-scoped cache state, compressed JSON or markdown blobs, optional embeddings, and migration history; repository-local files remain the source of truth for skill packages, `.mimirmesh/config.yml`, `.agents/skills/`, and `AGENTS.md` (010-deterministic-skill-registry)
 
-- TypeScript on Bun for MímirMesh packages and Python 3.12 for the Srclight container workload + `@modelcontextprotocol/sdk`, Bun workspace packages, Docker Compose runtime, Srclight `0.12.x`, SQLite FTS5, tree-sitter, optional Ollama embeddings (001-local-code-intelligence)
+- TypeScript on Bun for MímirMesh packages and Python 3 for the Srclight container workload + `@modelcontextprotocol/sdk`, Bun workspace packages, Docker Compose runtime, Srclight `0.12.x`, SQLite FTS5, tree-sitter, optional Ollama embeddings (001-local-code-intelligence)
 
 ## Project Structure
 
@@ -39,7 +39,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 
 ## Code Style
 
-TypeScript on Bun for MímirMesh packages and Python 3.12 for the Srclight container workload: Follow standard conventions
+TypeScript on Bun for MímirMesh packages and Python 3 for the Srclight container workload: Follow standard conventions
 
 ## Recent Changes
 - 010-deterministic-skill-registry: Added TypeScript 6.0.2 on Bun 1.3.x + `@modelcontextprotocol/sdk` 1.27.1, `openai`, `pgvector-node`, Zod 4.3.x, YAML 2.8.x, Pastel 4, Ink 6, `@inkjs/ui` 2, existing workspace packages `@mimirmesh/skills`, `@mimirmesh/mcp-core`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/installer`, `@mimirmesh/ui`, Bun built-in SQL access to the runtime PostgreSQL service, and Bun built-in compression or UUID APIs (`Bun.randomUUIDv7`, `Bun.zstdCompress`, `Bun.zstdDecompress`, `Bun.gzipSync`, `Bun.gunzipSync`)

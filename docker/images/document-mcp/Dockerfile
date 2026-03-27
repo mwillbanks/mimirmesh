@@ -1,6 +1,6 @@
 FROM oven/bun:slim AS bun-runtime
 
-FROM python:3.12-slim AS document-builder
+FROM python:3-slim AS document-builder
 ARG DOCUMENT_MCP_REF=main
 
 RUN apt-get update \
@@ -23,7 +23,7 @@ ENV TRANSFORMERS_CACHE=/opt/document-mcp/.cache/huggingface
 RUN mkdir -p "$HF_HOME" "$SENTENCE_TRANSFORMERS_HOME" \
   && uv run --directory /opt/document-mcp python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
-FROM python:3.12-slim
+FROM python:3-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl ca-certificates \

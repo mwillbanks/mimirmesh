@@ -12,9 +12,9 @@
 
 ## Decision 2: Use a real Python Srclight container built under `docker/images/srclight` from the published upstream package
 
-**Decision**: Build a checked-in `docker/images/srclight` image around Python 3.12 and the published `srclight` package, following the upstream Docker baseline (`pip install srclight`) instead of a fake wrapper or no-op container.
+**Decision**: Build a checked-in `docker/images/srclight` image around Python 3 and the published `srclight` package, following the upstream Docker baseline (`pip install srclight`) instead of a fake wrapper or no-op container.
 
-**Rationale**: Upstream already ships a minimal real Dockerfile with `python:3.12-slim` and `pip install srclight`. Using the published package preserves upstream behavior while keeping the runtime build reproducible and small.
+**Rationale**: Upstream already ships a minimal real Dockerfile with `python:3-slim` and `pip install srclight`. Using the published package preserves upstream behavior while keeping the runtime build reproducible and small.
 
 **Alternatives considered**:
 - Download the GitHub repo tarball in the image and run source checkout commands: rejected because the published package already contains the supported CLI/server surface and is simpler to pin.

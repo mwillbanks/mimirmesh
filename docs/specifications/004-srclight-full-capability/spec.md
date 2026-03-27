@@ -42,7 +42,7 @@ As an AI agent using MímirMesh for repository intelligence, I need all 29 srcli
 
 As an operator running MímirMesh on different host types (GPU and non-GPU), I need MímirMesh to select the correct runtime automatically so that srclight uses CUDA when NVIDIA runtime is available and safely falls back to CPU when it is not, while still allowing explicit policy control when required.
 
-**Why this priority**: Srclight advertises GPU-accelerated vector search as a primary feature and `srclight[all]` already installs cupy for it, but the current `python:3.12-slim` container base has the CUDA libraries stripped, so cupy silently falls back to CPU numpy regardless of hardware. This matters most for repositories with large symbol indexes where semantic search latency is noticeable.
+**Why this priority**: Srclight advertises GPU-accelerated vector search as a primary feature and `srclight[all]` already installs cupy for it, but the current `python:3-slim` container base has the CUDA libraries stripped, so cupy silently falls back to CPU numpy regardless of hardware. This matters most for repositories with large symbol indexes where semantic search latency is noticeable.
 
 **Independent Test**: Can be fully tested by setting global `gpuMode` to `auto`, `on`, and `off` in separate runs, rendering Docker Compose, verifying runtime/image selection behavior and GPU reservation emission, and confirming non-GPU hosts remain healthy in `auto` and `off` modes.
 

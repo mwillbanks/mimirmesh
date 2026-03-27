@@ -9,7 +9,7 @@ Deliver complete Srclight capability integration by covering the full 29-tool su
 
 ## Technical Context
 
-**Language/Version**: TypeScript (Bun workspace) plus Python 3.12 in engine containers  
+**Language/Version**: TypeScript (Bun workspace) plus Python 3 in engine containers  
 **Primary Dependencies**: `@modelcontextprotocol/sdk`, Docker Compose, Srclight (`srclight[all]`), Zod schemas in `packages/config`  
 **Storage**: Project-local runtime artifacts in `.mimirmesh/runtime/*`; repo-local Srclight state in `.srclight/*`  
 **Testing**: Bun test suites in package-local tests, plus root integration/workflow tests  
