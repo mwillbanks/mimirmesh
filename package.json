@@ -51,7 +51,7 @@
 	},
 	"release-it": {
 		"hooks": {
-			"after:github:release": "gh release edit v${version} --draft=false",
+			"after:github:release": "gh release edit ${version} --draft=false",
 			"before:github:release": "bun run build:release && bun run release:assets",
 			"before:init": "bun run test"
 		},
