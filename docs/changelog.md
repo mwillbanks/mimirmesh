@@ -1,5 +1,12 @@
 # Changelog
 
+# [0.4.0](https://github.com/mwillbanks/mimirmesh/compare/0.3.2...0.4.0) (2026-03-30)
+
+
+### Features
+
+* **011-route-cost-telemetry:** route cost telemetry ([b03519b](https://github.com/mwillbanks/mimirmesh/commit/b03519b75159e74937fca8e1e6c0bbe913106189))
+
 ## [0.3.2](https://github.com/mwillbanks/mimirmesh/compare/0.3.1...0.3.2) (2026-03-27)
 
 
