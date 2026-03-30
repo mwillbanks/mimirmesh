@@ -19,6 +19,36 @@ export const srclightRoutingRules: AdapterRoutingRule[] = [
 		unifiedTool: "find_symbol",
 		candidateToolPatterns: [/search_symbols/i, /get_symbol/i, /get_signature/i],
 		priority: 150,
+		executionStrategy: "fallback-only",
+		seedHintsByTool: {
+			search_symbols: {
+				adaptiveEligible: true,
+				estimatedInputTokens: 70,
+				estimatedOutputTokens: 36,
+				estimatedLatencyMs: 190,
+				expectedSuccessRate: 0.95,
+				cacheAffinity: "medium",
+				freshnessSensitivity: "medium",
+			},
+			get_symbol: {
+				adaptiveEligible: true,
+				estimatedInputTokens: 18,
+				estimatedOutputTokens: 14,
+				estimatedLatencyMs: 70,
+				expectedSuccessRate: 0.98,
+				cacheAffinity: "high",
+				freshnessSensitivity: "low",
+			},
+			get_signature: {
+				adaptiveEligible: true,
+				estimatedInputTokens: 20,
+				estimatedOutputTokens: 10,
+				estimatedLatencyMs: 85,
+				expectedSuccessRate: 0.97,
+				cacheAffinity: "high",
+				freshnessSensitivity: "low",
+			},
+		},
 	},
 	{
 		unifiedTool: "find_tests",
@@ -49,6 +79,36 @@ export const srclightRoutingRules: AdapterRoutingRule[] = [
 		unifiedTool: "search_code",
 		candidateToolPatterns: [/hybrid_search/i, /semantic_search/i, /search_symbols/i],
 		priority: 150,
+		executionStrategy: "fallback-only",
+		seedHintsByTool: {
+			hybrid_search: {
+				adaptiveEligible: true,
+				estimatedInputTokens: 100,
+				estimatedOutputTokens: 40,
+				estimatedLatencyMs: 300,
+				expectedSuccessRate: 0.96,
+				cacheAffinity: "high",
+				freshnessSensitivity: "medium",
+			},
+			semantic_search: {
+				adaptiveEligible: true,
+				estimatedInputTokens: 84,
+				estimatedOutputTokens: 28,
+				estimatedLatencyMs: 220,
+				expectedSuccessRate: 0.93,
+				cacheAffinity: "medium",
+				freshnessSensitivity: "high",
+			},
+			search_symbols: {
+				adaptiveEligible: true,
+				estimatedInputTokens: 62,
+				estimatedOutputTokens: 24,
+				estimatedLatencyMs: 140,
+				expectedSuccessRate: 0.89,
+				cacheAffinity: "medium",
+				freshnessSensitivity: "medium",
+			},
+		},
 	},
 	{
 		unifiedTool: "trace_dependency",
@@ -59,6 +119,7 @@ export const srclightRoutingRules: AdapterRoutingRule[] = [
 		unifiedTool: "trace_integration",
 		candidateToolPatterns: [/get_dependents/i, /get_implementors/i, /get_build_targets/i],
 		priority: 135,
+		executionStrategy: "fanout",
 	},
 	{
 		unifiedTool: "investigate_issue",
@@ -81,6 +142,7 @@ export const srclightRoutingRules: AdapterRoutingRule[] = [
 			/embedding_status/i,
 		],
 		priority: 140,
+		executionStrategy: "fanout",
 	},
 ];
 
@@ -232,7 +294,26 @@ const executeRoutes = async (
 	context: UnifiedExecutionContext,
 	routes: Array<{ route: UnifiedRoute; args: Record<string, unknown> }>,
 ): Promise<UnifiedExecutionStep[]> => {
-	const steps = await Promise.all(
+	const fallbackOnly = routes.every(({ route }) => route.executionStrategy === "fallback-only");
+	if (fallbackOnly) {
+		const steps: UnifiedExecutionStep[] = [];
+		for (const { route, args } of routes) {
+			const startedAt = performance.now();
+			const response = await context.invoke(route.engineTool, args);
+			const step = {
+				route,
+				response,
+				latencyMs: Math.round(performance.now() - startedAt),
+			};
+			steps.push(step);
+			if (response.ok) {
+				break;
+			}
+		}
+		return steps;
+	}
+
+	return Promise.all(
 		routes.map(async ({ route, args }) => {
 			const startedAt = performance.now();
 			const response = await context.invoke(route.engineTool, args);
@@ -244,8 +325,6 @@ const executeRoutes = async (
 			};
 		}),
 	);
-
-	return steps;
 };
 
 export const resolveSrclightRoutes = (tools: EngineDiscoveredTool[]): UnifiedRoute[] =>

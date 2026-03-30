@@ -21,12 +21,33 @@ export {
 } from "./registry/router";
 export { skillsToolDescriptions, skillsToolInputSchemas } from "./registry/skills-tools";
 export { isUnifiedTool, unifiedToolList } from "./registry/unified";
+export {
+	compareHintedRoutes,
+	defaultAdaptiveRouteHintAllowlist,
+	executionStrategyForRoute,
+	resolveAdaptiveRouteHintAllowlist,
+	routeHintModeLabel,
+	scoreRouteHintSnapshot,
+	seedHintForRoute,
+	supportedAdaptiveRouteHintTools,
+} from "./routing/hints";
+export {
+	buildRouteProfileKey,
+	buildRouteRequestFingerprint,
+	summarizeToolInput,
+} from "./routing/summaries";
 export { passthroughRouteFor, unifiedRoutesFor } from "./routing/table";
 export { bridgeUrlForEngine, invokeEngineTool } from "./transport/bridge";
 export type {
 	MiddlewareContext,
 	NormalizedToolResult,
 	PassthroughMapping,
+	RouteHintInspectionOrdering,
+	RouteHintInspectionProfile,
+	RouteHintInspectionResponse,
+	RouteHintInspectionSummary,
+	RouteHintScoreBreakdown,
+	RouteHintSeedSummary,
 	RoutingEngineRoute,
 	ToolDefinition,
 	ToolExecutor,

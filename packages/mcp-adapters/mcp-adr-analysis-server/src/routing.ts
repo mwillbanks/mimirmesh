@@ -14,6 +14,7 @@ export const adrRoutingRules: AdapterRoutingRule[] = [
 		unifiedTool: "document_architecture",
 		candidateToolPatterns: [/^get_architectural_context$/i, /^analyze_project_ecosystem$/i],
 		priority: 110,
+		executionStrategy: "fanout",
 	},
 	{
 		unifiedTool: "generate_adr",
@@ -32,6 +33,7 @@ export const adrRoutingRules: AdapterRoutingRule[] = [
 			/^generate_deployment_guidance$/i,
 		],
 		priority: 80,
+		executionStrategy: "fanout",
 	},
 	{
 		unifiedTool: "evaluate_codebase",
@@ -41,6 +43,7 @@ export const adrRoutingRules: AdapterRoutingRule[] = [
 			/^analyze_gaps$/i,
 		],
 		priority: 70,
+		executionStrategy: "fanout",
 	},
 ];
 

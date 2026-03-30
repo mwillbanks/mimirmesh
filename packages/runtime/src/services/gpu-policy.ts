@@ -3,6 +3,14 @@ import type { EngineGpuResolution, RuntimeAdapterContext } from "@mimirmesh/mcp-
 
 import { runCommand } from "./command";
 
+type GpuPolicyDependencies = {
+	runCommand: typeof import("./command").runCommand;
+};
+
+const defaultGpuPolicyDependencies: GpuPolicyDependencies = {
+	runCommand,
+};
+
 export type HostGpuCapability = {
 	platform: NodeJS.Platform;
 	arch: NodeJS.Architecture;
@@ -22,7 +30,9 @@ const platformTag = (): Pick<
 	supportedRuntimePlatform: process.platform === "linux" && process.arch === "x64",
 });
 
-export const detectHostGpuCapability = async (): Promise<HostGpuCapability> => {
+export const detectHostGpuCapability = async (
+	dependencies: GpuPolicyDependencies = defaultGpuPolicyDependencies,
+): Promise<HostGpuCapability> => {
 	const base = platformTag();
 	if (!base.supportedRuntimePlatform) {
 		return {
@@ -32,7 +42,12 @@ export const detectHostGpuCapability = async (): Promise<HostGpuCapability> => {
 		};
 	}
 
-	const dockerInfo = await runCommand(["docker", "info", "--format", "{{json .Runtimes}}"]);
+	const dockerInfo = await dependencies.runCommand([
+		"docker",
+		"info",
+		"--format",
+		"{{json .Runtimes}}",
+	]);
 	if (dockerInfo.exitCode !== 0) {
 		return {
 			...base,
@@ -130,11 +145,12 @@ const resolveGpuForEngine = (
 
 export const resolveGpuPolicy = async (
 	config: MimirmeshConfig,
+	dependencies: GpuPolicyDependencies = defaultGpuPolicyDependencies,
 ): Promise<{
 	host: HostGpuCapability;
 	engines: Partial<Record<EngineId, EngineGpuResolution>>;
 }> => {
-	const host = await detectHostGpuCapability();
+	const host = await detectHostGpuCapability(dependencies);
 	const engines = Object.fromEntries(
 		(Object.keys(config.engines) as EngineId[]).map((engineId) => [
 			engineId,
@@ -150,8 +166,9 @@ export const resolveGpuPolicy = async (
 
 export const resolveRuntimeAdapterContext = async (
 	config: MimirmeshConfig,
+	dependencies: GpuPolicyDependencies = defaultGpuPolicyDependencies,
 ): Promise<RuntimeAdapterContext> => {
-	const resolved = await resolveGpuPolicy(config);
+	const resolved = await resolveGpuPolicy(config, dependencies);
 
 	return {
 		gpuResolutions: resolved.engines,

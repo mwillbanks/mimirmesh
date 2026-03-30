@@ -4,6 +4,21 @@ import type { EngineDiscoveredTool, UnifiedRoute } from "@mimirmesh/runtime";
 
 import type { AdapterRoutingRule } from "./types";
 
+const buildSeedHint = (engine: EngineId, match: EngineDiscoveredTool, rule: AdapterRoutingRule) => {
+	const seedHint = rule.seedHintsByTool?.[match.name] ?? rule.seedHintDefaults;
+	if (!seedHint || !rule.executionStrategy) {
+		return null;
+	}
+
+	return {
+		unifiedTool: rule.unifiedTool,
+		engine,
+		engineTool: match.name,
+		executionStrategy: rule.executionStrategy,
+		...seedHint,
+	};
+};
+
 export const resolveRoutesFromPatterns = (
 	engine: EngineId,
 	tools: EngineDiscoveredTool[],
@@ -20,6 +35,9 @@ export const resolveRoutesFromPatterns = (
 				engine,
 				engineTool: match.name,
 				priority: rule.priority,
+				executionStrategy: rule.executionStrategy,
+				seedHint: buildSeedHint(engine, match, rule),
+				inputSchema: match.inputSchema,
 			});
 		}
 	}

@@ -16,6 +16,7 @@ export const documentRoutingRules: AdapterRoutingRule[] = [
 		unifiedTool: "document_architecture",
 		candidateToolPatterns: [/^search_documents$/i],
 		priority: 40,
+		executionStrategy: "fanout",
 	},
 	{
 		unifiedTool: "document_feature",
@@ -26,6 +27,7 @@ export const documentRoutingRules: AdapterRoutingRule[] = [
 		unifiedTool: "document_architecture",
 		candidateToolPatterns: [/^document_architecture$/i, /^generate_architecture_documentation$/i],
 		priority: 80,
+		executionStrategy: "fanout",
 	},
 	{
 		unifiedTool: "document_runbook",

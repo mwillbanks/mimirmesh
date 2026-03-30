@@ -23,6 +23,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-13
 - Runtime-managed PostgreSQL with pgvector extension available for indexed skill metadata, cache state, and optional embeddings; repository-local files remain the source of truth for skill packages, `.mimirmesh/config.yml`, `.agents/skills/`, and `AGENTS.md` (010-deterministic-skill-registry)
 - TypeScript 6.0.2 on Bun 1.3.x + `@modelcontextprotocol/sdk` 1.27.1, `openai`, `pgvector-node`, Zod 4.3.x, YAML 2.8.x, Pastel 4, Ink 6, `@inkjs/ui` 2, existing workspace packages `@mimirmesh/skills`, `@mimirmesh/mcp-core`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/installer`, `@mimirmesh/ui`, Bun built-in SQL access to the runtime PostgreSQL service, and Bun built-in compression or UUID APIs (`Bun.randomUUIDv7`, `Bun.zstdCompress`, `Bun.zstdDecompress`, `Bun.gzipSync`, `Bun.gunzipSync`) (010-deterministic-skill-registry)
 - Runtime-managed PostgreSQL with pgvector-backed vector columns for indexed skill metadata, repository-scoped cache state, compressed JSON or markdown blobs, optional embeddings, and migration history; repository-local files remain the source of truth for skill packages, `.mimirmesh/config.yml`, `.agents/skills/`, and `AGENTS.md` (010-deterministic-skill-registry)
+- TypeScript in a Bun workspace monorepo + Bun runtime + Bun.SQL, Zod, Model Context Protocol TypeScript SDK, Ink, Pastel, `@inkjs/ui` (011-route-cost-telemetry)
+- Project-scoped PostgreSQL (`mm-postgres`) plus existing `.mimirmesh/runtime/*` evidence files (011-route-cost-telemetry)
 
 - TypeScript on Bun for MímirMesh packages and Python 3 for the Srclight container workload + `@modelcontextprotocol/sdk`, Bun workspace packages, Docker Compose runtime, Srclight `0.12.x`, SQLite FTS5, tree-sitter, optional Ollama embeddings (001-local-code-intelligence)
 
@@ -42,9 +44,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 TypeScript on Bun for MímirMesh packages and Python 3 for the Srclight container workload: Follow standard conventions
 
 ## Recent Changes
+- 011-route-cost-telemetry: Added TypeScript in a Bun workspace monorepo + Bun runtime + Bun.SQL, Zod, Model Context Protocol TypeScript SDK, Ink, Pastel, `@inkjs/ui`
 - 010-deterministic-skill-registry: Added TypeScript 6.0.2 on Bun 1.3.x + `@modelcontextprotocol/sdk` 1.27.1, `openai`, `pgvector-node`, Zod 4.3.x, YAML 2.8.x, Pastel 4, Ink 6, `@inkjs/ui` 2, existing workspace packages `@mimirmesh/skills`, `@mimirmesh/mcp-core`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/installer`, `@mimirmesh/ui`, Bun built-in SQL access to the runtime PostgreSQL service, and Bun built-in compression or UUID APIs (`Bun.randomUUIDv7`, `Bun.zstdCompress`, `Bun.zstdDecompress`, `Bun.gzipSync`, `Bun.gunzipSync`)
 - 010-deterministic-skill-registry: Added TypeScript 6.0.2 on Bun 1.3.x + `@modelcontextprotocol/sdk` 1.27.1, Zod 4.3.x, YAML 2.8.x, Pastel 4, Ink 6, `@inkjs/ui` 2, existing workspace packages `@mimirmesh/skills`, `@mimirmesh/mcp-core`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/installer`, `@mimirmesh/ui`, and Bun built-in SQL access to the runtime PostgreSQL service
-- 009-lazy-schema-compression: Added TypeScript 6.0.2 on Bun 1.3.x + `@modelcontextprotocol/sdk` 1.27.1, Zod 4.3.x, Pastel 4, Ink 6, `@inkjs/ui` 2, workspace packages `@mimirmesh/mcp-core`, `@mimirmesh/runtime`, `@mimirmesh/config`, `@mimirmesh/mcp-adapters`, `@mimirmesh/ui`, `@mimirmesh/logging`
 
 
 <!-- MANUAL ADDITIONS START -->

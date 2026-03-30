@@ -1,6 +1,16 @@
 import type { EngineId } from "@mimirmesh/config";
 import { callBridgeTool, reconnectBridge } from "@mimirmesh/runtime";
 
+type BridgeRuntimeDependencies = {
+	callBridgeTool: typeof import("@mimirmesh/runtime").callBridgeTool;
+	reconnectBridge: typeof import("@mimirmesh/runtime").reconnectBridge;
+};
+
+const defaultBridgeRuntimeDependencies: BridgeRuntimeDependencies = {
+	callBridgeTool,
+	reconnectBridge,
+};
+
 export const bridgeUrlForEngine = (
 	bridgePorts: Partial<Record<EngineId, number>>,
 	engine: EngineId,
@@ -9,12 +19,15 @@ export const bridgeUrlForEngine = (
 	return port ? `http://127.0.0.1:${port}` : null;
 };
 
-export const invokeEngineTool = async (options: {
-	bridgePorts: Partial<Record<EngineId, number>>;
-	engine: EngineId;
-	tool: string;
-	args: Record<string, unknown>;
-}): Promise<{ ok: boolean; result?: unknown; error?: string }> => {
+export const invokeEngineTool = async (
+	options: {
+		bridgePorts: Partial<Record<EngineId, number>>;
+		engine: EngineId;
+		tool: string;
+		args: Record<string, unknown>;
+	},
+	dependencies: BridgeRuntimeDependencies = defaultBridgeRuntimeDependencies,
+): Promise<{ ok: boolean; result?: unknown; error?: string }> => {
 	const url = bridgeUrlForEngine(options.bridgePorts, options.engine);
 	if (!url) {
 		return {
@@ -39,7 +52,7 @@ export const invokeEngineTool = async (options: {
 	};
 
 	const callOnce = async () =>
-		callBridgeTool(url, {
+		dependencies.callBridgeTool(url, {
 			tool: options.tool,
 			args: options.args,
 		});
@@ -47,7 +60,7 @@ export const invokeEngineTool = async (options: {
 	try {
 		const initial = await callOnce();
 		if (!initial.ok && shouldReconnect(initial.error)) {
-			await reconnectBridge(url);
+			await dependencies.reconnectBridge(url);
 			return await callOnce();
 		}
 		return initial;
@@ -55,7 +68,7 @@ export const invokeEngineTool = async (options: {
 		const message = error instanceof Error ? error.message : String(error);
 		if (shouldReconnect(message)) {
 			try {
-				await reconnectBridge(url);
+				await dependencies.reconnectBridge(url);
 				return await callOnce();
 			} catch (retryError) {
 				return {

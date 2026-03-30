@@ -36,6 +36,7 @@ import type {
 	RuntimeActionResult,
 	RuntimeBridgeInfo,
 	RuntimeConnection,
+	RuntimeHealth,
 } from "../types";
 import {
 	classifyUpgradeStatus,
@@ -47,6 +48,9 @@ import { checkBridgeHealth } from "./bridge";
 import { composeDown, composePsJson, runCompose } from "./compose";
 import { resolveRuntimeAdapterContext } from "./gpu-policy";
 import { resolveBridgePorts } from "./ports";
+import { summarizeRouteTelemetryHealth } from "./route-telemetry-health";
+import { runRouteTelemetryMaintenance } from "./route-telemetry-maintenance";
+import { openRouteTelemetryStore } from "./route-telemetry-store";
 
 const enabledServiceNames = (projectRoot: string, config: MimirmeshConfig): string[] => {
 	const enabled = new Set(listEnabledEngines(config));
@@ -328,6 +332,73 @@ const runtimeUnavailableResult = async (options: {
 	};
 };
 
+export const collectRouteTelemetryRuntimeHealth = async (options: {
+	projectRoot: string;
+	config: MimirmeshConfig;
+	lockOwner: string;
+	now?: Date;
+}): Promise<NonNullable<RuntimeHealth["routeTelemetry"]>> => {
+	const store = await openRouteTelemetryStore(options.projectRoot, options.config);
+	if (!store) {
+		const summary = summarizeRouteTelemetryHealth({
+			maintenanceState: null,
+			now: options.now,
+			unavailableReason:
+				"Runtime PostgreSQL is unavailable. Start the runtime before using route telemetry.",
+		});
+		return {
+			state: summary.state,
+			lastSuccessfulCompactionAt: summary.lastSuccessfulCompactionAt,
+			lagSeconds: summary.lagSeconds,
+			warnings: summary.warnings,
+		};
+	}
+
+	try {
+		let maintenanceState = await store.loadMaintenanceState();
+		let summary = summarizeRouteTelemetryHealth({
+			maintenanceState,
+			now: options.now,
+		});
+		if (summary.state === "behind" || summary.lastSuccessfulCompactionAt === null) {
+			try {
+				const result = await runRouteTelemetryMaintenance({
+					store,
+					lockOwner: options.lockOwner,
+					now: options.now,
+				});
+				maintenanceState = result.maintenanceState;
+			} catch (error) {
+				maintenanceState = await store.loadMaintenanceState();
+				summary = summarizeRouteTelemetryHealth({
+					maintenanceState,
+					now: options.now,
+					invalidOverrideWarnings: [error instanceof Error ? error.message : String(error)],
+				});
+				return {
+					state: summary.state,
+					lastSuccessfulCompactionAt: summary.lastSuccessfulCompactionAt,
+					lagSeconds: summary.lagSeconds,
+					warnings: summary.warnings,
+				};
+			}
+			summary = summarizeRouteTelemetryHealth({
+				maintenanceState,
+				now: options.now,
+			});
+		}
+
+		return {
+			state: summary.state,
+			lastSuccessfulCompactionAt: summary.lastSuccessfulCompactionAt,
+			lagSeconds: summary.lagSeconds,
+			warnings: summary.warnings,
+		};
+	} finally {
+		await store.close();
+	}
+};
+
 export const runtimeStatus = async (
 	projectRoot: string,
 	config: MimirmeshConfig,
@@ -388,6 +459,11 @@ export const runtimeStatus = async (
 		upgradeState: upgradeStatus.report.state,
 		upgradeReasons: upgradeStatus.report.warnings,
 	});
+	const routeTelemetry = await collectRouteTelemetryRuntimeHealth({
+		projectRoot,
+		config,
+		lockOwner: `runtime-status:${process.pid}`,
+	});
 
 	const health = buildRuntimeHealth({
 		state: inferred.state,
@@ -401,6 +477,7 @@ export const runtimeStatus = async (
 		upgradeState: upgradeStatus.report.state,
 		migrationStatus: upgradeStatus.report.requiredActions.join(", "),
 		skillRegistry,
+		routeTelemetry,
 	});
 
 	const connection = existingConnection;
@@ -685,6 +762,11 @@ export const runtimeStart = async (
 		upgradeState: upgradeStatus.report.state,
 		upgradeReasons: upgradeStatus.report.warnings,
 	});
+	const routeTelemetry = await collectRouteTelemetryRuntimeHealth({
+		projectRoot,
+		config,
+		lockOwner: `runtime-start:${process.pid}`,
+	});
 
 	const health = buildRuntimeHealth({
 		state: inferred.state,
@@ -698,6 +780,7 @@ export const runtimeStart = async (
 		upgradeState: upgradeStatus.report.state,
 		migrationStatus: upgradeStatus.report.requiredActions.join(", "),
 		skillRegistry,
+		routeTelemetry,
 	});
 
 	const connection = {

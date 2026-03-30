@@ -59,7 +59,7 @@
 		"agent-execution-mode": {
 			"source": "mwillbanks/agent-skills",
 			"sourceType": "github",
-			"computedHash": "edd5018f15b8d28b479e45042c8ed009f10597e4fddaf3893fdcbb0286778924"
+			"computedHash": "de4bf4dff12e9d4dbdc18fb02cb3df3e2e0b268f9620e5e554beb08c024b58d3"
 		},
 		"biome-enforcement": {
 			"source": "mwillbanks/agent-skills",
@@ -70,6 +70,11 @@
 			"source": "mwillbanks/agent-skills",
 			"sourceType": "github",
 			"computedHash": "60c460e898c3315de3bd2609dc9ffe956a2f7677b35dec32ce6b50a5e2102a85"
+		},
+		"execution-alignment-gate": {
+			"source": "mwillbanks/agent-skills",
+			"sourceType": "github",
+			"computedHash": "193ce6a7d84456784cc1f00489832ff61f8914dbca9feb57e3e578c8ef01b9d8"
 		},
 		"repo-standards-enforcement": {
 			"source": "mwillbanks/agent-skills",

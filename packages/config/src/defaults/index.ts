@@ -189,6 +189,12 @@ export const createDefaultConfig = (projectRoot: string): MimirmeshConfig => {
 				refreshPolicy: "explicit",
 				allowInvocationLazyLoad: true,
 			},
+			routingHints: {
+				adaptiveSubset: {
+					include: [],
+					exclude: [],
+				},
+			},
 		},
 		skills: createDefaultSkillsConfig(),
 		update: {

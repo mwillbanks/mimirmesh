@@ -231,6 +231,52 @@ export const unifiedToolDefinitions: Record<UnifiedToolName, UnifiedToolDefiniti
 				.describe("Schema detail level to return."),
 		},
 	},
+	inspect_route_hints: {
+		description:
+			"Inspect route-hint ordering, confidence, freshness, subset eligibility, and telemetry maintenance status.",
+		inputSchema: {
+			unifiedTool: z
+				.enum([
+					"explain_project",
+					"explain_subsystem",
+					"find_symbol",
+					"find_tests",
+					"inspect_type_hierarchy",
+					"inspect_platform_code",
+					"list_workspace_projects",
+					"refresh_index",
+					"search_code",
+					"search_docs",
+					"trace_dependency",
+					"trace_integration",
+					"investigate_issue",
+					"evaluate_codebase",
+					"generate_adr",
+					"document_feature",
+					"document_architecture",
+					"document_runbook",
+				])
+				.optional()
+				.describe("Optional unified tool to inspect."),
+			engine: z
+				.enum(["srclight", "document-mcp", "mcp-adr-analysis-server"])
+				.optional()
+				.describe("Optional engine to narrow the inspected route."),
+			engineTool: optionalText("Optional concrete engine tool name."),
+			profile: optionalText("Optional explicit route profile key."),
+			includeRollups: z
+				.boolean()
+				.optional()
+				.describe("Whether to include recent 15m/6h/1d rollups."),
+			limitBuckets: z
+				.number()
+				.int()
+				.positive()
+				.max(32)
+				.optional()
+				.describe("Maximum number of buckets to return per rollup tier."),
+		},
+	},
 };
 
 export const unifiedToolDescriptions: Record<UnifiedToolName, string> = Object.fromEntries(

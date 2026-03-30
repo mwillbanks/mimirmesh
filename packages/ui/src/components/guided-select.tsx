@@ -1,5 +1,5 @@
 import { Box, Text, useInput } from "ink";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { PromptChoice } from "../workflow/types";
 import { PromptReason } from "./prompt-reason";
@@ -35,6 +35,16 @@ export const GuidedSelect = ({
 	const [focusedIndex, setFocusedIndex] = useState(initialIndex);
 	const [selectedValue, setSelectedValue] = useState(defaultValue ?? choices[0]?.value ?? "");
 	const focusedIndexRef = useRef(initialIndex);
+
+	useEffect(() => {
+		const nextIndex = Math.max(
+			0,
+			choices.findIndex((choice) => choice.value === (defaultValue ?? choices[0]?.value)),
+		);
+		focusedIndexRef.current = nextIndex;
+		setFocusedIndex(nextIndex);
+		setSelectedValue(defaultValue ?? choices[0]?.value ?? "");
+	}, [choices, defaultValue]);
 
 	const setFocusedChoiceIndex = (nextIndex: number) => {
 		focusedIndexRef.current = nextIndex;

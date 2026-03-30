@@ -192,6 +192,7 @@ export const buildRuntimeHealth = (options: {
 	upgradeState?: UpgradeStatusReport["state"] | null;
 	migrationStatus?: string | null;
 	skillRegistry?: SkillRegistryState | null;
+	routeTelemetry?: RuntimeHealth["routeTelemetry"];
 }): RuntimeHealth => ({
 	timestamp: new Date().toISOString(),
 	state: options.state,
@@ -206,4 +207,5 @@ export const buildRuntimeHealth = (options: {
 	upgradeState: options.upgradeState ?? null,
 	migrationStatus: options.migrationStatus ?? null,
 	skillRegistry: options.skillRegistry ?? null,
+	routeTelemetry: options.routeTelemetry ?? null,
 });

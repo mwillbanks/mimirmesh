@@ -9,6 +9,142 @@ import type {
 import type { SkillRegistryState } from "../state/skills";
 
 export type RuntimeBridgeTransport = "stdio" | "sse" | "streamable-http";
+export type RouteExecutionStrategy = "prefer-first" | "fanout" | "fallback-only";
+export type RouteHintSourceMode = "static" | "insufficient-data" | "mixed" | "adaptive" | "stale";
+export type RouteHintSourceLabel = "seed-only" | "sparse" | "mixed" | "adaptive" | "stale";
+export type RouteHintFreshnessState = "current" | "aging" | "stale" | "unknown";
+export type RouteHintCacheAffinity = "low" | "medium" | "high";
+export type RouteHintFreshnessSensitivity = "low" | "medium" | "high";
+export type RouteTelemetryHealthState = "ready" | "behind" | "degraded" | "unavailable";
+export type RouteTelemetryMaintenanceStatus = "idle" | "running" | "degraded" | "failed";
+export type RouteExecutionOutcome = "success" | "degraded" | "failed" | "skipped";
+export type RouteArgumentQueryClass = "empty" | "identifier" | "free-text" | "path-only" | "mixed";
+export type RouteArgumentLimitBand = "default" | "small" | "medium" | "large";
+export type RouteArgumentPromptLengthBand = "short" | "medium" | "long";
+
+export type SanitizedArgumentSummary = {
+	shapeVersion: number;
+	queryClass: RouteArgumentQueryClass;
+	hasPath: boolean;
+	limitBand: RouteArgumentLimitBand;
+	promptLengthBand: RouteArgumentPromptLengthBand;
+	identifierLike: boolean;
+	additionalFlags: Record<string, boolean>;
+};
+
+export type RouteSeedHint = {
+	unifiedTool: string;
+	engine: EngineId;
+	engineTool: string;
+	executionStrategy: RouteExecutionStrategy;
+	adaptiveEligible: boolean;
+	estimatedInputTokens: number;
+	estimatedOutputTokens: number;
+	estimatedLatencyMs: number;
+	expectedSuccessRate: number;
+	cacheAffinity: RouteHintCacheAffinity;
+	freshnessSensitivity: RouteHintFreshnessSensitivity;
+};
+
+export type RouteExecutionEvent = {
+	eventId: string;
+	repoId: string;
+	occurredAt: string;
+	sessionId: string | null;
+	requestCorrelationId: string | null;
+	unifiedTool: string;
+	profileKey: string;
+	sanitizedArgumentSummary: SanitizedArgumentSummary;
+	requestFingerprint: string | null;
+	engine: EngineId;
+	engineTool: string;
+	executionStrategy: RouteExecutionStrategy;
+	staticPriority: number;
+	attemptIndex: number;
+	outcome: RouteExecutionOutcome;
+	failureClassification: string | null;
+	latencyMs: number;
+	estimatedInputTokens: number;
+	estimatedOutputTokens: number;
+	inputBytes: number;
+	outputBytes: number;
+	resultItemCount: number;
+	hintSourceModeAtExecution: RouteHintSourceMode;
+	hintConfidenceAtExecution: number;
+	effectiveCostScoreAtExecution: number;
+	orderingReasonCodes: string[];
+	createdAt: string;
+};
+
+export type RouteRollupBucket = {
+	repoId: string;
+	unifiedTool: string;
+	profileKey: string;
+	engine: EngineId;
+	engineTool: string;
+	executionStrategy: RouteExecutionStrategy;
+	bucketStart: string;
+	attemptCount: number;
+	successCount: number;
+	degradedCount: number;
+	failedCount: number;
+	avgLatencyMs: number;
+	p95LatencyMs: number;
+	avgEstimatedInputTokens: number;
+	avgEstimatedOutputTokens: number;
+	avgInputBytes: number;
+	avgOutputBytes: number;
+	avgResultItemCount: number;
+	lastObservedAt: string;
+	orderingReasonCounts: Record<string, number>;
+};
+
+export type RouteHintSnapshot = {
+	repoId: string;
+	unifiedTool: string;
+	profileKey: string;
+	engine: EngineId;
+	engineTool: string;
+	executionStrategy: RouteExecutionStrategy;
+	subsetEligible: boolean;
+	sourceMode: RouteHintSourceMode;
+	sourceLabel: RouteHintSourceLabel;
+	sampleCount: number;
+	confidence: number;
+	freshnessState: RouteHintFreshnessState;
+	freshnessAgeSeconds: number | null;
+	estimatedInputTokens: number;
+	estimatedOutputTokens: number;
+	estimatedLatencyMs: number;
+	estimatedSuccessRate: number;
+	degradedRate: number;
+	cacheAffinity: RouteHintCacheAffinity;
+	freshnessSensitivity: RouteHintFreshnessSensitivity;
+	effectiveCostScore: number;
+	staticPriority: number;
+	orderingReasonCodes: string[];
+	lastObservedAt: string | null;
+	lastRefreshedAt: string;
+	seedHash: string;
+};
+
+export type RouteTelemetryMaintenanceProgress = {
+	closedBucketCount: number;
+	remainingBucketCount: number;
+	lastProcessedBucketEnd: string | null;
+};
+
+export type RouteTelemetryMaintenanceState = {
+	repoId: string;
+	lastStartedAt: string | null;
+	lastCompletedAt: string | null;
+	lastSuccessfulAt: string | null;
+	lastCompactedThrough: string | null;
+	status: RouteTelemetryMaintenanceStatus;
+	lagSeconds: number;
+	lastError: string | null;
+	lockOwner: string | null;
+};
 
 export type RuntimeServiceStatus = {
 	name: string;
@@ -42,6 +178,12 @@ export type RuntimeHealth = {
 	upgradeState?: UpgradeStatusReport["state"] | null;
 	migrationStatus?: string | null;
 	skillRegistry?: SkillRegistryState | null;
+	routeTelemetry?: {
+		state: RouteTelemetryHealthState;
+		lastSuccessfulCompactionAt: string | null;
+		lagSeconds: number;
+		warnings: string[];
+	} | null;
 };
 
 export type RuntimeConnection = {
@@ -162,6 +304,8 @@ export type UnifiedRoute = {
 	engine: EngineId;
 	engineTool: string;
 	priority: number;
+	executionStrategy?: RouteExecutionStrategy;
+	seedHint?: RouteSeedHint | null;
 	inputSchema?: Record<string, unknown>;
 };
 

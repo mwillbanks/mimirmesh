@@ -27,6 +27,12 @@ surface:
 - `refresh_tool_surface`
 - `inspect_tool_schema`
 
+The core unified surface also now includes `inspect_route_hints`, which is a
+MímirMesh-owned inspection tool rather than an engine passthrough. It returns
+route-hint ordering, canonical `sourceMode`, operator-facing `sourceLabel`,
+freshness fields, and route-telemetry maintenance state without exposing raw
+request arguments or raw result payloads.
+
 When the live router advertises the deterministic skill registry tools, the
 server publishes them through the same registration path as every other unified
 tool. The CLI mirrors that contract with direct `mimirmesh skills find|read|resolve|refresh|create|update` commands, so server and CLI surfaces stay aligned even when the underlying skill backend evolves.
@@ -64,6 +70,11 @@ The public unified aliases are also first-class MCP tools, not discovery-only co
 - `generate_adr`
 
 The routed surface is the deliberate agent-facing contract. Use the unified tools first for navigation, investigation, architecture, and integration work, then escalate to passthrough tools only when the routed result leaves a concrete gap such as history evidence or engine-specific deployment detail.
+
+For the adaptive routing subset, `search_code` and `find_symbol` now preserve
+deterministic fallback semantics while consuming durable route-hint snapshots
+when telemetry is available. Merge-oriented tools continue to expose inspection
+diagnostics but keep their existing `fanout` execution behavior.
 
 ## Runtime Preconditions
 

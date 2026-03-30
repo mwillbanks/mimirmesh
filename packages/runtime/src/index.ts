@@ -45,6 +45,14 @@ export {
 	resolveRuntimeAdapterContext,
 } from "./services/gpu-policy";
 export { resolveBridgePorts } from "./services/ports";
+export { deriveRouteHintSnapshot } from "./services/route-hint-snapshots";
+export { summarizeRouteTelemetryHealth } from "./services/route-telemetry-health";
+export {
+	releaseRouteTelemetryLock,
+	runRouteTelemetryMaintenance,
+	tryAcquireRouteTelemetryLock,
+} from "./services/route-telemetry-maintenance";
+export { openRouteTelemetryStore, RouteTelemetryStore } from "./services/route-telemetry-store";
 export {
 	dockerComposeRender,
 	loadRuntimeRouting,
@@ -123,6 +131,31 @@ export {
 	versionPath,
 } from "./state/paths";
 export {
+	buildRouteTelemetryLockKey,
+	buildRouteTelemetryRepoId,
+	buildRouteTelemetrySeedHash,
+	emptyRouteTelemetryMaintenanceProgress,
+	emptyRouteTelemetryMaintenanceState,
+	ROUTE_TELEMETRY_ADAPTIVE_SAMPLE_MINIMUM,
+	ROUTE_TELEMETRY_COMPACTION_CADENCE_MINUTES,
+	ROUTE_TELEMETRY_MIXED_SAMPLE_MINIMUM,
+	ROUTE_TELEMETRY_RAW_RETENTION_DAYS,
+	ROUTE_TELEMETRY_ROLLUP_RETENTION,
+	ROUTE_TELEMETRY_SCHEMA_VERSION,
+	ROUTE_TELEMETRY_STALE_AFTER_HOURS,
+	type RouteTelemetryBucketTier,
+	type RouteTelemetryScope,
+	routeTelemetryRollupTable,
+	sourceLabelForMode,
+	stableJson,
+} from "./state/route-telemetry";
+export {
+	ensureRouteTelemetrySchema,
+	openRouteTelemetryDatabase,
+	type RouteTelemetrySqlClient,
+	resolveRouteTelemetryDatabaseUrl,
+} from "./state/route-telemetry-migrations";
+export {
 	loadSkillRegistryState,
 	persistSkillRegistryState,
 	type SkillProviderSelection,
@@ -144,12 +177,31 @@ export type {
 	EngineRuntimeState,
 	McpSessionToolSurfaceState,
 	PassthroughRoute,
+	RouteArgumentLimitBand,
+	RouteArgumentPromptLengthBand,
+	RouteArgumentQueryClass,
+	RouteExecutionEvent,
+	RouteExecutionOutcome,
+	RouteExecutionStrategy,
+	RouteHintCacheAffinity,
+	RouteHintFreshnessSensitivity,
+	RouteHintFreshnessState,
+	RouteHintSnapshot,
+	RouteHintSourceLabel,
+	RouteHintSourceMode,
+	RouteRollupBucket,
+	RouteSeedHint,
+	RouteTelemetryHealthState,
+	RouteTelemetryMaintenanceProgress,
+	RouteTelemetryMaintenanceState,
+	RouteTelemetryMaintenanceStatus,
 	RoutingTable,
 	RuntimeActionResult,
 	RuntimeBridgeInfo,
 	RuntimeConnection,
 	RuntimeHealth,
 	RuntimeServiceStatus,
+	SanitizedArgumentSummary,
 	UnifiedRoute,
 } from "./types";
 export * from "./upgrade";

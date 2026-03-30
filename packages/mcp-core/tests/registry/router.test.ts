@@ -5,8 +5,6 @@ import { createDefaultConfig } from "@mimirmesh/config";
 import { persistConnection, persistRoutingTable } from "@mimirmesh/runtime";
 import { createFixtureCopy } from "@mimirmesh/testing";
 
-import { createToolRouter } from "../../src/registry/router";
-
 let bridgeServer: ReturnType<typeof Bun.serve> | null = null;
 
 const reservePort = async (): Promise<number> =>
@@ -37,8 +35,14 @@ afterEach(async () => {
 	}
 });
 
+const loadCreateToolRouter = async () =>
+	(await import(`../../src/registry/router?test=${crypto.randomUUID()}`)).createToolRouter;
+
+const hybridSearchToolNames = ["srclight_hybrid_search", "mimirmesh.srclight.hybrid_search"];
+
 describe("mcp tool router", () => {
 	test("lists core management tools first and exposes passthrough tools only after loading a deferred group", async () => {
+		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 		const port = await reservePort();
@@ -129,21 +133,38 @@ describe("mcp tool router", () => {
 		});
 
 		const tools = await router.listTools();
-		expect(tools.some((tool) => tool.name === "explain_project")).toBe(true);
-		expect(tools.some((tool) => tool.name === "find_tests")).toBe(true);
-		expect(tools.some((tool) => tool.name === "inspect_platform_code")).toBe(true);
-		expect(tools.some((tool) => tool.name === "list_workspace_projects")).toBe(true);
-		expect(tools.some((tool) => tool.name === "refresh_index")).toBe(true);
-		expect(tools.some((tool) => tool.name === "load_deferred_tools")).toBe(true);
-		expect(tools.some((tool) => tool.name === "inspect_tool_schema")).toBe(true);
-		expect(tools.some((tool) => tool.name === "srclight_hybrid_search")).toBe(false);
+		expect(tools.some((tool: (typeof tools)[number]) => tool.name === "explain_project")).toBe(
+			true,
+		);
+		expect(tools.some((tool: (typeof tools)[number]) => tool.name === "find_tests")).toBe(true);
+		expect(
+			tools.some((tool: (typeof tools)[number]) => tool.name === "inspect_platform_code"),
+		).toBe(true);
+		expect(
+			tools.some((tool: (typeof tools)[number]) => tool.name === "list_workspace_projects"),
+		).toBe(true);
+		expect(tools.some((tool: (typeof tools)[number]) => tool.name === "refresh_index")).toBe(true);
+		expect(tools.some((tool: (typeof tools)[number]) => tool.name === "load_deferred_tools")).toBe(
+			true,
+		);
+		expect(tools.some((tool: (typeof tools)[number]) => tool.name === "inspect_tool_schema")).toBe(
+			true,
+		);
+		expect(
+			tools.some((tool: (typeof tools)[number]) => hybridSearchToolNames.includes(tool.name)),
+		).toBe(false);
 
 		await router.loadDeferredToolGroup("srclight");
 		const loadedTools = await router.listTools();
-		expect(loadedTools.some((tool) => tool.name === "srclight_hybrid_search")).toBe(true);
+		expect(
+			loadedTools.some((tool: (typeof loadedTools)[number]) =>
+				hybridSearchToolNames.includes(tool.name),
+			),
+		).toBe(true);
 	});
 
 	test("returns provenance for passthrough failures", async () => {
+		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 

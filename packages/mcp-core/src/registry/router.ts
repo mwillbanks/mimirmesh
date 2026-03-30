@@ -16,10 +16,12 @@ import {
 	detectMcpServerStaleness,
 	loadEngineState,
 	loadSkillRegistrySnapshot,
+	openRouteTelemetryStore,
 	persistMcpToolSurfaceSession,
 	refreshSkillRegistryStore,
 	resolveSkillRegistryEmbeddingMatches,
 	runtimeStatus,
+	summarizeRouteTelemetryHealth,
 } from "@mimirmesh/runtime";
 import {
 	buildReadSignature,
@@ -47,11 +49,22 @@ import {
 import { deduplicateAndRank } from "../merge/results";
 import { buildRetiredPassthroughAliasResult, retiredPassthroughAliasFor } from "../passthrough";
 import { normalizeEnginePayloadPaths, translateEngineToolInput } from "../paths/translation";
+import {
+	executionStrategyForRoute,
+	resolveAdaptiveRouteHintAllowlist,
+	routeHintModeLabel,
+} from "../routing/hints";
+import {
+	buildRouteProfileKey,
+	buildRouteRequestFingerprint,
+	summarizeToolInput,
+} from "../routing/summaries";
 import { passthroughRouteFor, unifiedRoutesFor } from "../routing/table";
 import { invokeEngineTool } from "../transport/bridge";
 import type {
 	MiddlewareContext,
 	NormalizedToolResult,
+	RoutingEngineRoute,
 	ToolDefinition,
 	ToolInput,
 	ToolName,
@@ -429,6 +442,41 @@ const extractTextContent = (payload: unknown): string => {
 	return "";
 };
 
+const normalizeResultPayloadForItems = (payload: unknown): unknown | undefined => {
+	if (payload === null || payload === undefined) {
+		return undefined;
+	}
+	if (Array.isArray(payload)) {
+		return payload.length > 0 ? payload : undefined;
+	}
+	const record = asRecord(payload);
+	if (!record) {
+		return typeof payload === "string"
+			? payload.trim().length > 0
+				? payload
+				: undefined
+			: payload;
+	}
+	if ("result" in record) {
+		return normalizeResultPayloadForItems(record.result);
+	}
+	if (Array.isArray(record.results)) {
+		return record.results.length > 0 ? record.results : undefined;
+	}
+	if (Array.isArray(record.matches)) {
+		return record.matches.length > 0 ? record.matches : undefined;
+	}
+	if (Array.isArray(record.content)) {
+		return record.content.length > 0 ? payload : undefined;
+	}
+	return Object.keys(record).length > 0 ? payload : undefined;
+};
+
+const toUsableResultItems = (engine: string, tool: string, payload: unknown): ToolResultItem[] => {
+	const usablePayload = normalizeResultPayloadForItems(payload);
+	return usablePayload === undefined ? [] : toResultItems(engine, tool, usablePayload);
+};
+
 const parseJsonEnvelope = (text: string): unknown | null => {
 	const trimmed = text.trim();
 	if (
@@ -467,11 +515,37 @@ const extractAdrPaths = (text: string): string[] => {
 	];
 };
 
+const routeSnapshotKey = (route: Pick<RoutingEngineRoute, "engine" | "engineTool">): string =>
+	`${route.engine}:${route.engineTool}`;
+
+const jsonByteLength = (value: unknown): number => {
+	try {
+		return Buffer.byteLength(JSON.stringify(value ?? null));
+	} catch {
+		return 0;
+	}
+};
+
+const failureClassificationFor = (error: string | undefined): string | null => {
+	if (!error?.trim()) {
+		return null;
+	}
+	if (/timeout/i.test(error)) {
+		return "timeout";
+	}
+	if (/bridge|unavailable|connection/i.test(error)) {
+		return "bridge";
+	}
+	return "tool-error";
+};
+
 export class ToolRouter {
 	private readonly projectRoot: string;
 	private config: MimirmeshConfig;
 	private readonly sessionId: string;
 	private readonly logger?: ToolRouterOptions["logger"];
+	private readonly adapterResolver: NonNullable<ToolRouterOptions["adapterResolver"]>;
+	private readonly engineInvoker: NonNullable<ToolRouterOptions["engineInvoker"]>;
 	private readonly executeWithMiddleware: (
 		context: MiddlewareContext,
 	) => Promise<NormalizedToolResult>;
@@ -481,6 +555,8 @@ export class ToolRouter {
 		this.config = options.config;
 		this.sessionId = options.sessionId ?? process.env.MIMIRMESH_SESSION_ID ?? "cli-default";
 		this.logger = options.logger;
+		this.adapterResolver = options.adapterResolver ?? getAdapter;
+		this.engineInvoker = options.engineInvoker ?? invokeEngineTool;
 
 		const defaultMiddlewares = [
 			errorNormalizationMiddleware(this.logger),
@@ -1356,7 +1432,7 @@ export class ToolRouter {
 		}
 
 		const runtime = await loadRuntimeRoutingContext(this.projectRoot);
-		if (!runtime.routing || !runtime.connection) {
+		if (!runtime.routing || (!runtime.connection && toolName !== "inspect_route_hints")) {
 			return {
 				tool: toolName,
 				success: false,
@@ -1368,146 +1444,678 @@ export class ToolRouter {
 				warningCodes: [],
 			};
 		}
-		const ignoreMatcher = await loadRepositoryIgnoreMatcher(this.projectRoot);
+		const routingTable = runtime.routing;
+		if (toolName === "inspect_route_hints") {
+			const allowlist = resolveAdaptiveRouteHintAllowlist(this.config);
+			const unifiedTool =
+				typeof input.unifiedTool === "string" ? (input.unifiedTool as UnifiedToolName) : undefined;
+			const engine =
+				input.engine === "srclight" ||
+				input.engine === "document-mcp" ||
+				input.engine === "mcp-adr-analysis-server"
+					? input.engine
+					: undefined;
+			const engineTool = typeof input.engineTool === "string" ? input.engineTool : undefined;
+			const profileKey =
+				typeof input.profile === "string" && input.profile.trim() ? input.profile : undefined;
+			const includeRollups = input.includeRollups === true;
+			const limitBuckets =
+				typeof input.limitBuckets === "number" && Number.isFinite(input.limitBuckets)
+					? input.limitBuckets
+					: 8;
+			const telemetryStore =
+				runtime.connection?.services.includes("mm-postgres") === true
+					? await openRouteTelemetryStore(this.projectRoot, this.config)
+					: null;
 
-		const routes = unifiedRoutesFor(runtime.routing, toolName);
-		if (routes.length === 0) {
-			return {
-				tool: toolName,
-				success: false,
-				message: `No discovered engine capability for ${toolName}.`,
-				items: [],
-				provenance: [],
-				degraded: true,
-				warnings: [
-					"Unified routes are generated from live discovery; refresh runtime to rebuild routing.",
-				],
-				warningCodes: [],
-			};
-		}
-
-		const routeGroups = new Map<EngineId, typeof routes>();
-		for (const route of routes) {
-			const existing = routeGroups.get(route.engine) ?? [];
-			existing.push(route);
-			routeGroups.set(route.engine, existing);
-		}
-
-		const groupedResults = await Promise.all(
-			[...routeGroups.entries()].map(async ([engine, engineRoutes]) => {
-				const adapter = getAdapter(engine);
-				const translatedInput = this.translateToolInputForEngine(engine, input);
-				if (adapter.executeUnifiedTool) {
-					const handled = await adapter.executeUnifiedTool({
-						unifiedTool: toolName,
-						routes: engineRoutes,
-						input: translatedInput,
-						projectRoot: this.projectRoot,
-						config: this.config,
-						bridgePorts: runtime.connection?.bridgePorts ?? {},
-						invoke: (tool, args) =>
-							invokeEngineTool({
-								bridgePorts: runtime.connection?.bridgePorts ?? {},
+			try {
+				const routes = unifiedTool
+					? unifiedRoutesFor(runtime.routing, unifiedTool).filter(
+							(route) =>
+								(!engine || route.engine === engine) &&
+								(!engineTool || route.engineTool === engineTool),
+						)
+					: [];
+				const subsetEligible = unifiedTool
+					? allowlist.effectiveAllowlist.includes(unifiedTool)
+					: false;
+				const snapshots =
+					unifiedTool && telemetryStore
+						? await telemetryStore.listRouteHintSnapshots({
+								unifiedTool,
+								profileKey,
 								engine,
-								tool,
-								args,
-							}),
-					});
-					if (handled) {
-						return handled;
-					}
+								engineTool,
+							})
+						: [];
+				const maintenanceState = telemetryStore
+					? await telemetryStore.loadMaintenanceState()
+					: null;
+				const health = summarizeRouteTelemetryHealth({
+					maintenanceState,
+					invalidOverrideWarnings: allowlist.overrideWarnings,
+					affectedSourceLabels: snapshots.map((snapshot) => snapshot.sourceLabel),
+					unavailableReason: telemetryStore
+						? null
+						: "Runtime PostgreSQL is unavailable. Start the runtime before using route telemetry.",
+				});
+
+				if (!unifiedTool) {
+					const response = {
+						telemetryHealth: {
+							state: health.state,
+							lastSuccessfulCompactionAt: health.lastSuccessfulCompactionAt,
+							lagSeconds: health.lagSeconds,
+							warnings: health.warnings,
+						},
+						maintenanceStatus: health.maintenanceStatus,
+						adaptiveSubset: allowlist,
+					};
+					return {
+						tool: toolName,
+						success: true,
+						message: "Inspected route telemetry health and adaptive subset state.",
+						items: [
+							{
+								id: "inspect-route-hints-summary",
+								title: "route-hints",
+								content: JSON.stringify(response, null, 2),
+								score: 100,
+								metadata: response,
+							},
+						],
+						provenance: [
+							{
+								engine: "mimirmesh",
+								tool: "inspect_route_hints",
+								latencyMs: 0,
+								health: telemetryStore ? "healthy" : "degraded",
+							},
+						],
+						degraded: health.state !== "ready",
+						warnings: health.warnings,
+						warningCodes: [],
+						raw: response,
+					};
 				}
 
-				return Promise.all(
-					engineRoutes.map(async (route) => {
-						const preparedInput = adapter.prepareToolInput
-							? adapter.prepareToolInput(route.engineTool, translatedInput, {
-									projectRoot: this.projectRoot,
-									config: this.config,
-									inputSchema: route.inputSchema,
-								})
-							: translatedInput;
-						const translatedPreparedInput = this.translateToolInputForEngine(
-							route.engine,
-							preparedInput,
-						);
-						const startedAt = performance.now();
-						const response = await invokeEngineTool({
-							bridgePorts: runtime.connection?.bridgePorts ?? {},
-							engine: route.engine,
-							tool: route.engineTool,
-							args: translatedPreparedInput,
-						});
-						const latencyMs = Math.round(performance.now() - startedAt);
+				const buildOrdering = (
+					_targetProfileKey: string | undefined,
+					profileSnapshots: typeof snapshots,
+				) => {
+					const orderedRoutes = unifiedRoutesFor(routingTable, unifiedTool, {
+						hintSnapshots: subsetEligible ? profileSnapshots : [],
+					}).filter(
+						(route) =>
+							(!engine || route.engine === engine) &&
+							(!engineTool || route.engineTool === engineTool),
+					);
+					const snapshotsByKey = new Map(
+						profileSnapshots.map((snapshot) => [routeSnapshotKey(snapshot), snapshot]),
+					);
+					return orderedRoutes.map((route) => {
+						const snapshot = snapshotsByKey.get(routeSnapshotKey(route));
 						return {
-							route,
-							response,
-							latencyMs,
+							engine: route.engine,
+							engineTool: route.engineTool,
+							effectiveCostScore: snapshot?.effectiveCostScore ?? 0,
+							confidence: snapshot?.confidence ?? 0,
+							sampleCount: snapshot?.sampleCount ?? 0,
+							orderingReasonCodes: snapshot?.orderingReasonCodes ?? [
+								"seed_hint",
+								"static_priority",
+							],
+							estimatedInputTokens:
+								snapshot?.estimatedInputTokens ?? route.seedHint?.estimatedInputTokens ?? 0,
+							estimatedOutputTokens:
+								snapshot?.estimatedOutputTokens ?? route.seedHint?.estimatedOutputTokens ?? 0,
+							estimatedLatencyMs:
+								snapshot?.estimatedLatencyMs ?? route.seedHint?.estimatedLatencyMs ?? 0,
+							estimatedSuccessRate:
+								snapshot?.estimatedSuccessRate ?? route.seedHint?.expectedSuccessRate ?? 0,
+							lastObservedAt: snapshot?.lastObservedAt ?? null,
 						};
-					}),
-				);
-			}),
-		);
-		const results = groupedResults.flat();
+					});
+				};
 
-		const provenance: ToolProvenance[] = [];
-		const items: ToolResultItem[] = [];
-		const warnings: string[] = [];
+				if (profileKey) {
+					const profileSnapshots = snapshots.filter(
+						(snapshot) => snapshot.profileKey === profileKey,
+					);
+					const ordered = buildOrdering(profileKey, profileSnapshots);
+					const primary = profileSnapshots[0];
+					const response = {
+						telemetryHealth: {
+							state: health.state,
+							lastSuccessfulCompactionAt: health.lastSuccessfulCompactionAt,
+							lagSeconds: health.lagSeconds,
+							warnings: health.warnings,
+						},
+						maintenanceStatus: {
+							...health.maintenanceStatus,
+							affectedSourceLabels:
+								profileSnapshots.length > 0
+									? [...new Set(profileSnapshots.map((snapshot) => snapshot.sourceLabel))]
+									: health.maintenanceStatus.affectedSourceLabels,
+						},
+						adaptiveSubset: allowlist,
+						inspection: {
+							unifiedTool,
+							profileScope: "profile" as const,
+							profileKey,
+							subsetEligible,
+							executionStrategy: routes[0] ? executionStrategyForRoute(routes[0]) : "fanout",
+							sourceMode: primary?.sourceMode ?? "static",
+							sourceLabel: primary?.sourceLabel ?? routeHintModeLabel("static"),
+							freshnessState: primary?.freshnessState ?? "unknown",
+							freshnessAgeSeconds: primary?.freshnessAgeSeconds ?? null,
+							currentOrdering: ordered,
+							...(includeRollups && telemetryStore
+								? {
+										recentRollups: {
+											last15m: await telemetryStore.listRollups({
+												tier: "last15m",
+												unifiedTool,
+												profileKey,
+												engine,
+												engineTool,
+												limit: limitBuckets,
+											}),
+											last6h: await telemetryStore.listRollups({
+												tier: "last6h",
+												unifiedTool,
+												profileKey,
+												engine,
+												engineTool,
+												limit: limitBuckets,
+											}),
+											last1d: await telemetryStore.listRollups({
+												tier: "last1d",
+												unifiedTool,
+												profileKey,
+												engine,
+												engineTool,
+												limit: limitBuckets,
+											}),
+										},
+									}
+								: {}),
+						},
+					};
 
-		for (const result of results) {
-			if (!result.response.ok) {
-				warnings.push(`${result.route.engine}: ${result.response.error ?? "failed"}`);
-				provenance.push({
-					engine: result.route.engine,
-					tool: result.route.engineTool,
-					latencyMs: result.latencyMs,
-					health: "unavailable",
-					note: result.response.error,
-				});
-				continue;
+					return {
+						tool: toolName,
+						success: true,
+						message: `Inspected route hints for ${unifiedTool} (${profileKey}).`,
+						items: [
+							{
+								id: `inspect-route-hints-${unifiedTool}-${profileKey}`,
+								title: `${unifiedTool}:${profileKey}`,
+								content: JSON.stringify(response, null, 2),
+								score: 100,
+								metadata: response,
+							},
+						],
+						provenance: [
+							{
+								engine: "mimirmesh",
+								tool: "inspect_route_hints",
+								latencyMs: 0,
+								health: telemetryStore ? "healthy" : "degraded",
+							},
+						],
+						degraded: health.state !== "ready",
+						warnings: health.warnings,
+						warningCodes: [],
+						raw: response,
+					};
+				}
+
+				const profileKeys = telemetryStore ? await telemetryStore.listProfileKeys(unifiedTool) : [];
+				const summaryProfiles =
+					profileKeys.length > 0
+						? profileKeys.map((currentProfileKey) => {
+								const profileSnapshots = snapshots.filter(
+									(snapshot) => snapshot.profileKey === currentProfileKey,
+								);
+								const primary = profileSnapshots[0];
+								return {
+									profileKey: currentProfileKey,
+									subsetEligible,
+									executionStrategy: routes[0] ? executionStrategyForRoute(routes[0]) : "fanout",
+									sourceMode: primary?.sourceMode ?? "static",
+									sourceLabel: primary?.sourceLabel ?? routeHintModeLabel("static"),
+									freshnessState: primary?.freshnessState ?? "unknown",
+									freshnessAgeSeconds: primary?.freshnessAgeSeconds ?? null,
+									confidence: primary?.confidence ?? 0,
+									sampleCount: primary?.sampleCount ?? 0,
+									currentOrdering: buildOrdering(currentProfileKey, profileSnapshots),
+								};
+							})
+						: [
+								{
+									profileKey: "seed-only",
+									subsetEligible,
+									executionStrategy: routes[0] ? executionStrategyForRoute(routes[0]) : "fanout",
+									sourceMode: "static" as const,
+									sourceLabel: routeHintModeLabel("static"),
+									freshnessState: "unknown" as const,
+									freshnessAgeSeconds: null,
+									confidence: 0,
+									sampleCount: 0,
+									currentOrdering: buildOrdering(undefined, []),
+								},
+							];
+				const response = {
+					telemetryHealth: {
+						state: health.state,
+						lastSuccessfulCompactionAt: health.lastSuccessfulCompactionAt,
+						lagSeconds: health.lagSeconds,
+						warnings: health.warnings,
+					},
+					maintenanceStatus: health.maintenanceStatus,
+					adaptiveSubset: allowlist,
+					inspection: {
+						unifiedTool,
+						profileScope: "summary" as const,
+						profiles: summaryProfiles,
+					},
+				};
+
+				return {
+					tool: toolName,
+					success: true,
+					message: `Inspected route hints for ${unifiedTool}.`,
+					items: [
+						{
+							id: `inspect-route-hints-${unifiedTool}`,
+							title: unifiedTool,
+							content: JSON.stringify(response, null, 2),
+							score: 100,
+							metadata: response,
+						},
+					],
+					provenance: [
+						{
+							engine: "mimirmesh",
+							tool: "inspect_route_hints",
+							latencyMs: 0,
+							health: telemetryStore ? "healthy" : "degraded",
+						},
+					],
+					degraded: health.state !== "ready",
+					warnings: health.warnings,
+					warningCodes: [],
+					raw: response,
+				};
+			} finally {
+				await telemetryStore?.close();
+			}
+		}
+		const ignoreMatcher = await loadRepositoryIgnoreMatcher(this.projectRoot);
+		const allowlist = resolveAdaptiveRouteHintAllowlist(this.config);
+		const inputSummary = summarizeToolInput(toolName, input);
+		const profileKey = buildRouteProfileKey(toolName, inputSummary);
+		const requestFingerprint = buildRouteRequestFingerprint(toolName, inputSummary);
+		const subsetEligible = allowlist.effectiveAllowlist.includes(toolName);
+		const telemetryStore = runtime.connection?.services.includes("mm-postgres")
+			? await openRouteTelemetryStore(this.projectRoot, this.config)
+			: null;
+
+		try {
+			const hintSnapshots = telemetryStore
+				? await telemetryStore.listRouteHintSnapshots({
+						unifiedTool: toolName,
+						profileKey,
+					})
+				: [];
+			const snapshotsByKey = new Map(
+				hintSnapshots.map((snapshot) => [routeSnapshotKey(snapshot), snapshot]),
+			);
+			const routes = unifiedRoutesFor(routingTable, toolName, {
+				hintSnapshots: subsetEligible ? hintSnapshots : [],
+			});
+			if (routes.length === 0) {
+				return {
+					tool: toolName,
+					success: false,
+					message: `No discovered engine capability for ${toolName}.`,
+					items: [],
+					provenance: [],
+					degraded: true,
+					warnings: [
+						"Unified routes are generated from live discovery; refresh runtime to rebuild routing.",
+					],
+					warningCodes: [],
+				};
 			}
 
-			const filteredPayload = filterIgnoredPayload(
-				this.normalizePayloadForEngine(result.route.engine, result.response.result),
-				this.projectRoot,
-				ignoreMatcher,
-			);
-			if (filteredPayload === undefined) {
+			const executeRoute = async (route: RoutingEngineRoute) => {
+				const adapter = this.adapterResolver(route.engine);
+				const translatedInput = this.translateToolInputForEngine(route.engine, input);
+				const preparedInput = adapter.prepareToolInput
+					? adapter.prepareToolInput(route.engineTool, translatedInput, {
+							projectRoot: this.projectRoot,
+							config: this.config,
+							inputSchema: route.inputSchema,
+						})
+					: translatedInput;
+				const translatedPreparedInput = this.translateToolInputForEngine(
+					route.engine,
+					preparedInput,
+				);
+				const startedAt = performance.now();
+				const response = await this.engineInvoker({
+					bridgePorts: runtime.connection?.bridgePorts ?? {},
+					engine: route.engine,
+					tool: route.engineTool,
+					args: translatedPreparedInput,
+				});
+				return {
+					route,
+					response,
+					latencyMs: Math.round(performance.now() - startedAt),
+					inputBytes: jsonByteLength(translatedPreparedInput),
+				};
+			};
+
+			const routeStepHasUsableOutput = (step: {
+				route: RoutingEngineRoute;
+				response: Awaited<ReturnType<typeof invokeEngineTool>>;
+			}): boolean => {
+				if (!step.response.ok) {
+					return false;
+				}
+				const filteredPayload = filterIgnoredPayload(
+					this.normalizePayloadForEngine(step.route.engine, step.response.result),
+					this.projectRoot,
+					ignoreMatcher,
+				);
+				if (filteredPayload === undefined) {
+					return false;
+				}
+				return (
+					toUsableResultItems(step.route.engine, step.route.engineTool, filteredPayload).length > 0
+				);
+			};
+
+			let results: Array<{
+				route: RoutingEngineRoute;
+				response: Awaited<ReturnType<typeof invokeEngineTool>>;
+				latencyMs: number;
+				inputBytes: number;
+			}>;
+
+			if (routes.every((route) => executionStrategyForRoute(route) === "fallback-only")) {
+				results = [];
+				for (const route of routes) {
+					const step = await executeRoute(route);
+					results.push(step);
+					if (routeStepHasUsableOutput(step)) {
+						break;
+					}
+				}
+			} else {
+				const routeGroups = new Map<EngineId, typeof routes>();
+				for (const route of routes) {
+					const existing = routeGroups.get(route.engine) ?? [];
+					existing.push(route);
+					routeGroups.set(route.engine, existing);
+				}
+
+				const groupedResults = await Promise.all(
+					[...routeGroups.entries()].map(async ([engine, engineRoutes]) => {
+						const adapter = this.adapterResolver(engine);
+						const translatedInput = this.translateToolInputForEngine(engine, input);
+						if (adapter.executeUnifiedTool) {
+							const handled = await adapter.executeUnifiedTool({
+								unifiedTool: toolName,
+								routes: engineRoutes,
+								input: translatedInput,
+								projectRoot: this.projectRoot,
+								config: this.config,
+								bridgePorts: runtime.connection?.bridgePorts ?? {},
+								invoke: (tool, args) =>
+									this.engineInvoker({
+										bridgePorts: runtime.connection?.bridgePorts ?? {},
+										engine,
+										tool,
+										args,
+									}),
+							});
+							if (handled) {
+								return handled.map((step) => ({
+									route: {
+										...step.route,
+										unifiedTool: step.route.unifiedTool as RoutingEngineRoute["unifiedTool"],
+									},
+									response: step.response,
+									latencyMs: step.latencyMs,
+									inputBytes: jsonByteLength(translatedInput),
+								}));
+							}
+						}
+
+						return Promise.all(engineRoutes.map(executeRoute));
+					}),
+				);
+				results = groupedResults.flat();
+			}
+
+			const provenance: ToolProvenance[] = [];
+			const items: ToolResultItem[] = [];
+			const warnings: string[] = [...allowlist.overrideWarnings];
+
+			for (const [attemptIndex, result] of results.entries()) {
+				const persistedAttemptIndex = attemptIndex + 1;
+				const snapshot = snapshotsByKey.get(routeSnapshotKey(result.route));
+				const orderingReasonCodes = snapshot?.subsetEligible
+					? snapshot.sourceMode === "adaptive"
+						? snapshot.orderingReasonCodes
+						: [...new Set(["static_priority", snapshot.sourceMode])]
+					: result.route.seedHint
+						? ["seed_hint", "static_priority"]
+						: ["static_priority"];
+				const outputBytes = jsonByteLength(result.response.result);
+
+				if (!result.response.ok) {
+					warnings.push(`${result.route.engine}: ${result.response.error ?? "failed"}`);
+					provenance.push({
+						engine: result.route.engine,
+						tool: result.route.engineTool,
+						latencyMs: result.latencyMs,
+						health: "unavailable",
+						note: result.response.error,
+					});
+					if (telemetryStore) {
+						await telemetryStore.recordRouteExecutionEvent({
+							eventId: nowId("route-event"),
+							repoId: telemetryStore.repoId,
+							occurredAt: new Date().toISOString(),
+							sessionId: this.sessionId,
+							requestCorrelationId: null,
+							unifiedTool: toolName,
+							profileKey,
+							sanitizedArgumentSummary: inputSummary,
+							requestFingerprint,
+							engine: result.route.engine,
+							engineTool: result.route.engineTool,
+							executionStrategy: executionStrategyForRoute(result.route),
+							staticPriority: result.route.priority,
+							attemptIndex: persistedAttemptIndex,
+							outcome: "failed",
+							failureClassification: failureClassificationFor(result.response.error),
+							latencyMs: result.latencyMs,
+							estimatedInputTokens: result.route.seedHint?.estimatedInputTokens ?? 0,
+							estimatedOutputTokens: result.route.seedHint?.estimatedOutputTokens ?? 0,
+							inputBytes: result.inputBytes,
+							outputBytes,
+							resultItemCount: 0,
+							hintSourceModeAtExecution: snapshot?.sourceMode ?? "static",
+							hintConfidenceAtExecution: snapshot?.confidence ?? 0,
+							effectiveCostScoreAtExecution: snapshot?.effectiveCostScore ?? 0,
+							orderingReasonCodes,
+							createdAt: new Date().toISOString(),
+						});
+					}
+					continue;
+				}
+
+				const filteredPayload = filterIgnoredPayload(
+					this.normalizePayloadForEngine(result.route.engine, result.response.result),
+					this.projectRoot,
+					ignoreMatcher,
+				);
+				if (filteredPayload === undefined) {
+					provenance.push({
+						engine: result.route.engine,
+						tool: result.route.engineTool,
+						latencyMs: result.latencyMs,
+						health: "healthy",
+						note: "Filtered by repository ignore rules",
+					});
+					if (telemetryStore) {
+						await telemetryStore.recordRouteExecutionEvent({
+							eventId: nowId("route-event"),
+							repoId: telemetryStore.repoId,
+							occurredAt: new Date().toISOString(),
+							sessionId: this.sessionId,
+							requestCorrelationId: null,
+							unifiedTool: toolName,
+							profileKey,
+							sanitizedArgumentSummary: inputSummary,
+							requestFingerprint,
+							engine: result.route.engine,
+							engineTool: result.route.engineTool,
+							executionStrategy: executionStrategyForRoute(result.route),
+							staticPriority: result.route.priority,
+							attemptIndex: persistedAttemptIndex,
+							outcome: "degraded",
+							failureClassification: "filtered",
+							latencyMs: result.latencyMs,
+							estimatedInputTokens: result.route.seedHint?.estimatedInputTokens ?? 0,
+							estimatedOutputTokens: result.route.seedHint?.estimatedOutputTokens ?? 0,
+							inputBytes: result.inputBytes,
+							outputBytes,
+							resultItemCount: 0,
+							hintSourceModeAtExecution: snapshot?.sourceMode ?? "static",
+							hintConfidenceAtExecution: snapshot?.confidence ?? 0,
+							effectiveCostScoreAtExecution: snapshot?.effectiveCostScore ?? 0,
+							orderingReasonCodes,
+							createdAt: new Date().toISOString(),
+						});
+					}
+					continue;
+				}
+
+				const routeItems = toUsableResultItems(
+					result.route.engine,
+					result.route.engineTool,
+					filteredPayload,
+				);
+				if (routeItems.length === 0) {
+					provenance.push({
+						engine: result.route.engine,
+						tool: result.route.engineTool,
+						latencyMs: result.latencyMs,
+						health: "healthy",
+						note: "No usable items returned",
+					});
+					if (telemetryStore) {
+						await telemetryStore.recordRouteExecutionEvent({
+							eventId: nowId("route-event"),
+							repoId: telemetryStore.repoId,
+							occurredAt: new Date().toISOString(),
+							sessionId: this.sessionId,
+							requestCorrelationId: null,
+							unifiedTool: toolName,
+							profileKey,
+							sanitizedArgumentSummary: inputSummary,
+							requestFingerprint,
+							engine: result.route.engine,
+							engineTool: result.route.engineTool,
+							executionStrategy: executionStrategyForRoute(result.route),
+							staticPriority: result.route.priority,
+							attemptIndex: persistedAttemptIndex,
+							outcome: "degraded",
+							failureClassification: "empty",
+							latencyMs: result.latencyMs,
+							estimatedInputTokens: result.route.seedHint?.estimatedInputTokens ?? 0,
+							estimatedOutputTokens: result.route.seedHint?.estimatedOutputTokens ?? 0,
+							inputBytes: result.inputBytes,
+							outputBytes,
+							resultItemCount: 0,
+							hintSourceModeAtExecution: snapshot?.sourceMode ?? "static",
+							hintConfidenceAtExecution: snapshot?.confidence ?? 0,
+							effectiveCostScoreAtExecution: snapshot?.effectiveCostScore ?? 0,
+							orderingReasonCodes,
+							createdAt: new Date().toISOString(),
+						});
+					}
+					continue;
+				}
+				items.push(...routeItems);
 				provenance.push({
 					engine: result.route.engine,
 					tool: result.route.engineTool,
 					latencyMs: result.latencyMs,
 					health: "healthy",
-					note: "Filtered by repository ignore rules",
 				});
-				continue;
+				if (telemetryStore) {
+					await telemetryStore.recordRouteExecutionEvent({
+						eventId: nowId("route-event"),
+						repoId: telemetryStore.repoId,
+						occurredAt: new Date().toISOString(),
+						sessionId: this.sessionId,
+						requestCorrelationId: null,
+						unifiedTool: toolName,
+						profileKey,
+						sanitizedArgumentSummary: inputSummary,
+						requestFingerprint,
+						engine: result.route.engine,
+						engineTool: result.route.engineTool,
+						executionStrategy: executionStrategyForRoute(result.route),
+						staticPriority: result.route.priority,
+						attemptIndex: persistedAttemptIndex,
+						outcome: "success",
+						failureClassification: null,
+						latencyMs: result.latencyMs,
+						estimatedInputTokens: result.route.seedHint?.estimatedInputTokens ?? 0,
+						estimatedOutputTokens: result.route.seedHint?.estimatedOutputTokens ?? 0,
+						inputBytes: result.inputBytes,
+						outputBytes,
+						resultItemCount: routeItems.length,
+						hintSourceModeAtExecution: snapshot?.sourceMode ?? "static",
+						hintConfidenceAtExecution: snapshot?.confidence ?? 0,
+						effectiveCostScoreAtExecution: snapshot?.effectiveCostScore ?? 0,
+						orderingReasonCodes,
+						createdAt: new Date().toISOString(),
+					});
+				}
 			}
-			items.push(...toResultItems(result.route.engine, result.route.engineTool, filteredPayload));
-			provenance.push({
-				engine: result.route.engine,
-				tool: result.route.engineTool,
-				latencyMs: result.latencyMs,
-				health: "healthy",
-			});
-		}
 
-		const merged = deduplicateAndRank(items);
-		return this.augmentResultWarnings({
-			tool: toolName,
-			success: merged.length > 0,
-			message:
-				merged.length > 0
-					? `Merged ${merged.length} result item(s) from discovered engine routes.`
-					: "No results returned by discovered engine routes.",
-			items: merged,
-			provenance,
-			degraded: warnings.length > 0,
-			warnings: normalizeWarnings(warnings),
-			warningCodes: [],
-			raw: {
-				routes,
-			},
-		});
+			const merged = deduplicateAndRank(items);
+			return this.augmentResultWarnings({
+				tool: toolName,
+				success: merged.length > 0,
+				message:
+					merged.length > 0
+						? `Merged ${merged.length} result item(s) from discovered engine routes.`
+						: "No results returned by discovered engine routes.",
+				items: merged,
+				provenance,
+				degraded: warnings.length > 0,
+				warnings: normalizeWarnings(warnings),
+				warningCodes: [],
+				raw: {
+					routes,
+					profileKey,
+					requestFingerprint,
+				},
+			});
+		} finally {
+			await telemetryStore?.close();
+		}
 	}
 
 	private async executePassthroughTool(
@@ -1579,7 +2187,7 @@ export class ToolRouter {
 			}
 		}
 
-		const adapter = getAdapter(route.engine);
+		const adapter = this.adapterResolver(route.engine);
 		const ignoreMatcher = await loadRepositoryIgnoreMatcher(this.projectRoot);
 		const translatedInput = this.translateToolInputForEngine(route.engine, input);
 		const preparedInput = adapter.prepareToolInput
@@ -1610,7 +2218,7 @@ export class ToolRouter {
 		}
 
 		const startedAt = performance.now();
-		const response = await invokeEngineTool({
+		const response = await this.engineInvoker({
 			bridgePorts: runtime.connection.bridgePorts,
 			engine: route.engine,
 			tool: route.engineTool,
@@ -1746,7 +2354,7 @@ export class ToolRouter {
 			);
 
 		const discoverStartedAt = performance.now();
-		const discoverResponse = await invokeEngineTool({
+		const discoverResponse = await this.engineInvoker({
 			bridgePorts: options.runtime.connection?.bridgePorts ?? {},
 			engine: discoverRoute.engine,
 			tool: discoverRoute.engineTool,
@@ -1765,7 +2373,7 @@ export class ToolRouter {
 		const validationRuns = await Promise.all(
 			adrPaths.map(async (adrPath) => {
 				const validateStartedAt = performance.now();
-				const validationResponse = await invokeEngineTool({
+				const validationResponse = await this.engineInvoker({
 					bridgePorts: options.runtime.connection?.bridgePorts ?? {},
 					engine: validateRoute.engine,
 					tool: validateRoute.engineTool,

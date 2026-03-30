@@ -4,6 +4,7 @@ import type { WorkflowDefinition } from "@mimirmesh/ui";
 import {
 	loadCliContext,
 	mcpCallTool,
+	mcpInspectRouteHints,
 	mcpInspectToolSchema,
 	mcpInspectToolSurface,
 	mcpLoadDeferredTools,
@@ -336,6 +337,105 @@ export const createMcpToolWorkflow = (
 				...result,
 				runtime,
 			},
+		};
+	},
+});
+
+export const createMcpRouteHintsWorkflow = (options: {
+	unifiedTool?: string;
+	engine?: EngineId;
+	engineTool?: string;
+	profile?: string;
+	includeRollups?: boolean;
+	limitBuckets?: number;
+}): WorkflowDefinition => ({
+	id: "mcp-route-hints",
+	title: "Inspect Route Hints",
+	description:
+		"Inspect route-hint ordering, freshness, confidence, and telemetry maintenance state through the shared MCP router.",
+	category: "mcp",
+	entryModes: ["tui-embedded", "direct-command"],
+	interactivePolicy: "default-non-interactive",
+	machineReadableSupported: true,
+	requiresProjectContext: true,
+	recommendedNextActions: ["runtime-status", "mcp-tool"],
+	steps: [
+		{ id: "load-context", label: "Load MCP context", kind: "validation" },
+		{ id: "inspect-route-hints", label: "Inspect route hints", kind: "discovery" },
+	],
+	execute: async ({ controller }) => {
+		controller.startStep("load-context", "Loading project-local config and router.");
+		const context = await loadCliContext();
+		controller.completeStep("load-context", {
+			evidence: [
+				{ label: "Project root", value: context.projectRoot },
+				{ label: "Session", value: context.sessionId },
+			],
+		});
+
+		controller.startStep(
+			"inspect-route-hints",
+			"Inspecting route-hint ordering and telemetry maintenance state.",
+		);
+		const result = await mcpInspectRouteHints(context, options);
+		const payload = (result.raw ?? {}) as {
+			telemetryHealth?: { state?: string };
+			inspection?: { profileScope?: string; profiles?: unknown[]; profileKey?: string };
+		};
+		const evidence = [
+			{ label: "Success", value: String(result.success) },
+			{
+				label: "Telemetry health",
+				value: payload.telemetryHealth?.state ?? "unknown",
+			},
+			{
+				label: "Inspection scope",
+				value: payload.inspection?.profileScope ?? "summary",
+			},
+		];
+		if (result.success && !result.degraded) {
+			controller.completeStep("inspect-route-hints", {
+				summary: result.message,
+				evidence,
+			});
+		} else if (result.success) {
+			controller.degradeStep("inspect-route-hints", {
+				summary: result.message,
+				evidence,
+			});
+		} else {
+			controller.failStep("inspect-route-hints", {
+				summary: result.message,
+				evidence,
+			});
+		}
+		result.warnings.forEach((warning, index) => {
+			controller.addWarning({
+				id: `mcp-route-hints-${index}`,
+				label: "Route hints",
+				message: warning,
+			});
+		});
+
+		return {
+			kind: result.success ? (result.degraded ? "degraded" : "success") : "failed",
+			message: result.message,
+			impact:
+				result.success && !result.degraded
+					? "Route-hint ordering and maintenance status are available for operator review."
+					: "Route-hint inspection returned degraded or unavailable telemetry state that needs follow-up.",
+			completedWork: [
+				"Loaded the project-local MCP context",
+				"Inspected route-hint ordering and maintenance state",
+			],
+			blockedCapabilities: result.success ? [] : ["Route-hint inspection"],
+			nextAction:
+				result.nextAction ??
+				(result.degraded
+					? "Run `mimirmesh runtime status` or `mimirmesh runtime telemetry compact --scope repo --non-interactive`."
+					: "Review the returned route ordering and maintenance state."),
+			evidence,
+			machineReadablePayload: result.raw ?? result,
 		};
 	},
 });

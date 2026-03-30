@@ -1,4 +1,5 @@
 import type {
+	RouteTelemetryScope,
 	RuntimeActionResult,
 	RuntimeHealth,
 	RuntimeUpgradeActionResult,
@@ -14,6 +15,8 @@ import {
 	loadCliContext,
 	mcpInspectToolSurface,
 	runtimeAction,
+	runtimeClearRouteTelemetry,
+	runtimeCompactRouteTelemetry,
 	runtimeDoctor,
 	runtimeUpgradeMigrate,
 	runtimeUpgradeRepair,
@@ -102,6 +105,17 @@ const requiresRuntimeRestart = (report: UpgradeStatusReport | null | undefined):
 
 const runtimeRestartGuidance =
 	"Run `mimirmesh runtime restart --non-interactive` to reload Docker containers with the current runtime definition and engine images.";
+
+const telemetryScopeLabel = (scope: RouteTelemetryScope): string => {
+	switch (scope.scope) {
+		case "repo":
+			return "repository";
+		case "tool":
+			return `tool ${scope.unifiedTool}`;
+		case "route":
+			return `route ${scope.unifiedTool} (${scope.engine}:${scope.engineTool})`;
+	}
+};
 
 export const createRuntimeActionWorkflow = (
 	action: RuntimeActionResult["action"],
@@ -379,6 +393,138 @@ export const createRuntimeUpgradeStatusWorkflow = (): WorkflowDefinition => ({
 							: result.report.requiredActions.includes("repair-state")
 								? "Run `mimirmesh runtime upgrade repair`."
 								: "Run `mimirmesh runtime upgrade migrate`.",
+			evidence,
+			machineReadablePayload: result,
+		};
+	},
+});
+
+export const createRuntimeTelemetryCompactWorkflow = (
+	scope: RouteTelemetryScope,
+	deps: {
+		loadContext?: typeof loadCliContext;
+		compactTelemetry?: typeof runtimeCompactRouteTelemetry;
+	} = {},
+): WorkflowDefinition => ({
+	id: "runtime-telemetry-compact",
+	title: "Compact Route Telemetry",
+	description:
+		"Run route-telemetry rollup and snapshot maintenance for the selected scope using the shared runtime service.",
+	category: "runtime",
+	entryModes: ["tui-embedded", "direct-command"],
+	interactivePolicy: "default-interactive",
+	machineReadableSupported: true,
+	requiresProjectContext: true,
+	recommendedNextActions: ["runtime-status", "mcp-route-hints"],
+	steps: [
+		{ id: "load-context", label: "Load runtime context", kind: "validation" },
+		{ id: "compact-telemetry", label: "Compact route telemetry", kind: "runtime-action" },
+	],
+	execute: async ({ controller }) => {
+		controller.startStep("load-context", "Loading project-local runtime context.");
+		const loadContext = deps.loadContext ?? loadCliContext;
+		const compactTelemetry = deps.compactTelemetry ?? runtimeCompactRouteTelemetry;
+		const context = await loadContext();
+		controller.completeStep("load-context", {
+			evidence: [{ label: "Project root", value: context.projectRoot }],
+		});
+
+		controller.startStep(
+			"compact-telemetry",
+			`Running route-telemetry compaction for ${telemetryScopeLabel(scope)}.`,
+		);
+		const result = await compactTelemetry(context, scope);
+		const evidence = [
+			{ label: "Scope", value: telemetryScopeLabel(scope) },
+			{ label: "Lock acquired", value: String(result.acquired) },
+			{ label: "Closed buckets", value: String(result.progress.closedBucketCount) },
+			{ label: "Affected labels", value: result.affectedSourceLabels.join(", ") || "none" },
+		];
+		if (result.acquired) {
+			controller.completeStep("compact-telemetry", {
+				summary: "Route telemetry compaction completed.",
+				evidence,
+			});
+		} else {
+			controller.degradeStep("compact-telemetry", {
+				summary:
+					"Route telemetry compaction skipped because another maintainer holds the advisory lock.",
+				evidence,
+			});
+		}
+
+		return {
+			kind: result.acquired ? "success" : "degraded",
+			message: result.acquired
+				? `Compacted route telemetry for ${telemetryScopeLabel(scope)}.`
+				: `Skipped route telemetry compaction for ${telemetryScopeLabel(scope)} because another maintainer is active.`,
+			impact: result.acquired
+				? "Rollups and snapshots have been refreshed for the selected scope."
+				: "The selected scope was not compacted during this run.",
+			completedWork: ["Loaded the project-local runtime context", "Ran route-telemetry compaction"],
+			blockedCapabilities: result.acquired ? [] : ["Immediate route-telemetry compaction"],
+			nextAction: result.acquired
+				? "Inspect the updated route hints or rerun the command if more telemetry arrives."
+				: "Retry once the active maintenance run completes.",
+			evidence,
+			machineReadablePayload: result,
+		};
+	},
+});
+
+export const createRuntimeTelemetryClearWorkflow = (
+	scope: RouteTelemetryScope,
+	deps: {
+		loadContext?: typeof loadCliContext;
+		clearTelemetry?: typeof runtimeClearRouteTelemetry;
+	} = {},
+): WorkflowDefinition => ({
+	id: "runtime-telemetry-clear",
+	title: "Clear Route Telemetry",
+	description:
+		"Clear route telemetry for the selected repository, tool, or route scope using the shared runtime service.",
+	category: "runtime",
+	entryModes: ["tui-embedded", "direct-command"],
+	interactivePolicy: "default-interactive",
+	machineReadableSupported: true,
+	requiresProjectContext: true,
+	recommendedNextActions: ["runtime-status", "mcp-route-hints"],
+	steps: [
+		{ id: "load-context", label: "Load runtime context", kind: "validation" },
+		{ id: "clear-telemetry", label: "Clear route telemetry", kind: "runtime-action" },
+	],
+	execute: async ({ controller }) => {
+		controller.startStep("load-context", "Loading project-local runtime context.");
+		const loadContext = deps.loadContext ?? loadCliContext;
+		const clearTelemetry = deps.clearTelemetry ?? runtimeClearRouteTelemetry;
+		const context = await loadContext();
+		controller.completeStep("load-context", {
+			evidence: [{ label: "Project root", value: context.projectRoot }],
+		});
+
+		controller.startStep(
+			"clear-telemetry",
+			`Clearing route telemetry for ${telemetryScopeLabel(scope)}.`,
+		);
+		const result = await clearTelemetry(context, scope);
+		const evidence = [
+			{ label: "Scope", value: telemetryScopeLabel(scope) },
+			{ label: "Cleared at", value: result.clearedAt },
+		];
+		controller.completeStep("clear-telemetry", {
+			summary: "Route telemetry cleared for the requested scope.",
+			evidence,
+		});
+
+		return {
+			kind: "success",
+			message: `Cleared route telemetry for ${telemetryScopeLabel(scope)}.`,
+			impact:
+				"Stored route events, rollups, and snapshots for the selected scope have been removed.",
+			completedWork: ["Loaded the project-local runtime context", "Cleared route telemetry"],
+			blockedCapabilities: [],
+			nextAction:
+				"Re-run route-hint inspection or invoke the workflow again after new route activity is recorded.",
 			evidence,
 			machineReadablePayload: result,
 		};

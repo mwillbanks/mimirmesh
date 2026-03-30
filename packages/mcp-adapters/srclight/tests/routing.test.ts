@@ -49,6 +49,7 @@ describe("srclight routing", () => {
 				expect.objectContaining({
 					unifiedTool: "evaluate_codebase",
 					engineTool: "embedding_status",
+					executionStrategy: "fanout",
 				}),
 			]),
 		);

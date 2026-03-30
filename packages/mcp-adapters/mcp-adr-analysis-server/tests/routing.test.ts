@@ -20,10 +20,12 @@ describe("adr-analysis unified routing", () => {
 				expect.objectContaining({
 					unifiedTool: "document_architecture",
 					engineTool: "get_architectural_context",
+					executionStrategy: "fanout",
 				}),
 				expect.objectContaining({
 					unifiedTool: "document_architecture",
 					engineTool: "analyze_project_ecosystem",
+					executionStrategy: "fanout",
 				}),
 				expect.objectContaining({
 					unifiedTool: "generate_adr",

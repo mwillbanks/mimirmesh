@@ -1,0 +1,6 @@
+telemetry = false
+
+[test.reporter]
+concurrency = false
+dots = true
+smol = true

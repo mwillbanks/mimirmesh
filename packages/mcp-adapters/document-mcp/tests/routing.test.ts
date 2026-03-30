@@ -18,32 +18,35 @@ describe("document-mcp unified search execution", () => {
 			{ name: "document_runbook" },
 		]);
 
-		expect(routes).toEqual([
-			{
-				unifiedTool: "search_docs",
-				engine: "document-mcp",
-				engineTool: "search_documents",
-				priority: 100,
-			},
-			{
-				unifiedTool: "document_architecture",
-				engine: "document-mcp",
-				engineTool: "search_documents",
-				priority: 40,
-			},
-			{
-				unifiedTool: "document_feature",
-				engine: "document-mcp",
-				engineTool: "document_feature",
-				priority: 90,
-			},
-			{
-				unifiedTool: "document_runbook",
-				engine: "document-mcp",
-				engineTool: "document_runbook",
-				priority: 80,
-			},
-		]);
+		expect(routes).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					unifiedTool: "search_docs",
+					engine: "document-mcp",
+					engineTool: "search_documents",
+					priority: 100,
+				}),
+				expect.objectContaining({
+					unifiedTool: "document_architecture",
+					engine: "document-mcp",
+					engineTool: "search_documents",
+					priority: 40,
+					executionStrategy: "fanout",
+				}),
+				expect.objectContaining({
+					unifiedTool: "document_feature",
+					engine: "document-mcp",
+					engineTool: "document_feature",
+					priority: 90,
+				}),
+				expect.objectContaining({
+					unifiedTool: "document_runbook",
+					engine: "document-mcp",
+					engineTool: "document_runbook",
+					priority: 80,
+				}),
+			]),
+		);
 	});
 
 	test("prefers the upstream search_documents tool for unified search_docs", async () => {

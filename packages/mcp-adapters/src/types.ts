@@ -1,6 +1,13 @@
 import type { EngineId, MimirmeshConfig } from "@mimirmesh/config";
 
-import type { EngineDiscoveredTool, UnifiedRoute } from "@mimirmesh/runtime";
+import type {
+	EngineDiscoveredTool,
+	RouteExecutionStrategy,
+	RouteHintCacheAffinity,
+	RouteHintFreshnessSensitivity,
+	RouteSeedHint,
+	UnifiedRoute,
+} from "@mimirmesh/runtime";
 
 export type RuntimeVariant = "cpu" | "cuda";
 
@@ -68,6 +75,25 @@ export type AdapterRoutingRule = {
 	unifiedTool: string;
 	candidateToolPatterns: RegExp[];
 	priority: number;
+	executionStrategy?: RouteExecutionStrategy;
+	seedHintDefaults?: Omit<
+		RouteSeedHint,
+		"unifiedTool" | "engine" | "engineTool" | "executionStrategy"
+	>;
+	seedHintsByTool?: Record<
+		string,
+		Omit<RouteSeedHint, "unifiedTool" | "engine" | "engineTool" | "executionStrategy">
+	>;
+};
+
+export type RouteSeedHintInput = {
+	adaptiveEligible: boolean;
+	estimatedInputTokens: number;
+	estimatedOutputTokens: number;
+	estimatedLatencyMs: number;
+	expectedSuccessRate: number;
+	cacheAffinity: RouteHintCacheAffinity;
+	freshnessSensitivity: RouteHintFreshnessSensitivity;
 };
 
 export type PrepareToolInputContext = {

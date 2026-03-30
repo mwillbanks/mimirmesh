@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { createDefaultConfig } from "@mimirmesh/config";
 import { persistConnection, persistRoutingTable } from "@mimirmesh/runtime";
 import { createFixtureCopy } from "@mimirmesh/testing";
+import { createToolRouter } from "../../src/registry/router";
 
 const invokeEngineToolMock = mock(
 	async (): Promise<{ ok: boolean; result?: unknown; error?: string }> => ({
@@ -84,18 +85,13 @@ const getAdapterMock = mock((engine: string) => {
 	};
 });
 
-const loadCreateToolRouter = async () => {
-	mock.restore();
-	mock.module("@mimirmesh/mcp-adapters", () => ({
-		getAdapter: getAdapterMock,
-	}));
-	mock.module("../../src/transport/bridge", () => ({
-		invokeEngineTool: invokeEngineToolMock,
-	}));
-
-	const module = await import("../../src/registry/router");
-	return module.createToolRouter;
-};
+const buildRouter = (projectRoot: string, config: ReturnType<typeof createDefaultConfig>) =>
+	createToolRouter({
+		projectRoot,
+		config,
+		adapterResolver: getAdapterMock as never,
+		engineInvoker: invokeEngineToolMock as never,
+	});
 
 describe("mcp tool router regressions", () => {
 	beforeEach(() => {
@@ -108,7 +104,6 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("prepares fallback unified inputs through the adapter before invoking engine tools", async () => {
-		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 
@@ -151,10 +146,7 @@ describe("mcp tool router regressions", () => {
 			},
 		});
 
-		const router = createToolRouter({
-			projectRoot: repo,
-			config,
-		});
+		const router = buildRouter(repo, config);
 
 		const result = await router.callTool("explain_subsystem", { symbol: "ToolRouter" });
 
@@ -168,7 +160,6 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("falls back to discovered ADR validation when upstream reports zero ADRs", async () => {
-		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 
@@ -250,10 +241,7 @@ describe("mcp tool router regressions", () => {
 				result: { path: "docs/adr/0002-test.md", status: "valid" },
 			});
 
-		const router = createToolRouter({
-			projectRoot: repo,
-			config,
-		});
+		const router = buildRouter(repo, config);
 
 		const result = await router.callTool("mimirmesh.mcp-adr-analysis-server.validate_all_adrs", {});
 
@@ -288,7 +276,6 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("translates host and repository paths for ADR passthrough tools", async () => {
-		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 		await mkdir(join(repo, "docs", "adr"), { recursive: true });
@@ -347,10 +334,7 @@ describe("mcp tool router regressions", () => {
 				result: { filePath: "/workspace/docs/adr/0001-test.md", status: "ok" },
 			});
 
-		const router = createToolRouter({
-			projectRoot: repo,
-			config,
-		});
+		const router = buildRouter(repo, config);
 
 		const validateAll = await router.callTool("mimirmesh.adr.validate_all_adrs", {
 			projectPath: repo,
@@ -378,7 +362,6 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("keeps passthrough routes without publication metadata outside the naming contract", async () => {
-		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 
@@ -416,10 +399,7 @@ describe("mcp tool router regressions", () => {
 			},
 		});
 
-		const router = createToolRouter({
-			projectRoot: repo,
-			config,
-		});
+		const router = buildRouter(repo, config);
 
 		const tools = await router.listTools();
 		const result = await router.callTool("external.docs.lookup", {});
@@ -435,7 +415,6 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("treats adapters without unified route resolvers as passthrough-only during deferred discovery", async () => {
-		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 
@@ -499,10 +478,7 @@ describe("mcp tool router regressions", () => {
 		globalThis.fetch = fetchStub;
 
 		try {
-			const router = createToolRouter({
-				projectRoot: repo,
-				config,
-			});
+			const router = buildRouter(repo, config);
 
 			const surface = await router.loadDeferredToolGroup("srclight");
 
@@ -515,7 +491,6 @@ describe("mcp tool router regressions", () => {
 	});
 
 	test("fails fast with a validation error when passthrough input misses required fields", async () => {
-		const createToolRouter = await loadCreateToolRouter();
 		const repo = await createFixtureCopy("single-ts");
 		const config = createDefaultConfig(repo);
 
@@ -552,10 +527,7 @@ describe("mcp tool router regressions", () => {
 			unified: [],
 		});
 
-		const router = createToolRouter({
-			projectRoot: repo,
-			config,
-		});
+		const router = buildRouter(repo, config);
 
 		const result = await router.callTool("mimirmesh.adr.validate_rules", {
 			filePath: "docs/adr/0001-test.md",

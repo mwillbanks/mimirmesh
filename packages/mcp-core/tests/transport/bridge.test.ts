@@ -1,23 +1,21 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-const actualRuntime = await import("@mimirmesh/runtime");
+import { invokeEngineTool } from "../../src/transport/bridge";
 
-const runtimeMock = {
-	...actualRuntime,
-	callBridgeTool: mock(
-		async (): Promise<{ ok: boolean; result?: unknown; error?: string }> => ({ ok: true }),
-	),
-	reconnectBridge: mock(async (): Promise<{ ok: boolean }> => ({ ok: true })),
+const callBridgeToolMock = mock(
+	async (): Promise<{ ok: boolean; result?: unknown; error?: string }> => ({ ok: true }),
+);
+const reconnectBridgeMock = mock(async (): Promise<{ ok: boolean }> => ({ ok: true }));
+
+const bridgeDependencies = {
+	callBridgeTool: callBridgeToolMock as typeof import("@mimirmesh/runtime").callBridgeTool,
+	reconnectBridge: reconnectBridgeMock as typeof import("@mimirmesh/runtime").reconnectBridge,
 };
-
-mock.module("@mimirmesh/runtime", () => runtimeMock);
-
-const transport = await import("../../src/transport/bridge");
 
 describe("invokeEngineTool", () => {
 	beforeEach(() => {
-		runtimeMock.callBridgeTool.mockReset();
-		runtimeMock.reconnectBridge.mockReset();
+		callBridgeToolMock.mockReset();
+		reconnectBridgeMock.mockReset();
 	});
 
 	afterEach(() => {
@@ -25,42 +23,48 @@ describe("invokeEngineTool", () => {
 	});
 
 	test("reconnects and retries once when the bridge call aborts", async () => {
-		runtimeMock.callBridgeTool
+		callBridgeToolMock
 			.mockRejectedValueOnce(new Error("The operation was aborted."))
 			.mockResolvedValueOnce({
 				ok: true,
 				result: { recovered: true },
 			});
-		runtimeMock.reconnectBridge.mockResolvedValueOnce({ ok: true });
+		reconnectBridgeMock.mockResolvedValueOnce({ ok: true });
 
-		const result = await transport.invokeEngineTool({
-			bridgePorts: { "document-mcp": 55032 },
-			engine: "document-mcp",
-			tool: "search_documents",
-			args: { query: "runtime status" },
-		});
+		const result = await invokeEngineTool(
+			{
+				bridgePorts: { "document-mcp": 55032 },
+				engine: "document-mcp",
+				tool: "search_documents",
+				args: { query: "runtime status" },
+			},
+			bridgeDependencies,
+		);
 
 		expect(result.ok).toBe(true);
 		expect(result.result).toEqual({ recovered: true });
-		expect(runtimeMock.reconnectBridge).toHaveBeenCalledTimes(1);
-		expect(runtimeMock.callBridgeTool).toHaveBeenCalledTimes(2);
+		expect(reconnectBridgeMock).toHaveBeenCalledTimes(1);
+		expect(callBridgeToolMock).toHaveBeenCalledTimes(2);
 	});
 
 	test("returns a missing-port error without reconnect attempts", async () => {
-		const result = await transport.invokeEngineTool({
-			bridgePorts: {},
-			engine: "document-mcp",
-			tool: "search_documents",
-			args: { query: "runtime status" },
-		});
+		const result = await invokeEngineTool(
+			{
+				bridgePorts: {},
+				engine: "document-mcp",
+				tool: "search_documents",
+				args: { query: "runtime status" },
+			},
+			bridgeDependencies,
+		);
 
 		expect(result.ok).toBe(false);
 		expect(result.error).toContain("Bridge port not available");
-		expect(runtimeMock.reconnectBridge).toHaveBeenCalledTimes(0);
+		expect(reconnectBridgeMock).toHaveBeenCalledTimes(0);
 	});
 
 	test("reconnects and retries once when the bridge returns 503", async () => {
-		runtimeMock.callBridgeTool
+		callBridgeToolMock
 			.mockResolvedValueOnce({
 				ok: false,
 				error: "Bridge request failed (503)",
@@ -69,23 +73,26 @@ describe("invokeEngineTool", () => {
 				ok: true,
 				result: { recovered: "sse" },
 			});
-		runtimeMock.reconnectBridge.mockResolvedValueOnce({ ok: true });
+		reconnectBridgeMock.mockResolvedValueOnce({ ok: true });
 
-		const result = await transport.invokeEngineTool({
-			bridgePorts: { srclight: 55032 },
-			engine: "srclight",
-			tool: "search_symbols",
-			args: { symbol: "runtimeStart" },
-		});
+		const result = await invokeEngineTool(
+			{
+				bridgePorts: { srclight: 55032 },
+				engine: "srclight",
+				tool: "search_symbols",
+				args: { symbol: "runtimeStart" },
+			},
+			bridgeDependencies,
+		);
 
 		expect(result.ok).toBe(true);
 		expect(result.result).toEqual({ recovered: "sse" });
-		expect(runtimeMock.reconnectBridge).toHaveBeenCalledTimes(1);
-		expect(runtimeMock.callBridgeTool).toHaveBeenCalledTimes(2);
+		expect(reconnectBridgeMock).toHaveBeenCalledTimes(1);
+		expect(callBridgeToolMock).toHaveBeenCalledTimes(2);
 	});
 
 	test("reconnects and retries once when the socket closes unexpectedly", async () => {
-		runtimeMock.callBridgeTool
+		callBridgeToolMock
 			.mockRejectedValueOnce(
 				new Error(
 					"The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()",
@@ -95,18 +102,21 @@ describe("invokeEngineTool", () => {
 				ok: true,
 				result: { recovered: "socket" },
 			});
-		runtimeMock.reconnectBridge.mockResolvedValueOnce({ ok: true });
+		reconnectBridgeMock.mockResolvedValueOnce({ ok: true });
 
-		const result = await transport.invokeEngineTool({
-			bridgePorts: { "document-mcp": 55032 },
-			engine: "document-mcp",
-			tool: "search_documents",
-			args: { query: "runtime status" },
-		});
+		const result = await invokeEngineTool(
+			{
+				bridgePorts: { "document-mcp": 55032 },
+				engine: "document-mcp",
+				tool: "search_documents",
+				args: { query: "runtime status" },
+			},
+			bridgeDependencies,
+		);
 
 		expect(result.ok).toBe(true);
 		expect(result.result).toEqual({ recovered: "socket" });
-		expect(runtimeMock.reconnectBridge).toHaveBeenCalledTimes(1);
-		expect(runtimeMock.callBridgeTool).toHaveBeenCalledTimes(2);
+		expect(reconnectBridgeMock).toHaveBeenCalledTimes(1);
+		expect(callBridgeToolMock).toHaveBeenCalledTimes(2);
 	});
 });

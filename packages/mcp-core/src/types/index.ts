@@ -1,5 +1,18 @@
 import type { EngineId, MimirmeshConfig } from "@mimirmesh/config";
 import type { LogChannel } from "@mimirmesh/logging";
+import type {
+	RouteExecutionStrategy,
+	RouteHintCacheAffinity,
+	RouteHintFreshnessSensitivity,
+	RouteHintFreshnessState,
+	RouteHintSnapshot,
+	RouteHintSourceLabel,
+	RouteHintSourceMode,
+	RouteSeedHint,
+	RouteTelemetryHealthState,
+	RouteTelemetryMaintenanceProgress,
+	RouteTelemetryMaintenanceState,
+} from "@mimirmesh/runtime";
 
 export type UnifiedToolName =
 	| "skills.find"
@@ -31,7 +44,8 @@ export type UnifiedToolName =
 	| "config_set"
 	| "load_deferred_tools"
 	| "refresh_tool_surface"
-	| "inspect_tool_schema";
+	| "inspect_tool_schema"
+	| "inspect_route_hints";
 
 export type ToolName = UnifiedToolName | string;
 
@@ -103,6 +117,8 @@ export type ToolRouterOptions = {
 	config: MimirmeshConfig;
 	sessionId?: string;
 	adapters?: unknown[];
+	adapterResolver?: typeof import("@mimirmesh/mcp-adapters").getAdapter;
+	engineInvoker?: typeof import("../transport/bridge").invokeEngineTool;
 	logger?: {
 		log: (
 			channel: LogChannel,
@@ -153,7 +169,106 @@ export type RoutingEngineRoute = {
 	engine: EngineId;
 	engineTool: string;
 	priority: number;
+	executionStrategy?: RouteExecutionStrategy;
+	seedHint?: RouteSeedHint | null;
 	inputSchema?: Record<string, unknown>;
+};
+
+export type RouteHintInspectionOrdering = Pick<
+	RouteHintSnapshot,
+	| "engine"
+	| "engineTool"
+	| "effectiveCostScore"
+	| "confidence"
+	| "sampleCount"
+	| "orderingReasonCodes"
+	| "estimatedInputTokens"
+	| "estimatedOutputTokens"
+	| "estimatedLatencyMs"
+	| "estimatedSuccessRate"
+	| "lastObservedAt"
+>;
+
+export type RouteHintInspectionSummary = {
+	unifiedTool: UnifiedToolName;
+	profileScope: "summary";
+	profiles: Array<{
+		profileKey: string;
+		subsetEligible: boolean;
+		executionStrategy: RouteExecutionStrategy;
+		sourceMode: RouteHintSourceMode;
+		sourceLabel: RouteHintSourceLabel;
+		freshnessState: RouteHintFreshnessState;
+		freshnessAgeSeconds: number | null;
+		confidence: number;
+		sampleCount: number;
+		currentOrdering: RouteHintInspectionOrdering[];
+	}>;
+};
+
+export type RouteHintInspectionProfile = {
+	unifiedTool: UnifiedToolName;
+	profileScope: "profile";
+	profileKey: string;
+	subsetEligible: boolean;
+	executionStrategy: RouteExecutionStrategy;
+	sourceMode: RouteHintSourceMode;
+	sourceLabel: RouteHintSourceLabel;
+	freshnessState: RouteHintFreshnessState;
+	freshnessAgeSeconds: number | null;
+	currentOrdering: RouteHintInspectionOrdering[];
+	recentRollups?: {
+		last15m: unknown[];
+		last6h: unknown[];
+		last1d: unknown[];
+	};
+};
+
+export type RouteHintInspectionResponse = {
+	telemetryHealth: {
+		state: RouteTelemetryHealthState;
+		lastSuccessfulCompactionAt: string | null;
+		lagSeconds: number;
+		warnings: string[];
+	};
+	maintenanceStatus: RouteTelemetryMaintenanceState & {
+		compactionProgress: RouteTelemetryMaintenanceProgress;
+		rawRetentionDays: number;
+		rollupRetention: {
+			last15mHours: number;
+			last6hDays: number;
+			last1dDays: number;
+		};
+		overdueBySeconds: number;
+		affectedSourceLabels: RouteHintSourceLabel[];
+	};
+	adaptiveSubset: {
+		defaultAllowlist: UnifiedToolName[];
+		effectiveAllowlist: UnifiedToolName[];
+		overrideWarnings: string[];
+	};
+	inspection?: RouteHintInspectionSummary | RouteHintInspectionProfile;
+};
+
+export type RouteHintSeedSummary = Pick<
+	RouteSeedHint,
+	| "estimatedInputTokens"
+	| "estimatedOutputTokens"
+	| "estimatedLatencyMs"
+	| "expectedSuccessRate"
+	| "cacheAffinity"
+	| "freshnessSensitivity"
+>;
+
+export type RouteHintScoreBreakdown = {
+	tokenScore: number;
+	latencyScore: number;
+	reliabilityPenalty: number;
+	freshnessModifier: number;
+	cacheModifier: number;
+	effectiveCostScore: number;
+	cacheAffinity: RouteHintCacheAffinity;
+	freshnessSensitivity: RouteHintFreshnessSensitivity;
 };
 
 export type PassthroughMapping = {

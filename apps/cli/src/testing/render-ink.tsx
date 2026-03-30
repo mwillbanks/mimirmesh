@@ -2,7 +2,8 @@ import { PassThrough } from "node:stream";
 import { render, renderToString } from "ink";
 import type React from "react";
 
-const ansiPattern = /\\u001B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])/g;
+const ansiEscape = String.fromCharCode(0x1b);
+const ansiPattern = new RegExp(`${ansiEscape}(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])`, "g");
 
 export const stripAnsi = (value: string): string =>
 	value.replace(ansiPattern, "").replaceAll("\r", "");

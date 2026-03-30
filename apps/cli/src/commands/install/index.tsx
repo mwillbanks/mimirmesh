@@ -2,6 +2,7 @@ import {
 	createDefaultEmbeddingsInstallConfig,
 	createInstallationAreas,
 	createInstallationPolicy,
+	defaultDockerLlamaCppBaseUrl,
 	defaultDockerLlamaCppModel,
 	defaultLmStudioBaseUrl,
 	defaultLmStudioModel,
@@ -36,6 +37,7 @@ import { CommandHelpView } from "../../lib/command-help";
 import { CommandRunner } from "../../lib/command-runner";
 import { loadCliPreviewContext, previewInstallExecution } from "../../lib/context";
 import { createGuardedWorkflow } from "../../lib/guarded-workflow";
+import { inferExistingInstallSettings } from "../../lib/install-existing-settings";
 import { installCommandHelp } from "../../lib/install-help";
 import { getPromptGuardError } from "../../lib/non-interactive";
 import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
@@ -234,6 +236,12 @@ export default function InstallCommand({
 	const [selectedEmbeddingsApiKey, setSelectedEmbeddingsApiKey] = useState<string | null>(
 		options.embeddingsApiKey ?? null,
 	);
+	const [existingInstallSettings, setExistingInstallSettings] = useState<ReturnType<
+		typeof inferExistingInstallSettings
+	> | null>(null);
+	const [reuseExistingSettingsChoice, setReuseExistingSettingsChoice] = useState<
+		"reuse" | "change" | null
+	>(null);
 	const [preview, setPreview] = useState<Awaited<
 		ReturnType<typeof previewInstallExecution>
 	> | null>(null);
@@ -259,6 +267,50 @@ export default function InstallCommand({
 		() => (explicitSkills.length ? explicitSkills : (selectedSkills ?? [])),
 		[explicitSkills, selectedSkills],
 	);
+	const installAreaDefaults = useMemo(() => {
+		if (selectedAreas) {
+			return selectedAreas;
+		}
+		if (
+			existingInstallSettings?.hasExistingState &&
+			selectedPreset &&
+			selectedPreset !== existingInstallSettings.presetId
+		) {
+			return resolveInstallAreas(selectedPreset);
+		}
+		if (existingInstallSettings?.hasExistingState) {
+			return existingInstallSettings.selectedAreas;
+		}
+		return effectivePreset
+			? resolveInstallAreas(effectivePreset)
+			: (["core", "skills"] as InstallAreaId[]);
+	}, [effectivePreset, existingInstallSettings, selectedAreas, selectedPreset]);
+	const ideTargetDefaults =
+		existingInstallSettings?.hasExistingState && existingInstallSettings.ideTargets.length > 0
+			? existingInstallSettings.ideTargets
+			: (["vscode"] as InstallTarget[]);
+	const skillDefaults =
+		existingInstallSettings?.hasExistingState && existingInstallSettings.selectedSkills.length > 0
+			? existingInstallSettings.selectedSkills
+			: [...bundledSkillNames];
+	const hasExplicitInstallerSelections =
+		Boolean(options.preset) ||
+		explicitAreas.length > 0 ||
+		explicitIdeTargets.length > 0 ||
+		explicitSkills.length > 0 ||
+		explicitEmbeddingsMode !== null ||
+		options.embeddingsBaseUrl !== undefined ||
+		options.embeddingsModel !== undefined ||
+		options.embeddingsApiKey !== undefined;
+	const hasStartedInteractiveConfiguration =
+		selectedPreset !== null ||
+		selectedAreas !== null ||
+		selectedIdeTargets !== null ||
+		selectedSkills !== null ||
+		selectedEmbeddingsMode !== null ||
+		selectedEmbeddingsModel !== null ||
+		selectedEmbeddingsBaseUrl !== null ||
+		selectedEmbeddingsApiKey !== null;
 	const effectiveEmbeddings = useMemo(
 		() =>
 			resolveEmbeddingsInstallConfig({
@@ -285,6 +337,57 @@ export default function InstallCommand({
 			selectedEmbeddingsModel,
 		],
 	);
+	const matchingExistingEmbeddings =
+		existingInstallSettings?.embeddings.mode === effectiveEmbeddings.mode
+			? existingInstallSettings.embeddings
+			: null;
+
+	useEffect(() => {
+		if (!resolvedPresentation.interactive || options.help) {
+			return;
+		}
+
+		let cancelled = false;
+		void loadCliPreviewContext()
+			.then(async (context) => {
+				const bootstrapPolicy = createInstallationPolicy({
+					presetId: "full",
+					selectedAreas: ["core", "ide", "skills"],
+					explicitAreaOverrides: ["core", "ide", "skills"],
+					mode: "interactive",
+					ideTargets: [...installTargetCatalog],
+					selectedSkills: [...bundledSkillNames],
+					embeddings: {
+						mode: "docker-llama-cpp",
+						model: defaultDockerLlamaCppModel,
+						baseUrl: defaultDockerLlamaCppBaseUrl,
+						fallbackOnFailure: true,
+					},
+				});
+				const preview = await previewInstallExecution(context, bootstrapPolicy);
+				if (cancelled) {
+					return;
+				}
+				setExistingInstallSettings(
+					inferExistingInstallSettings({
+						projectRoot: context.projectRoot,
+						config: context.config,
+						snapshot: preview.snapshot,
+						skillStatuses: preview.skillStatuses,
+					}),
+				);
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setExistingInstallSettings(null);
+				}
+			})
+			.finally(() => undefined);
+
+		return () => {
+			cancelled = true;
+		};
+	}, [options.help, resolvedPresentation.interactive]);
 
 	const installPolicy = useMemo(() => {
 		if (!effectiveAreas || (!effectivePreset && effectiveAreas.length === 0)) {
@@ -441,6 +544,57 @@ export default function InstallCommand({
 		);
 	}
 
+	if (
+		resolvedPresentation.interactive &&
+		!hasExplicitInstallerSelections &&
+		!hasStartedInteractiveConfiguration &&
+		existingInstallSettings?.hasExistingState &&
+		reuseExistingSettingsChoice === null
+	) {
+		return (
+			<Box flexDirection="column" gap={1}>
+				<Text bold>Existing install settings detected</Text>
+				<GuidedSelect
+					title="Reuse the current install settings?"
+					reason="This repository already has install-managed state, so the installer should either reuse the current settings directly or walk through changes from those defaults."
+					consequence="Reusing current settings skips the configuration prompts. Choosing to review changes keeps the guided flow, but seeds it with the existing selections."
+					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --yes"
+					choices={[
+						{
+							label: "Reuse current settings",
+							value: "reuse",
+							description:
+								"Keep the detected install areas and current embeddings settings, then review only the pending file updates.",
+							recommended: true,
+						},
+						{
+							label: "Review and change settings",
+							value: "change",
+							description:
+								"Walk through the installer prompts again with the detected settings used as the defaults.",
+						},
+					]}
+					defaultValue="reuse"
+					onSubmit={(value) => {
+						if (value === "reuse") {
+							setReuseExistingSettingsChoice("reuse");
+							setSelectedPreset(existingInstallSettings.presetId);
+							setSelectedAreas(existingInstallSettings.selectedAreas);
+							setSelectedIdeTargets(existingInstallSettings.ideTargets);
+							setSelectedSkills(existingInstallSettings.selectedSkills);
+							setSelectedEmbeddingsMode(existingInstallSettings.embeddings.mode);
+							setSelectedEmbeddingsModel(existingInstallSettings.embeddings.model ?? null);
+							setSelectedEmbeddingsBaseUrl(existingInstallSettings.embeddings.baseUrl ?? null);
+							setSelectedEmbeddingsApiKey(existingInstallSettings.embeddings.apiKey ?? null);
+							return;
+						}
+						setReuseExistingSettingsChoice("change");
+					}}
+				/>
+			</Box>
+		);
+	}
+
 	if (!effectivePreset && explicitAreas.length === 0 && resolvedPresentation.interactive) {
 		return (
 			<Box flexDirection="column" gap={1}>
@@ -451,7 +605,7 @@ export default function InstallCommand({
 					consequence="The selected preset preselects the install areas that will be reviewed next."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended"
 					choices={installPresetChoices}
-					defaultValue="recommended"
+					defaultValue={existingInstallSettings?.presetId ?? "recommended"}
 					onSubmit={(value) => {
 						if (isInstallPresetId(value)) {
 							setSelectedPreset(value);
@@ -483,7 +637,7 @@ export default function InstallCommand({
 						description: area.description,
 						recommended: area.selectionState === "required" || area.selectionState === "selected",
 					}))}
-					defaultValues={resolveInstallAreas(effectivePreset)}
+					defaultValues={installAreaDefaults}
 					onSubmit={(values) => {
 						setSelectedAreas(values.filter(isInstallAreaId));
 					}}
@@ -528,7 +682,7 @@ export default function InstallCommand({
 							description: "Write `.codex/mcp.json` for the local project.",
 						},
 					]}
-					defaultValues={["vscode"]}
+					defaultValues={ideTargetDefaults}
 					onSubmit={(values) => {
 						setSelectedIdeTargets(
 							values.filter((value): value is InstallTarget =>
@@ -561,7 +715,7 @@ export default function InstallCommand({
 						description: "Install this bundled repository-local skill.",
 						recommended: true,
 					}))}
-					defaultValues={[...bundledSkillNames]}
+					defaultValues={skillDefaults}
 					onSubmit={(values) => {
 						setSelectedSkills(values);
 					}}
@@ -588,7 +742,7 @@ export default function InstallCommand({
 					consequence="The selected strategy determines whether install writes a Docker-managed llama.cpp provider, an external runtime endpoint, a hosted API configuration, or keeps embeddings disabled."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings docker-llama-cpp"
 					choices={embeddingsModeChoices}
-					defaultValue={defaultEmbeddingsMode}
+					defaultValue={existingInstallSettings?.embeddings.mode ?? defaultEmbeddingsMode}
 					onSubmit={(value) => {
 						if (isEmbeddingsInstallMode(value)) {
 							setSelectedEmbeddingsMode(value);
@@ -614,7 +768,7 @@ export default function InstallCommand({
 					consequence="The selected model is persisted into `.mimirmesh/config.yml` and used when the Compose-managed embeddings runtime is rendered."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings docker-llama-cpp --embeddings-model Qwen/Qwen3-Embedding-0.6B-GGUF"
 					label="Embedding model"
-					initialValue={defaultDockerLlamaCppModel}
+					initialValue={matchingExistingEmbeddings?.model ?? defaultDockerLlamaCppModel}
 					onSubmit={(value) => {
 						setSelectedEmbeddingsModel(value);
 					}}
@@ -638,7 +792,7 @@ export default function InstallCommand({
 					consequence="The base URL is persisted into `.mimirmesh/config.yml` and used directly during refresh and resolve embedding calls."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-lm-studio --embeddings-base-url http://localhost:1234/v1"
 					label="LM Studio base URL"
-					initialValue={defaultLmStudioBaseUrl}
+					initialValue={matchingExistingEmbeddings?.baseUrl ?? defaultLmStudioBaseUrl}
 					onSubmit={(value) => {
 						setSelectedEmbeddingsBaseUrl(value);
 					}}
@@ -662,7 +816,7 @@ export default function InstallCommand({
 					consequence="The selected model is written into `.mimirmesh/config.yml` for the LM Studio provider."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-lm-studio --embeddings-model text-embedding-nomic-embed-text-v1.5"
 					label="LM Studio model"
-					initialValue={defaultLmStudioModel}
+					initialValue={matchingExistingEmbeddings?.model ?? defaultLmStudioModel}
 					onSubmit={(value) => {
 						setSelectedEmbeddingsModel(value);
 					}}
@@ -686,6 +840,7 @@ export default function InstallCommand({
 					consequence="Leaving this blank keeps the provider unauthenticated. Supplying a value persists it into `.mimirmesh/config.yml`."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-lm-studio --embeddings-api-key <token>"
 					label="LM Studio API key"
+					initialValue={matchingExistingEmbeddings?.apiKey ?? ""}
 					placeholder="Leave blank if not required"
 					mask
 					allowEmpty
@@ -712,6 +867,7 @@ export default function InstallCommand({
 					consequence="The base URL is written into `.mimirmesh/config.yml` for the external embeddings provider."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-openai-compatible --embeddings-base-url https://example.invalid/v1"
 					label="Embeddings base URL"
+					initialValue={matchingExistingEmbeddings?.baseUrl ?? ""}
 					placeholder="https://example.invalid/v1"
 					onSubmit={(value) => {
 						setSelectedEmbeddingsBaseUrl(value);
@@ -736,6 +892,7 @@ export default function InstallCommand({
 					consequence="The model is written into `.mimirmesh/config.yml` for the external embeddings provider."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-openai-compatible --embeddings-model text-embedding-model"
 					label="Embeddings model"
+					initialValue={matchingExistingEmbeddings?.model ?? ""}
 					placeholder="text-embedding-model"
 					onSubmit={(value) => {
 						setSelectedEmbeddingsModel(value);
@@ -760,6 +917,7 @@ export default function InstallCommand({
 					consequence="The API key is written into `.mimirmesh/config.yml` for the external embeddings provider."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings existing-openai-compatible --embeddings-api-key <token>"
 					label="Embeddings API key"
+					initialValue={matchingExistingEmbeddings?.apiKey ?? ""}
 					mask
 					onSubmit={(value) => {
 						setSelectedEmbeddingsApiKey(value);
@@ -784,7 +942,7 @@ export default function InstallCommand({
 					consequence="The selected model is written into `.mimirmesh/config.yml` for the OpenAI provider."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings openai --embeddings-model text-embedding-3-small --embeddings-api-key <token>"
 					label="OpenAI embeddings model"
-					initialValue={defaultOpenAIModel}
+					initialValue={matchingExistingEmbeddings?.model ?? defaultOpenAIModel}
 					onSubmit={(value) => {
 						setSelectedEmbeddingsModel(value);
 					}}
@@ -808,6 +966,7 @@ export default function InstallCommand({
 					consequence="The API key is written into `.mimirmesh/config.yml` for the OpenAI embeddings provider."
 					nonInteractiveFallback="mimirmesh install --non-interactive --preset recommended --embeddings openai --embeddings-api-key <token>"
 					label="OpenAI API key"
+					initialValue={matchingExistingEmbeddings?.apiKey ?? ""}
 					mask
 					onSubmit={(value) => {
 						setSelectedEmbeddingsApiKey(value);

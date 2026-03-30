@@ -21,6 +21,8 @@ Commands:
 - `mimirmesh runtime restart`
 - `mimirmesh runtime status`
 - `mimirmesh runtime refresh`
+- `mimirmesh runtime telemetry compact`
+- `mimirmesh runtime telemetry clear`
 - `mimirmesh runtime doctor`
 - `mimirmesh runtime upgrade status`
 - `mimirmesh runtime upgrade migrate`
@@ -52,6 +54,9 @@ MCP tool-surface operations:
 - `mimirmesh mcp load-tools <engine>` performs live discovery for a deferred engine group and updates only the current session
 - `mimirmesh mcp tool-schema <tool>` returns compressed or full schema detail for visible tools
 - `mimirmesh runtime status` includes the current MCP loaded/deferred group state in its workflow evidence and machine-readable payload
+- `mimirmesh runtime status` also includes additive `routeTelemetry` health with `state`, `lastSuccessfulCompactionAt`, `lagSeconds`, and warnings
+- `mimirmesh runtime telemetry compact` runs repository-scoped, tool-scoped, or route-scoped rollup refresh and pruning with advisory-lock protection
+- `mimirmesh runtime telemetry clear` removes route telemetry by repository, unified tool, or individual route scope and keeps an explicit interactive confirmation step in human mode
 
 Runtime upgrade behavior:
 
@@ -66,3 +71,4 @@ Operational note:
 
 - `runtime refresh` and `runtime upgrade migrate` reconcile metadata and already-started services but do not auto-start a stopped runtime. Use `mimirmesh runtime start` when a start is explicitly desired.
 - `runtime upgrade repair` repairs preserved runtime state only. It does not rebuild or restart Docker containers. If the reported required action is `restart-runtime`, run `mimirmesh runtime restart --non-interactive` after repair so the live runtime actually picks up the rebuilt images and compose definition.
+- Route telemetry maintenance is runtime-owned state in PostgreSQL. The long-lived MCP server process starts a periodic maintenance loop when runtime PostgreSQL is available, and lifecycle commands perform catch-up checks so route-telemetry health stays truthful even when operators inspect or compact outside the server path.

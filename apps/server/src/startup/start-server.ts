@@ -2,7 +2,7 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 
 import { readConfig } from "@mimirmesh/config";
-import { createProjectLogger } from "@mimirmesh/logging";
+import { createProjectLogger, type ProjectLogger } from "@mimirmesh/logging";
 import { createAdapters } from "@mimirmesh/mcp-adapters";
 import {
 	buildRetiredPassthroughAliasResult,
@@ -16,7 +16,11 @@ import {
 import {
 	clearMcpServerSession,
 	loadExecutableBuildManifest,
+	openRouteTelemetryStore,
 	persistMcpServerSession,
+	ROUTE_TELEMETRY_COMPACTION_CADENCE_MINUTES,
+	runRouteTelemetryMaintenance,
+	summarizeRouteTelemetryHealth,
 } from "@mimirmesh/runtime";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -28,7 +32,7 @@ import { CallToolRequestSchema, ErrorCode, McpError } from "@modelcontextprotoco
 import { z } from "zod";
 import { toTransportToolName } from "../middleware/tool-name";
 import { filterPassthroughTools } from "../tools/passthrough";
-import { filterUnifiedTools } from "../tools/unified";
+import { filterUnifiedTools, missingRequiredStartupUnifiedTools } from "../tools/unified";
 
 const resolveVersion = async (): Promise<string> => {
 	const candidates = [
@@ -208,6 +212,102 @@ const buildTransportStructuredContent = (
 				result,
 			};
 
+export const startRouteTelemetryMaintenanceLoop = async (options: {
+	projectRoot: string;
+	config: Awaited<ReturnType<typeof readConfig>>;
+	sessionId: string;
+	logger: Pick<ProjectLogger, "log">;
+	loadRuntimeContext?: typeof loadRuntimeRoutingContext;
+	openStore?: typeof openRouteTelemetryStore;
+	runMaintenance?: typeof runRouteTelemetryMaintenance;
+	cadenceMs?: number;
+}) => {
+	const loadRuntimeContext = options.loadRuntimeContext ?? loadRuntimeRoutingContext;
+	const openStore = options.openStore ?? openRouteTelemetryStore;
+	const runMaintenance = options.runMaintenance ?? runRouteTelemetryMaintenance;
+	const cadenceMs = options.cadenceMs ?? ROUTE_TELEMETRY_COMPACTION_CADENCE_MINUTES * 60 * 1000;
+	const runtime = await loadRuntimeContext(options.projectRoot);
+	if (!runtime.connection?.services.includes("mm-postgres")) {
+		return async () => {};
+	}
+	const store = await openStore(options.projectRoot, options.config);
+	if (!store) {
+		await options.logger.log(
+			"mcp",
+			"warn",
+			"Route telemetry maintenance loop unavailable because runtime PostgreSQL could not be opened.",
+		);
+		return async () => {};
+	}
+
+	let stopped = false;
+	let timer: ReturnType<typeof setInterval> | null = null;
+	let inFlight: Promise<void> | null = null;
+	const runOnce = async (trigger: "startup" | "interval") => {
+		if (stopped || inFlight) {
+			return;
+		}
+		inFlight = (async () => {
+			const maintenanceState = await store.loadMaintenanceState();
+			const summary = summarizeRouteTelemetryHealth({ maintenanceState });
+			const shouldRun =
+				trigger === "interval" ||
+				summary.lastSuccessfulCompactionAt === null ||
+				summary.maintenanceStatus.overdueBySeconds > 0;
+			if (!shouldRun) {
+				return;
+			}
+			try {
+				const result = await runMaintenance({
+					store,
+					lockOwner: `mcp-server:${options.sessionId}`,
+				});
+				if (result.acquired) {
+					await options.logger.log(
+						"mcp",
+						"info",
+						`Route telemetry maintenance ${trigger} completed with ${result.progress.closedBucketCount} closed bucket(s).`,
+					);
+					return;
+				}
+				await options.logger.log(
+					"mcp",
+					"warn",
+					`Route telemetry maintenance ${trigger} skipped because another maintainer holds the advisory lock.`,
+				);
+			} catch (error) {
+				await options.logger.log(
+					"mcp",
+					"warn",
+					`Route telemetry maintenance ${trigger} failed: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				);
+			}
+		})().finally(() => {
+			inFlight = null;
+		});
+		await inFlight;
+	};
+
+	void runOnce("startup");
+	timer = setInterval(() => {
+		void runOnce("interval");
+	}, cadenceMs);
+	timer.unref?.();
+
+	return async () => {
+		stopped = true;
+		if (timer) {
+			clearInterval(timer);
+		}
+		if (inFlight) {
+			await inFlight;
+		}
+		await store.close();
+	};
+};
+
 export const startMcpServer = async (projectRootInput?: string): Promise<void> => {
 	const projectRoot = projectRootInput ?? process.env.MIMIRMESH_PROJECT_ROOT ?? process.cwd();
 	const sessionId = process.env.MIMIRMESH_SESSION_ID ?? `mcp-${process.pid}`;
@@ -322,6 +422,14 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 		"info",
 		`Registering ${filterUnifiedTools(toolDefinitions).length} unified and ${filterPassthroughTools(toolDefinitions).length} visible passthrough tools`,
 	);
+	const missingStartupTools = missingRequiredStartupUnifiedTools(toolDefinitions);
+	if (missingStartupTools.length > 0) {
+		await logger.log(
+			"mcp",
+			"warn",
+			`Missing required startup unified tools: ${missingStartupTools.join(", ")}`,
+		);
+	}
 
 	for (const tool of toolDefinitions) {
 		const transportToolName = toTransportToolName(tool.name);
@@ -462,9 +570,16 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	await logger.log("mcp", "info", "MCP server connected over stdio.");
+	const stopRouteTelemetryMaintenance = await startRouteTelemetryMaintenanceLoop({
+		projectRoot,
+		config,
+		sessionId,
+		logger,
+	});
 
 	const closeServer = async () => {
 		await logger.log("mcp", "info", "Shutting down MCP server.");
+		await stopRouteTelemetryMaintenance();
 		await clearMcpServerSession(projectRoot, process.pid);
 		await server.close();
 		process.exit(0);

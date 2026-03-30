@@ -1,22 +1,22 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-const commandMock = {
-	runCommand: mock(async () => ({
-		exitCode: 0,
-		stdout: '{"nvidia":{"path":"nvidia-container-runtime"}}',
-		stderr: "",
-	})),
-};
-
-mock.module("../../src/services/command", () => commandMock);
-
 const { createDefaultConfig } = await import("@mimirmesh/config");
 const { detectHostGpuCapability, resolveGpuPolicy } = await import("../../src/services/gpu-policy");
 
+const runCommandMock = mock(async () => ({
+	exitCode: 0,
+	stdout: '{"nvidia":{"path":"nvidia-container-runtime"}}',
+	stderr: "",
+}));
+
+const gpuPolicyDependencies = {
+	runCommand: runCommandMock as typeof import("../../src/services/command").runCommand,
+};
+
 describe("gpu policy resolution", () => {
 	beforeEach(() => {
-		commandMock.runCommand.mockReset();
-		commandMock.runCommand.mockResolvedValue({
+		runCommandMock.mockReset();
+		runCommandMock.mockResolvedValue({
 			exitCode: 0,
 			stdout: '{"nvidia":{"path":"nvidia-container-runtime"}}',
 			stderr: "",
@@ -28,7 +28,7 @@ describe("gpu policy resolution", () => {
 	});
 
 	test("detects NVIDIA runtime from docker info metadata", async () => {
-		const capability = await detectHostGpuCapability();
+		const capability = await detectHostGpuCapability(gpuPolicyDependencies);
 		if (process.platform === "linux" && process.arch === "x64") {
 			expect(capability.nvidiaRuntimeAvailable).toBe(true);
 		} else {
@@ -40,7 +40,7 @@ describe("gpu policy resolution", () => {
 		const config = createDefaultConfig("/tmp/mimirmesh-gpu-off");
 		config.runtime.gpuMode = "off";
 
-		const resolved = await resolveGpuPolicy(config);
+		const resolved = await resolveGpuPolicy(config, gpuPolicyDependencies);
 		expect(resolved.engines.srclight).toEqual(
 			expect.objectContaining({
 				configuredMode: "off",
@@ -52,7 +52,7 @@ describe("gpu policy resolution", () => {
 	});
 
 	test("blocks startup when gpuMode is on without NVIDIA runtime support", async () => {
-		commandMock.runCommand.mockResolvedValue({
+		runCommandMock.mockResolvedValue({
 			exitCode: 0,
 			stdout: "{}",
 			stderr: "",
@@ -60,7 +60,7 @@ describe("gpu policy resolution", () => {
 		const config = createDefaultConfig("/tmp/mimirmesh-gpu-on");
 		config.runtime.gpuMode = "on";
 
-		const resolved = await resolveGpuPolicy(config);
+		const resolved = await resolveGpuPolicy(config, gpuPolicyDependencies);
 		const srclight = resolved.engines.srclight;
 
 		expect(srclight).toEqual(

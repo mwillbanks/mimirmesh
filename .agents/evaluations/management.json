@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "lastCompressedAt": "2026-03-28T08:09:25Z",
+  "agentTypes": {
+    "default-reviewer": {
+      "status": "active",
+      "uses": 3,
+      "good": 1,
+      "mixed": 2,
+      "bad": 0,
+      "notes": [
+        "Strict reviewer surfaced concrete correctness and validation-truthfulness defects."
+      ]
+    }
+  },
+  "promptPatterns": {
+    "compact-review-packet": {
+      "status": "active",
+      "uses": 3,
+      "good": 1,
+      "mixed": 2,
+      "bad": 0,
+      "notes": [
+        "Compact evidence packet was sufficient for independent blocking findings."
+      ]
+    }
+  },
+  "recentRuns": [
+    {
+      "timestamp": "2026-03-28T08:56:03Z",
+      "mode": "agentic-self-review",
+      "agentType": "default-reviewer",
+      "promptPattern": "compact-review-packet",
+      "task": "Review completed 011-route-cost-telemetry implementation for correctness, workflow compliance, and validation truthfulness.",
+      "delegationShape": "review-only",
+      "outcome": "good",
+      "failureClass": null,
+      "causeAttribution": "manager-integration",
+      "tokenRoi": "positive",
+      "managerDecision": "reuse",
+      "notes": [
+        "Independent reviewer returned APPROVE after router, inspection, and validation-evidence fixes.",
+        "Reviewer confirmed empty payload gating, seed-only summary synthesis, and doc truthfulness changes in the scoped files."
+      ]
+    },
+    {
+      "timestamp": "2026-03-28T08:46:49Z",
+      "mode": "agentic-self-review",
+      "agentType": "default-reviewer",
+      "promptPattern": "compact-review-packet",
+      "task": "Review completed 011-route-cost-telemetry implementation for correctness, workflow compliance, and validation truthfulness.",
+      "delegationShape": "review-only",
+      "outcome": "mixed",
+      "failureClass": "validation-miss",
+      "causeAttribution": "manager-integration",
+      "tokenRoi": "positive",
+      "managerDecision": "reuse",
+      "notes": [
+        "Reviewer found empty object envelopes still counted as usable route success.",
+        "Reviewer found summary inspection returned no seed-only ordering after telemetry clear or zero-snapshot state.",
+        "Reviewer found validation docs still overstated degraded benchmark, periodic maintenance, and clear-by-scope evidence."
+      ]
+    },
+    {
+      "timestamp": "2026-03-28T08:18:49Z",
+      "mode": "agentic-self-review",
+      "agentType": "default-reviewer",
+      "promptPattern": "compact-review-packet",
+      "task": "Review completed 011-route-cost-telemetry implementation for correctness, workflow compliance, and validation truthfulness.",
+      "delegationShape": "review-only",
+      "outcome": "mixed",
+      "failureClass": "validation-miss",
+      "causeAttribution": "manager-integration",
+      "tokenRoi": "positive",
+      "managerDecision": "reuse",
+      "notes": [
+        "Reviewer found early fallback termination on unusable ok responses.",
+        "Reviewer found zero-based persisted attemptIndex values.",
+        "Reviewer found CLI route-hints contract drift from --route.",
+        "Reviewer found validation artifact overstated live benchmark and restart evidence."
+      ]
+    }
+  ],
+  "repoLearnings": [
+    "Keep reviewer packets compact, include validation evidence, and do not hide known limitations."
+  ]
+}

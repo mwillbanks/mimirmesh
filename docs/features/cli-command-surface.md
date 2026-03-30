@@ -56,6 +56,21 @@ fallback instead of hanging or guessing.
 Inspection commands such as `runtime status`, `runtime upgrade status`, and
 `mcp list-tools` stay non-interactive by default.
 
+Route-telemetry inspection and maintenance now follow the same shared workflow
+model:
+
+- `mimirmesh mcp route-hints <unifiedTool> [--route <engine>:<tool>] [--profile <profileKey>] [--include-rollups] [--json]`
+- `mimirmesh runtime telemetry compact --scope repo|tool|route [--tool <unifiedTool>] [--route <engine>:<tool>] [--non-interactive] [--json]`
+- `mimirmesh runtime telemetry clear --scope repo|tool|route [--tool <unifiedTool>] [--route <engine>:<tool>] [--non-interactive] [--json]`
+
+Observed route-telemetry workflow behavior:
+
+- `mcp route-hints` returns deterministic summary inspection when `--profile` is omitted and profile-scoped inspection when `--profile` is provided
+- machine-readable payloads preserve canonical `sourceMode`, `freshnessState`, and `telemetryHealth.state`
+- inspection payloads include the maintenance-status block with `compactionProgress`, retention windows, overdue context, and `affectedSourceLabels`
+- `runtime telemetry clear` requires explicit scope review and confirmation in interactive mode
+- direct commands and the shared workflow runner emit the same step progress, warnings, outcome semantics, and machine-readable payload structure
+
 ## Machine-Readable Mode
 
 Use `--json` when a caller needs the serialized workflow envelope. The JSON

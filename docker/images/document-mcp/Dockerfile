@@ -15,7 +15,7 @@ RUN mkdir -p /opt/document-mcp \
     | tar -xz --strip-components=1 -C /opt/document-mcp
 
 WORKDIR /opt/document-mcp
-RUN uv sync --frozen --no-dev
+RUN rm -f uv.lock && uv sync --no-dev
 
 ENV HF_HOME=/opt/document-mcp/.cache/huggingface
 ENV SENTENCE_TRANSFORMERS_HOME=/opt/document-mcp/.cache/sentence-transformers

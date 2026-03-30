@@ -1,5 +1,5 @@
 import { Box, Text, useInput } from "ink";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PromptReason } from "./prompt-reason";
 
@@ -42,6 +42,11 @@ export const GuidedTextInput = ({
 }: GuidedTextInputProps) => {
 	const [value, setValue] = useState(initialValue);
 	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		setValue(initialValue);
+		setError(null);
+	}, [initialValue]);
 
 	useInput((input, key) => {
 		if (key.return) {

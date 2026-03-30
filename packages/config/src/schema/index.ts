@@ -93,6 +93,7 @@ export const gpuModeSchema = z.enum(["auto", "on", "off"]);
 export const mcpCompressionLevelSchema = z.enum(["minimal", "balanced", "aggressive"]);
 export const mcpDeferredVisibilitySchema = z.enum(["summary", "hidden"]);
 export const mcpRefreshPolicySchema = z.enum(["explicit", "automatic"]);
+export const mcpRoutingHintOverrideEntrySchema = z.string().trim().min(1);
 
 export const skillResolvePrecedenceStepSchema = z.enum([
 	"alwaysLoad",
@@ -385,8 +386,44 @@ export const mcpToolSurfacePolicySchema = z
 		}
 	});
 
+export const mcpRoutingHintsAdaptiveSubsetSchema = z
+	.object({
+		include: z.array(mcpRoutingHintOverrideEntrySchema).default([]),
+		exclude: z.array(mcpRoutingHintOverrideEntrySchema).default([]),
+	})
+	.superRefine((value, context) => {
+		if (new Set(value.include).size !== value.include.length) {
+			context.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["include"],
+				message: "Adaptive subset include entries must be unique.",
+			});
+		}
+
+		if (new Set(value.exclude).size !== value.exclude.length) {
+			context.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["exclude"],
+				message: "Adaptive subset exclude entries must be unique.",
+			});
+		}
+	});
+
+export const mcpRoutingHintsSchema = z.object({
+	adaptiveSubset: mcpRoutingHintsAdaptiveSubsetSchema.default({
+		include: [],
+		exclude: [],
+	}),
+});
+
 export const mcpConfigSchema = z.object({
 	toolSurface: mcpToolSurfacePolicySchema,
+	routingHints: mcpRoutingHintsSchema.default({
+		adaptiveSubset: {
+			include: [],
+			exclude: [],
+		},
+	}),
 });
 
 export const configSchema = z.object({
@@ -548,6 +585,7 @@ export type GpuMode = z.infer<typeof gpuModeSchema>;
 export type McpCompressionLevel = z.infer<typeof mcpCompressionLevelSchema>;
 export type McpDeferredVisibility = z.infer<typeof mcpDeferredVisibilitySchema>;
 export type McpRefreshPolicy = z.infer<typeof mcpRefreshPolicySchema>;
+export type McpRoutingHintOverrideEntry = z.infer<typeof mcpRoutingHintOverrideEntrySchema>;
 export type SkillResolvePrecedenceStep = z.infer<typeof skillResolvePrecedenceStepSchema>;
 export type SkillReadMode = z.infer<typeof skillReadModeSchema>;
 export type SkillReadProgressiveDisclosure = z.infer<typeof skillReadProgressiveDisclosureSchema>;
@@ -558,6 +596,8 @@ export type SkillEmbeddingProvider = z.infer<typeof skillEmbeddingProviderSchema
 export type SkillsConfig = z.infer<typeof skillsConfigSchema>;
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
 export type McpToolSurfacePolicy = z.infer<typeof mcpToolSurfacePolicySchema>;
+export type McpRoutingHintsAdaptiveSubset = z.infer<typeof mcpRoutingHintsAdaptiveSubsetSchema>;
+export type McpRoutingHints = z.infer<typeof mcpRoutingHintsSchema>;
 export type McpConfig = z.infer<typeof mcpConfigSchema>;
 export type MimirmeshConfig = z.infer<typeof configSchema>;
 export type MimirmeshGlobalConfig = z.infer<typeof globalConfigSchema>;

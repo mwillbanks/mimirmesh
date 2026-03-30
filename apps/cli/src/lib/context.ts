@@ -46,8 +46,11 @@ import {
 	loadRoutingTable,
 	loadRuntimeHealth,
 	migrateRuntime,
+	openRouteTelemetryStore,
 	persistRuntimeVersionEvidence,
+	type RouteTelemetryScope,
 	repairRuntime,
+	runRouteTelemetryMaintenance,
 	runtimeRefresh,
 	runtimeRestart,
 	runtimeStart,
@@ -769,6 +772,60 @@ export const mcpCallTool = async (
 	tool: string,
 	args: Record<string, unknown>,
 ) => context.router.callTool(tool as Parameters<ToolRouter["callTool"]>[0], args);
+
+export const mcpInspectRouteHints = async (
+	context: CliContext,
+	args: {
+		unifiedTool?: string;
+		engine?: EngineId;
+		engineTool?: string;
+		profile?: string;
+		includeRollups?: boolean;
+		limitBuckets?: number;
+	},
+) => mcpCallTool(context, "inspect_route_hints", args);
+
+export const runtimeCompactRouteTelemetry = async (
+	context: CliContext,
+	scope: RouteTelemetryScope,
+) => {
+	const store = await openRouteTelemetryStore(context.projectRoot, context.config);
+	if (!store) {
+		throw new Error(
+			"Runtime PostgreSQL is unavailable. Start the runtime before using route telemetry.",
+		);
+	}
+	try {
+		return await runRouteTelemetryMaintenance({
+			store,
+			scope,
+			lockOwner: `cli:${context.sessionId}`,
+		});
+	} finally {
+		await store.close();
+	}
+};
+
+export const runtimeClearRouteTelemetry = async (
+	context: CliContext,
+	scope: RouteTelemetryScope,
+) => {
+	const store = await openRouteTelemetryStore(context.projectRoot, context.config);
+	if (!store) {
+		throw new Error(
+			"Runtime PostgreSQL is unavailable. Start the runtime before using route telemetry.",
+		);
+	}
+	try {
+		await store.clearScope(scope);
+		return {
+			scope,
+			clearedAt: new Date().toISOString(),
+		};
+	} finally {
+		await store.close();
+	}
+};
 
 export const setupProject = async (context: CliContext): Promise<string[]> => {
 	const directories = [

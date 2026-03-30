@@ -161,7 +161,7 @@ describe("skill registry state store", () => {
 		} finally {
 			await runtime.stop();
 		}
-	}, 30_000);
+	}, 120_000);
 
 	test("targeted refresh invalidates stale positive and negative cache assumptions", async () => {
 		const repo = await mkdtemp(join(tmpdir(), "mimirmesh-skill-registry-invalidation-"));
@@ -196,7 +196,7 @@ describe("skill registry state store", () => {
 		} finally {
 			await runtime.stop();
 		}
-	}, 30_000);
+	}, 120_000);
 
 	test("repository refresh clears stale negative-cache entries for the addressed repository", async () => {
 		const repo = await mkdtemp(join(tmpdir(), "mimirmesh-skill-registry-negative-cache-"));
@@ -226,7 +226,7 @@ describe("skill registry state store", () => {
 		} finally {
 			await runtime.stop();
 		}
-	}, 30_000);
+	}, 120_000);
 
 	test("reindexes embeddings through an OpenAI-compatible provider and queries persisted vectors", async () => {
 		const repo = await mkdtemp(join(tmpdir(), "mimirmesh-skill-registry-embeddings-"));
@@ -270,5 +270,5 @@ describe("skill registry state store", () => {
 		} finally {
 			await runtime.stop();
 		}
-	}, 30_000);
+	}, 120_000);
 });

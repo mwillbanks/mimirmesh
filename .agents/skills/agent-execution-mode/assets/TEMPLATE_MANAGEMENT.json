@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "lastCompressedAt": "2026-03-27T00:00:00Z",
+  "agentTypes": {
+    "agent-name": {
+      "status": "active",
+      "uses": 0,
+      "good": 0,
+      "mixed": 0,
+      "bad": 0,
+      "notes": []
+    }
+  },
+  "promptPatterns": {
+    "pattern-name": {
+      "status": "active",
+      "uses": 0,
+      "good": 0,
+      "mixed": 0,
+      "bad": 0,
+      "notes": []
+    }
+  },
+  "recentRuns": [
+    {
+      "timestamp": "2026-03-27T00:00:00Z",
+      "mode": "production",
+      "agentType": "agent-name",
+      "promptPattern": "pattern-name",
+      "task": "Describe the delegated task.",
+      "delegationShape": "single-writer",
+      "outcome": "mixed",
+      "failureClass": "under-specified-prompt",
+      "causeAttribution": "context-packaging",
+      "tokenRoi": "neutral",
+      "managerDecision": "adjust-prompt",
+      "notes": [
+        "State file ownership clearly.",
+        "Provide validation commands up front."
+      ]
+    }
+  ],
+  "repoLearnings": [
+    "State file ownership and validation commands in every coding sub-agent prompt."
+  ]
+}
