@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/mwillbanks/mimirmesh/compare/0.4.0...0.4.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* **cli,runtime:** correct skills status rendering and reuse runtime sql pools ([19e2f19](https://github.com/mwillbanks/mimirmesh/commit/19e2f1969fabe7c4804a38cd17007b446efecff1))
+
 # [0.4.0](https://github.com/mwillbanks/mimirmesh/compare/0.3.2...0.4.0) (2026-03-30)
 
 
