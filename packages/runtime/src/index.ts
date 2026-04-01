@@ -155,6 +155,7 @@ export {
 	type RouteTelemetrySqlClient,
 	resolveRouteTelemetryDatabaseUrl,
 } from "./state/route-telemetry-migrations";
+export { closeAllSharedSqlClients } from "./state/shared-sql-client";
 export {
 	loadSkillRegistryState,
 	persistSkillRegistryState,

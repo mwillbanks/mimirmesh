@@ -1,6 +1,6 @@
 import type { MimirmeshConfig } from "@mimirmesh/config";
-
 import { composePort } from "../services/compose";
+import { acquireSharedSqlClient, type SharedSqlClient } from "./shared-sql-client";
 
 const postgresServiceName = "mm-postgres";
 const postgresContainerPort = 5432;
@@ -8,9 +8,10 @@ const postgresUsername = "mimirmesh";
 const postgresPassword = "mimirmesh";
 const postgresDatabase = "mimirmesh";
 
-const createSqlClient = (url: string) => new Bun.SQL(url);
+export type SkillRegistrySqlClient = SharedSqlClient;
 
-export type SkillRegistrySqlClient = ReturnType<typeof createSqlClient>;
+const ensuredSkillRegistrySchemas = new Set<string>();
+const inFlightSkillRegistrySchemaEnsures = new Map<string, Promise<string[]>>();
 
 const skillRegistryMigrations = [
 	{
@@ -123,20 +124,75 @@ export const resolveSkillRegistryDatabaseUrl = async (
 
 export const openSkillRegistryDatabase = async (
 	config: MimirmeshConfig,
-): Promise<{ sql: SkillRegistrySqlClient; url: string } | null> => {
+): Promise<{ sql: SkillRegistrySqlClient; url: string; clientId: string } | null> => {
 	const url = await resolveSkillRegistryDatabaseUrl(config);
 	if (!url) {
 		return null;
 	}
 
-	const sql = createSqlClient(url);
 	try {
-		await sql`SELECT 1`;
-		return { sql, url };
+		return await acquireSharedSqlClient({
+			url,
+			cacheKey: `runtime-postgres:${url}`,
+		});
 	} catch {
-		await sql.close();
 		return null;
 	}
+};
+
+const ensureSkillRegistrySchemaInitialized = async (
+	clientId: string,
+	sql: SkillRegistrySqlClient,
+): Promise<string[]> => {
+	if (ensuredSkillRegistrySchemas.has(clientId)) {
+		return [];
+	}
+
+	const pending = inFlightSkillRegistrySchemaEnsures.get(clientId);
+	if (pending) {
+		return pending;
+	}
+
+	const initialization = (async () => {
+		const appliedVersions: string[] = [];
+		await sql.unsafe(`
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE IF NOT EXISTS skill_registry_migrations (
+	version text PRIMARY KEY,
+	applied_at timestamptz NOT NULL
+);`);
+
+		for (const migration of skillRegistryMigrations) {
+			const existing = await sql`
+				SELECT version
+				FROM skill_registry_migrations
+				WHERE version = ${migration.version}
+				LIMIT 1
+			`;
+			if (existing.length > 0) {
+				continue;
+			}
+
+			await sql.begin(async (transaction) => {
+				await transaction.unsafe(migration.sql);
+				await transaction`
+					INSERT INTO skill_registry_migrations (version, applied_at)
+					VALUES (${migration.version}, NOW())
+				`;
+			});
+			appliedVersions.push(migration.version);
+		}
+
+		ensuredSkillRegistrySchemas.add(clientId);
+		return appliedVersions;
+	})().finally(() => {
+		if (inFlightSkillRegistrySchemaEnsures.get(clientId) === initialization) {
+			inFlightSkillRegistrySchemaEnsures.delete(clientId);
+		}
+	});
+
+	inFlightSkillRegistrySchemaEnsures.set(clientId, initialization);
+	return initialization;
 };
 
 export const ensureSkillRegistrySchema = async (
@@ -145,6 +201,7 @@ export const ensureSkillRegistrySchema = async (
 	| {
 			sql: SkillRegistrySqlClient;
 			url: string;
+			clientId: string;
 			appliedVersions: string[];
 	  }
 	| {
@@ -163,39 +220,16 @@ export const ensureSkillRegistrySchema = async (
 		};
 	}
 
-	const appliedVersions: string[] = [];
 	try {
-		await database.sql.unsafe(`
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE TABLE IF NOT EXISTS skill_registry_migrations (
-	version text PRIMARY KEY,
-	applied_at timestamptz NOT NULL
-);`);
-
-		for (const migration of skillRegistryMigrations) {
-			const existing = await database.sql`
-				SELECT version
-				FROM skill_registry_migrations
-				WHERE version = ${migration.version}
-				LIMIT 1
-			`;
-			if (existing.length > 0) {
-				continue;
-			}
-
-			await database.sql.begin(async (transaction) => {
-				await transaction.unsafe(migration.sql);
-				await transaction`
-					INSERT INTO skill_registry_migrations (version, applied_at)
-					VALUES (${migration.version}, NOW())
-				`;
-			});
-			appliedVersions.push(migration.version);
-		}
+		const appliedVersions = await ensureSkillRegistrySchemaInitialized(
+			database.clientId,
+			database.sql,
+		);
 
 		return {
 			sql: database.sql,
 			url: database.url,
+			clientId: database.clientId,
 			appliedVersions,
 		};
 	} catch (error) {

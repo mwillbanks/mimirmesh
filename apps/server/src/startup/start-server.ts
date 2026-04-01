@@ -15,6 +15,7 @@ import {
 } from "@mimirmesh/mcp-core";
 import {
 	clearMcpServerSession,
+	closeAllSharedSqlClients,
 	loadExecutableBuildManifest,
 	openRouteTelemetryStore,
 	persistMcpServerSession,
@@ -580,6 +581,7 @@ export const startMcpServer = async (projectRootInput?: string): Promise<void> =
 	const closeServer = async () => {
 		await logger.log("mcp", "info", "Shutting down MCP server.");
 		await stopRouteTelemetryMaintenance();
+		await closeAllSharedSqlClients();
 		await clearMcpServerSession(projectRoot, process.pid);
 		await server.close();
 		process.exit(0);

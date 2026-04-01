@@ -6,6 +6,7 @@ import z from "zod/v4";
 import { type CommandHelpDefinition, CommandHelpView } from "../../lib/command-help";
 import { CommandRunner } from "../../lib/command-runner";
 import { resolvePresentationProfile, withPresentationOptions } from "../../lib/presentation";
+import { renderSkillsFindResultPanel } from "../../ui/skills-find-result-panel";
 import { createSkillsFindWorkflow } from "../../workflows/skills";
 import { splitCommaList } from "./shared";
 
@@ -94,6 +95,7 @@ export default function SkillsFindCommand({
 			presentation={presentation ?? resolvePresentationProfile(options)}
 			exitOnComplete={exitOnComplete}
 			onComplete={onComplete}
+			renderResultPanel={renderSkillsFindResultPanel}
 		/>
 	);
 }

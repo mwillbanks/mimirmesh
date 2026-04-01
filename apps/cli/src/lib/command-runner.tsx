@@ -9,6 +9,7 @@ import {
 	WorkflowStepList,
 } from "@mimirmesh/ui";
 import { Box, Text, useApp, useStdout } from "ink";
+import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { serializeWorkflowRun } from "./machine-readable";
 
@@ -17,6 +18,7 @@ type CommandRunnerProps = {
 	presentation: PresentationProfile;
 	exitOnComplete?: boolean;
 	onComplete?: (state: WorkflowRunState) => void;
+	renderResultPanel?: (state: WorkflowRunState, presentation: PresentationProfile) => ReactNode;
 };
 
 const isTerminalPhase = (phase: WorkflowRunState["phase"]): boolean =>
@@ -27,6 +29,7 @@ export const CommandRunner = ({
 	presentation,
 	exitOnComplete = true,
 	onComplete,
+	renderResultPanel,
 }: CommandRunnerProps) => {
 	const { exit } = useApp();
 	const { write } = useStdout();
@@ -66,6 +69,8 @@ export const CommandRunner = ({
 	if (presentation.mode === "direct-machine") {
 		return null;
 	}
+
+	const resultPanel = renderResultPanel?.(state, presentation);
 
 	return (
 		<Box flexDirection="column" gap={1}>
@@ -108,6 +113,8 @@ export const CommandRunner = ({
 			) : null}
 
 			<WorkflowStepList steps={state.steps} reducedMotion={presentation.reducedMotion} />
+
+			{resultPanel ? resultPanel : null}
 
 			{state.outcome ? <TerminalOutcome outcome={state.outcome} /> : null}
 		</Box>

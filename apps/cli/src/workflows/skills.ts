@@ -345,17 +345,14 @@ const createSkillToolWorkflow = ({
 			const toolRequest = request(context);
 			try {
 				const result = await callTool(context, toolName, toolRequest);
-				const hasWarnings = result.warnings.length > 0 || result.warningCodes.length > 0;
-				const status = result.success
-					? hasWarnings || result.degraded
-						? "degraded"
-						: "success"
-					: "failed";
+				const status = result.success ? (result.degraded ? "degraded" : "success") : "failed";
 				return {
 					kind: status,
 					message: result.message,
 					impact: result.success
-						? `The ${toolName} skill workflow returned structured results.`
+						? result.degraded
+							? `The ${toolName} skill workflow returned structured results, but the registry reported degraded state.`
+							: `The ${toolName} skill workflow returned structured results.`
 						: `The ${toolName} skill workflow did not complete successfully.`,
 					completedWork: [stepLabel],
 					blockedCapabilities: result.success ? [] : [toolName],

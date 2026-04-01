@@ -1,5 +1,6 @@
 import type { MimirmeshConfig } from "@mimirmesh/config";
 import { composePort } from "../services/compose";
+import { acquireSharedSqlClient, type SharedSqlClient } from "./shared-sql-client";
 
 const postgresServiceName = "mm-postgres";
 const postgresContainerPort = 5432;
@@ -7,9 +8,10 @@ const postgresUsername = "mimirmesh";
 const postgresPassword = "mimirmesh";
 const postgresDatabase = "mimirmesh";
 
-const createSqlClient = (url: string) => new Bun.SQL(url);
+export type RouteTelemetrySqlClient = SharedSqlClient;
 
-export type RouteTelemetrySqlClient = ReturnType<typeof createSqlClient>;
+const ensuredRouteTelemetrySchemas = new Set<string>();
+const inFlightRouteTelemetrySchemaEnsures = new Map<string, Promise<string[]>>();
 
 const routeTelemetryMigrations = [
 	{
@@ -148,20 +150,74 @@ export const resolveRouteTelemetryDatabaseUrl = async (
 
 export const openRouteTelemetryDatabase = async (
 	config: MimirmeshConfig,
-): Promise<{ sql: RouteTelemetrySqlClient; url: string } | null> => {
+): Promise<{ sql: RouteTelemetrySqlClient; url: string; clientId: string } | null> => {
 	const url = await resolveRouteTelemetryDatabaseUrl(config);
 	if (!url) {
 		return null;
 	}
 
-	const sql = createSqlClient(url);
 	try {
-		await sql`SELECT 1`;
-		return { sql, url };
+		return await acquireSharedSqlClient({
+			url,
+			cacheKey: `runtime-postgres:${url}`,
+		});
 	} catch {
-		await sql.close();
 		return null;
 	}
+};
+
+const ensureRouteTelemetrySchemaInitialized = async (
+	clientId: string,
+	sql: RouteTelemetrySqlClient,
+): Promise<string[]> => {
+	if (ensuredRouteTelemetrySchemas.has(clientId)) {
+		return [];
+	}
+
+	const pending = inFlightRouteTelemetrySchemaEnsures.get(clientId);
+	if (pending) {
+		return pending;
+	}
+
+	const initialization = (async () => {
+		const appliedVersions: string[] = [];
+		await sql.unsafe(`
+CREATE TABLE IF NOT EXISTS route_telemetry_migrations (
+	version text PRIMARY KEY,
+	applied_at timestamptz NOT NULL
+);`);
+
+		for (const migration of routeTelemetryMigrations) {
+			const existing = await sql`
+				SELECT version
+				FROM route_telemetry_migrations
+				WHERE version = ${migration.version}
+				LIMIT 1
+			`;
+			if (existing.length > 0) {
+				continue;
+			}
+
+			await sql.begin(async (transaction) => {
+				await transaction.unsafe(migration.sql);
+				await transaction`
+					INSERT INTO route_telemetry_migrations (version, applied_at)
+					VALUES (${migration.version}, NOW())
+				`;
+			});
+			appliedVersions.push(migration.version);
+		}
+
+		ensuredRouteTelemetrySchemas.add(clientId);
+		return appliedVersions;
+	})().finally(() => {
+		if (inFlightRouteTelemetrySchemaEnsures.get(clientId) === initialization) {
+			inFlightRouteTelemetrySchemaEnsures.delete(clientId);
+		}
+	});
+
+	inFlightRouteTelemetrySchemaEnsures.set(clientId, initialization);
+	return initialization;
 };
 
 export const ensureRouteTelemetrySchema = async (
@@ -170,6 +226,7 @@ export const ensureRouteTelemetrySchema = async (
 	| {
 			sql: RouteTelemetrySqlClient;
 			url: string;
+			clientId: string;
 			appliedVersions: string[];
 	  }
 	| {
@@ -187,38 +244,16 @@ export const ensureRouteTelemetrySchema = async (
 		};
 	}
 
-	const appliedVersions: string[] = [];
 	try {
-		await database.sql.unsafe(`
-CREATE TABLE IF NOT EXISTS route_telemetry_migrations (
-	version text PRIMARY KEY,
-	applied_at timestamptz NOT NULL
-);`);
-
-		for (const migration of routeTelemetryMigrations) {
-			const existing = await database.sql`
-				SELECT version
-				FROM route_telemetry_migrations
-				WHERE version = ${migration.version}
-				LIMIT 1
-			`;
-			if (existing.length > 0) {
-				continue;
-			}
-
-			await database.sql.begin(async (transaction) => {
-				await transaction.unsafe(migration.sql);
-				await transaction`
-					INSERT INTO route_telemetry_migrations (version, applied_at)
-					VALUES (${migration.version}, NOW())
-				`;
-			});
-			appliedVersions.push(migration.version);
-		}
+		const appliedVersions = await ensureRouteTelemetrySchemaInitialized(
+			database.clientId,
+			database.sql,
+		);
 
 		return {
 			sql: database.sql,
 			url: database.url,
+			clientId: database.clientId,
 			appliedVersions,
 		};
 	} catch (error) {

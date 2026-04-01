@@ -30,7 +30,12 @@ const presentation: PresentationProfile = {
 	terminalSizeClass: "wide",
 };
 
-const createToolResult = (tool: string, message: string, itemId: string): NormalizedToolResult => ({
+const createToolResult = (
+	tool: string,
+	message: string,
+	itemId: string,
+	overrides: Partial<NormalizedToolResult> = {},
+): NormalizedToolResult => ({
 	tool,
 	success: true,
 	degraded: false,
@@ -49,6 +54,7 @@ const createToolResult = (tool: string, message: string, itemId: string): Normal
 	warnings: [],
 	warningCodes: [],
 	raw: { tool, message },
+	...overrides,
 });
 
 const executeWorkflow = async (workflow: Parameters<typeof executeWorkflowRun>[0]) => {
@@ -101,6 +107,39 @@ describe("skills registry workflows", () => {
 				offset: 1,
 			},
 		});
+	});
+
+	test("healthy skill discovery warnings do not force degraded workflow state", async () => {
+		const workflow = createSkillsFindWorkflow(
+			{},
+			{
+				loadContext: async () => baseContext as never,
+				callTool: async () =>
+					createToolResult("skills.find", "found", "item-1", {
+						warnings: ["duration_ms=161"],
+						items: [
+							{
+								id: "item-1",
+								title: "agent-execution-mode",
+								content: "Complete execution discipline.",
+								score: 100,
+								metadata: {},
+							},
+						],
+					}),
+			},
+		);
+
+		const finalState = await executeWorkflowRun(workflow, presentation);
+
+		expect(finalState.phase).toBe("success");
+		expect(finalState.outcome?.kind).toBe("success");
+		expect(finalState.outcome?.evidence).toEqual(
+			expect.arrayContaining([
+				{ label: "Tool", value: "skills.find" },
+				{ label: "Items", value: "1" },
+			]),
+		);
 	});
 
 	test("read and resolve shape their requests deterministically", async () => {
