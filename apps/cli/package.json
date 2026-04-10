@@ -23,7 +23,7 @@
 		"@mimirmesh/ui": "workspace:*",
 		"@mimirmesh/workspace": "workspace:*",
 		"@inkjs/ui": "^2.0.0",
-		"ink": "^6.3.1",
+		"ink": "^7.0.0",
 		"pastel": "^4.0.0",
 		"react": "^19.2.0",
 		"yaml": "^2.8.1",
